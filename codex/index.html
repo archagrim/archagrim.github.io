@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Codex</title>
+<meta name="description" content="Ta bible League of Legends : champions, notes, lanes, builds et suivi du rang.">
+<meta name="theme-color" content="#010A13">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Codex">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/svg+xml" href="icons/logo.svg">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Lanceur : écran unique centré, logo, bouton d'ouverture, guide d'installation selon l'appareil */
+:root{
+  --bg:#010A13; --card:#0A1520; --line:rgba(200,170,110,.18); --fg:#F0E6D2; --muted:#A09B8C;
+  --gold:#C8AA6E; --gold-hi:#F0E6D2; --hex:#0AC8B9; --hex-hi:#CDFAFA;
+  --gold-grad:linear-gradient(180deg,#F7EEDB 0%,#C8AA6E 55%,#8A6A30 100%);
+  --display:"Cinzel","Trajan Pro",Georgia,serif;
+  --body:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter","Segoe UI",Roboto,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;color:var(--fg);font:400 16px/1.5 var(--body);-webkit-font-smoothing:antialiased;
+  background:radial-gradient(900px 520px at 50% -120px,rgba(10,200,185,.14),transparent 62%),radial-gradient(600px 400px at 110% 110%,rgba(200,170,110,.08),transparent 60%),var(--bg);
+  display:flex;align-items:center;justify-content:center;
+  padding:max(24px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left))}
+main{width:100%;max-width:420px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:18px}
+.logo{width:132px;height:132px;border-radius:30px;box-shadow:0 18px 50px rgba(0,0,0,.6),0 0 0 1px rgba(200,170,110,.35),0 0 40px rgba(10,200,185,.18)}
+@media (prefers-reduced-motion:no-preference){.logo{animation:rise .6s cubic-bezier(.2,.9,.3,1)}@keyframes rise{from{transform:translateY(12px) scale(.96);opacity:0}}}
+h1{margin:6px 0 0;font:700 34px/1 var(--display);letter-spacing:.18em;background:var(--gold-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.tag{margin:0;color:var(--muted);font-size:15px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;width:100%;height:56px;border:2px solid transparent;border-radius:14px;text-decoration:none;cursor:pointer;
+  background:linear-gradient(180deg,#0B3C46,#0A1E2E) padding-box,linear-gradient(180deg,#F0E6D2,#C8AA6E 50%,#785A28) border-box;
+  color:var(--hex-hi);font:700 15px/1 var(--display);letter-spacing:.12em;text-transform:uppercase;transition:box-shadow .2s,transform .1s}
+.btn:hover{box-shadow:0 0 22px rgba(10,200,185,.35),inset 0 0 14px rgba(10,200,185,.18)}
+.btn:active{transform:scale(.98)}
+.btn svg{width:18px;height:18px}
+.btn.alt{height:46px;font-size:13px;background:linear-gradient(180deg,rgba(200,170,110,.14),rgba(200,170,110,.04)) padding-box,linear-gradient(180deg,rgba(200,170,110,.6),rgba(120,90,40,.6)) border-box;color:var(--gold-hi)}
+.note{font-size:13px;color:var(--muted);margin:0}
+.card{width:100%;text-align:left;background:linear-gradient(180deg,#0E1C2A,#0A1520);border:1px solid var(--line);border-radius:16px;padding:16px 18px}
+.card h2{margin:0 0 10px;font:700 13px/1.2 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.card ol{margin:0;padding-left:20px;display:grid;gap:7px;font-size:15px}
+.card li::marker{color:var(--hex);font-weight:600}
+.card b{color:var(--gold-hi);font-weight:600}
+.status{min-height:20px;font-size:14px;color:var(--hex)}
+.status.err{color:#E84057}
+.status:empty{display:none}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--hex);outline-offset:3px}
+</style>
+</head>
+<body>
+<main>
+  <img class="logo" src="icons/icon-512.png" alt="" width="132" height="132">
+  <div>
+    <h1>Codex</h1>
+    <p class="tag">Ta bible League of Legends</p>
+  </div>
+  <a class="btn" id="open" href="https://claude.ai/artifact/Tue8LcXwYYEobo3VdUffGh">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5l8.5 4.9v9.2L12 21.5l-8.5-4.9V7.4z"/><path d="M10 9l4 3-4 3"/></svg>
+    Ouvrir le Codex
+  </a>
+  <p class="status" id="status" role="status"></p>
+  <button class="btn alt" id="install" type="button" hidden>Installer l'app</button>
+
+  <section class="card" id="guide-ios" hidden>
+    <h2>Installer sur iPhone</h2>
+    <ol>
+      <li>Ouvre cette page dans <b>Safari</b>.</li>
+      <li>Touche le bouton <b>Partager</b> (carré avec une flèche vers le haut).</li>
+      <li>Choisis <b>Sur l'écran d'accueil</b>, puis <b>Ajouter</b>.</li>
+    </ol>
+  </section>
+  <section class="card" id="guide-android" hidden>
+    <h2>Installer sur Android</h2>
+    <ol>
+      <li>Ouvre cette page dans <b>Chrome</b>.</li>
+      <li>Touche <b>Installer l'app</b> ci-dessus, ou le menu <b>⋮</b> puis <b>Installer l'application</b>.</li>
+      <li>Confirme : l'icône Codex apparaît avec tes autres apps.</li>
+    </ol>
+  </section>
+  <section class="card" id="guide-desktop" hidden>
+    <h2>Installer sur ordinateur</h2>
+    <ol>
+      <li>Ouvre cette page dans <b>Chrome</b> ou <b>Edge</b>.</li>
+      <li>Clique sur l'icône d'installation à droite de la barre d'adresse.</li>
+      <li>Le Codex s'ouvre ensuite comme une app, depuis le menu Démarrer ou le Dock.</li>
+    </ol>
+  </section>
+
+  <p class="note">Tes notes restent synchronisées : le Codex s'ouvre sur ton compte Claude. Si Claude te demande de te connecter la première fois, connecte-toi avec ton compte habituel.</p>
+</main>
+<script>
+(() => {
+  const CODEX = "https://claude.ai/artifact/Tue8LcXwYYEobo3VdUffGh";
+  const status = document.getElementById("status");
+  const ua = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const isAndroid = /Android/i.test(ua);
+  const standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
+
+  if (standalone) {
+    // Lancé depuis l'icône : on ouvre directement le Codex.
+    if (navigator.onLine === false) {
+      status.textContent = "Pas de connexion : le Codex s'ouvrira quand tu seras en ligne.";
+      status.classList.add("err");
+    } else {
+      status.textContent = "Ouverture du Codex…";
+      setTimeout(() => { window.location.href = CODEX; }, 350);
+    }
+    return;
+  }
+
+  // Dans le navigateur : on montre comment installer l'app.
+  document.getElementById(isIOS ? "guide-ios" : isAndroid ? "guide-android" : "guide-desktop").hidden = false;
+
+  let deferred = null;
+  const installBtn = document.getElementById("install");
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferred = e;
+    installBtn.hidden = false;
+  });
+  installBtn.addEventListener("click", async () => {
+    if (!deferred) return;
+    deferred.prompt();
+    const choice = await deferred.userChoice.catch(() => null);
+    if (choice && choice.outcome === "accepted") {
+      status.textContent = "Codex installé : tu le retrouves avec tes autres apps.";
+      installBtn.hidden = true;
+    }
+    deferred = null;
+  });
+  window.addEventListener("appinstalled", () => {
+    installBtn.hidden = true;
+    status.textContent = "Codex installé : tu le retrouves avec tes autres apps.";
+  });
+})();
+</script>
+</body>
+</html>

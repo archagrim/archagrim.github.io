@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ArchaGrim</title>
+<meta name="theme-color" content="#010A13">
+<meta name="color-scheme" content="dark">
+<link rel="icon" type="image/png" sizes="32x32" href="codex/icons/favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Inter:wght@400;600&display=swap">
+<style>
+/* Accueil : liste des sites et apps hébergés ici */
+:root{--bg:#010A13;--fg:#F0E6D2;--muted:#A09B8C;--gold:#C8AA6E;--line:rgba(200,170,110,.18);--hex:#0AC8B9;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;color:var(--fg);font:400 16px/1.5 -apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;
+  background:radial-gradient(900px 500px at 50% -150px,rgba(10,200,185,.12),transparent 62%),var(--bg);
+  padding:max(40px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) 40px max(20px,env(safe-area-inset-left))}
+main{max-width:640px;margin:0 auto}
+h1{margin:0 0 6px;font:700 30px/1.1 "Cinzel",Georgia,serif;letter-spacing:.1em;background:linear-gradient(180deg,#F7EEDB,#C8AA6E 55%,#8A6A30);-webkit-background-clip:text;background-clip:text;color:transparent}
+p{margin:0 0 24px;color:var(--muted)}
+.app{display:flex;align-items:center;gap:16px;padding:14px;border-radius:18px;text-decoration:none;color:inherit;background:linear-gradient(180deg,#0E1C2A,#0A1520);border:1px solid var(--line);transition:border-color .15s,box-shadow .15s}
+.app:hover{border-color:rgba(200,170,110,.5);box-shadow:0 0 20px rgba(200,170,110,.1)}
+.app img{width:64px;height:64px;border-radius:15px;flex:none}
+.app b{display:block;font-size:18px}
+.app span{color:var(--muted);font-size:14px}
+:focus-visible{outline:2px solid var(--hex);outline-offset:3px}
+</style>
+</head>
+<body>
+<main>
+  <h1>ArchaGrim</h1>
+  <p>Mes sites et applications.</p>
+  <a class="app" href="codex/">
+    <img src="codex/icons/icon-192.png" alt="">
+    <span><b>Codex</b><span>Ma bible League of Legends : champions, notes, builds et suivi du rang.</span></span>
+  </a>
+</main>
+</body>
+</html>
