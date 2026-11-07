@@ -5,6 +5,11 @@ on:
   schedule:
     - cron: "23 */3 * * *"
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "tools/adc_lab/**"
+      - ".github/workflows/adc-lab.yml"
 
 permissions:
   contents: write

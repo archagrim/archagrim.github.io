@@ -9,6 +9,7 @@ Variables d'environnement :
 """
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -58,7 +59,11 @@ def http_json(url, key=None):
                 return json.load(r)
         except urllib.error.HTTPError as e:
             if e.code in (401, 403):
-                raise KeyError_(e.code)
+                try:
+                    msg = json.loads(e.read().decode("utf-8", "replace"))["status"]["message"]
+                except Exception:
+                    msg = ""
+                raise KeyError_(e.code, msg[:120])
             if e.code == 404:
                 return None
             if e.code == 429 or e.code >= 500:
@@ -142,7 +147,9 @@ def main():
         print(f"{len(todo)} nouvelle(s) partie(s), {len(ordered)} au total.")
     except KeyError_ as e:
         save("state.json", state)
-        status(state, ok=False, code="cle_refusee", http=int(str(e.args[0])))
+        # Diagnostic sans jamais écrire la clé : seulement si son format ressemble à une clé Riot.
+        fmt = bool(re.fullmatch(r"RGAPI-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}", key))
+        status(state, ok=False, code="cle_refusee", http=int(e.args[0]), riot=e.args[1] if len(e.args) > 1 else "", format=fmt)
         print("Clé Riot refusée ou expirée.")
     return 0
 

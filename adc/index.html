@@ -293,7 +293,9 @@ function banner(st){
       <li>Dans le dépôt GitHub <b>archagrim.github.io</b> : Settings → Secrets and variables → Actions → New repository secret, nom <b>RIOT_API_KEY</b>.</li>
       <li>Onglet Actions → ADC Lab → Run workflow.</li></ol></div>`;
   } else if (st.code === "cle_refusee") {
-    b.innerHTML = `<div class="banner"><b>Ta clé Riot a expiré ou a été refusée.</b> Les données affichées datent de la dernière mise à jour réussie. Remplace le secret <b>RIOT_API_KEY</b> dans le dépôt GitHub (une clé de développement expire après 24 h).</div>`;
+    const why = st.format === false ? " Le secret ne ressemble pas à une clé Riot (format attendu : RGAPI- suivi de 36 caractères) : recopie-la avec le bouton de copie du portail." : "";
+    const riotMsg = st.riot ? ` Réponse de Riot : « ${esc(st.riot)} » (${st.http}).` : "";
+    b.innerHTML = `<div class="banner"><b>Ta clé Riot a expiré ou a été refusée.</b>${riotMsg}${why} Les données affichées datent de la dernière mise à jour réussie. Remplace le secret <b>RIOT_API_KEY</b> dans le dépôt GitHub (une clé de développement expire après 24 h).</div>`;
   } else if (st.code === "compte_introuvable") {
     b.innerHTML = `<div class="banner"><b>Compte Riot introuvable.</b> Vérifie le Riot ID dans le fichier du workflow.</div>`;
   } else b.innerHTML = "";
