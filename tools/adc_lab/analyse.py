@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 TZ = ZoneInfo("Europe/Zurich")
-VERSION = 4              # à augmenter quand le calcul change : les parties récentes sont alors réanalysées
+VERSION = 5              # à augmenter quand le calcul change : les parties récentes sont alors réanalysées
 RIVER = 14800            # sur la carte, x + y ≈ 14800 sépare les deux moitiés
 TRADE_BEFORE = 10_000    # une contrepartie peut arriver 10 s avant la mort…
 TRADE_AFTER = 30_000     # …ou jusqu'à 30 s après
@@ -212,7 +212,8 @@ def analyse(match, tl, puuid, item_cost=None):
     lane["lvl2"], lane["lvl2E"] = lvl2(me), lvl2(e_adc)
     # Plaques de la phase de lane : seulement celles des deux tours extérieures du bot.
     # (Depuis la saison 2026, Riot enregistre aussi des plaques sur les tours intérieures et d'inhibiteur.)
-    plates = [e for e in evs if e["type"] == "TURRET_PLATE_DESTROYED" and _bot_outer(e.get("position"))]
+    # Elles tombent aussi après 14 min cette saison : on ne garde que celles de la phase de lane.
+    plates = [e for e in evs if e["type"] == "TURRET_PLATE_DESTROYED" and _bot_outer(e.get("position")) and e.get("timestamp", 0) < 14 * 60_000]
     lane["platesWon"] = sum(1 for e in plates if e.get("teamId") == enemy_team)
     lane["platesLost"] = sum(1 for e in plates if e.get("teamId") == team)
     lane["platesMine"] = sum(1 for e in plates if e.get("killerId") == pid)

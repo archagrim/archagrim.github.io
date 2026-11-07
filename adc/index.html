@@ -236,7 +236,7 @@ footer{color:var(--faint);font-size:12.5px;padding-bottom:30px}
   <section id="lane">
     <div class="over">Contre l'ADC adverse</div>
     <h2>Phase de lane</h2>
-    <div class="card tw"><table><thead><tr><th>Partie</th><th>Face à</th><th class="r">CS 10</th><th class="r">Or 10</th><th class="r">XP 10</th><th class="r">Or 14</th><th class="r">Niveau 2</th><th class="r">Plaques</th><th class="r">1er retour</th><th class="r">Morts &lt;14</th></tr></thead><tbody id="laneRows"></tbody></table></div>
+    <div class="card tw"><table><thead><tr><th>Partie</th><th>Face à</th><th class="r">CS 10</th><th class="r">Or 10</th><th class="r">XP 10</th><th class="r">Or 14</th><th class="r">Niveau 2</th><th class="r">Plaques &lt;14</th><th class="r">1er retour</th><th class="r">Morts &lt;14</th></tr></thead><tbody id="laneRows"></tbody></table></div>
   </section>
 
   <section id="sessions">
@@ -486,7 +486,7 @@ function audit(){
   $("#auditBody").innerHTML = `<div class="audit-h"><div class="vs">${img(g.champ,"l")}<b>${esc(nm(g.champ))}</b>${g.sup?`<span class="muted">+ ${esc(nm(g.sup))}</span>`:""}<span class="muted">contre</span>${g.eAdc?img(g.eAdc,"l")+`<b>${esc(nm(g.eAdc))}</b>`:""}${g.eSup?`<span class="muted">+ ${esc(nm(g.eSup))}</span>`:""}
       <span class="pill ${g.win?"w":"l"}">${g.win?"Victoire":"Défaite"}</span></div><button class="btn" data-copy="${esc(g.id)}">Copier pour ma review</button></div>
     <div class="lanegrid" style="margin-bottom:12px"><span>KDA <b class="num">${g.k}/${g.d}/${g.a}</b></span><span>CS/min <b class="num">${fr(g.csm)}</b></span><span>Participation <b class="num">${g.kp} %</b></span><span>Part des dégâts <b class="num">${g.dmgShare} %</b></span><span>Vision/min <b class="num">${fr(g.vis)}</b></span><span>Durée <b class="num">${mmss(g.dur)}</b></span>
-      <span>CS 10 <b class="num">${L.cs10??"—"}</b> (${sign(L.csd10)})</span><span>Or 10 <b class="num">${sign(L.gd10)}</b></span><span>Niveau 2 <b class="num">${lv}</b></span><span>Plaques <b class="num">+${L.platesWon||0} / −${L.platesLost||0}</b></span></div>
+      <span>CS 10 <b class="num">${L.cs10??"—"}</b> (${sign(L.csd10)})</span><span>Or 10 <b class="num">${sign(L.gd10)}</b></span><span>Niveau 2 <b class="num">${lv}</b></span><span>Plaques avant 14 min <b class="num">+${L.platesWon||0} / −${L.platesLost||0}</b></span></div>
     <div class="deaths">${g.deaths.length?g.deaths.map(d=>deathHTML(d,g)).join(""):`<p class="muted">Aucune mort dans cette partie.</p>`}</div>
     <div id="copyOut"></div>`;
 }
@@ -494,7 +494,7 @@ function reviewText(g){
   const L = g.lane || {}, by = {}; PHASES.forEach(p=>by[p]=0); g.deaths.forEach(d=>by[d.ph]++);
   const lines = [
     `Partie du ${g.local} : ${nm(g.champ)}${g.sup?" + "+nm(g.sup):""} contre ${nm(g.eAdc||"?")}${g.eSup?" + "+nm(g.eSup):""}, ${g.win?"victoire":"défaite"} ${g.k}/${g.d}/${g.a} en ${mmss(g.dur)}`,
-    `Lane : CS 10 ${L.cs10??"?"} (${sign(L.csd10)}), or 10 ${sign(L.gd10)}, or 14 ${sign(L.gd14)}, niveau 2 ${L.lvl2!=null?mmss(L.lvl2):"?"} vs ${L.lvl2E!=null?mmss(L.lvl2E):"?"}, plaques +${L.platesWon||0}/−${L.platesLost||0}`,
+    `Lane : CS 10 ${L.cs10??"?"} (${sign(L.csd10)}), or 10 ${sign(L.gd10)}, or 14 ${sign(L.gd14)}, niveau 2 ${L.lvl2!=null?mmss(L.lvl2):"?"} vs ${L.lvl2E!=null?mmss(L.lvl2E):"?"}, plaques avant 14 min +${L.platesWon||0}/−${L.platesLost||0}`,
     `Morts par phase : ${PHASES.map(p=>p+" : "+by[p]).join(" · ")} (${g.free} sans contrepartie)`, ``, `Audit des morts :`];
   g.deaths.forEach((d,i) => {
     lines.push(`${i+1}. ${mmss(d.t)} (${d.ph}) ${d.zone}. Tué par ${d.by.length?d.by.map((c,j)=>nm(c)+(d.roles[j]?" ("+d.roles[j]+")":"")).join(", "):"tour/sbires"}${d.burst?`, burst ${d.top} % ${nm(d.dmg[0][0])}`:""}${d.first?", premier mort du combat":""}. ${d.free?"Sans contrepartie":"Contrepartie : "+[...new Set(d.trade)].join(", ")}. Or vs ADC ${sign(d.gd)}.`);
