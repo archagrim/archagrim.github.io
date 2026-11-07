@@ -271,9 +271,9 @@ const fr = v => v == null ? "—" : String(Math.round(v * 10) / 10).replace(".",
 const PHASES = ["0-3","3-8","8-14","14-20","20+"];
 const FIX = {FiddleSticks:"Fiddlesticks"};
 let VER = "15.20.1", S = null, G = [], R = [];
-const NS = [20, 50, 100];
-let N = 100, wkMode = null;
-try { const v = localStorage.getItem("adc.n"); if (v !== null && [0, ...NS].includes(+v)) N = +v; } catch (e) {}
+const NS = [20, 40];
+let N = 40, wkMode = null;
+try { const v = localStorage.getItem("adc.n40"); if (v !== null && [0, ...NS].includes(+v)) N = +v; } catch (e) {}
 const W = () => N ? R.slice(0, N) : R;
 const nlab = () => N && R.length > N ? `tes ${N} dernières parties` : `tes ${R.length} dernière${R.length > 1 ? "s" : ""} partie${R.length > 1 ? "s" : ""}`;
 const avg = a => { a = a.filter(v => v != null); return a.length ? Math.round(a.reduce((x, y) => x + y, 0) / a.length * 100) / 100 : null; };
@@ -306,7 +306,7 @@ function periodUI(){
 }
 document.addEventListener("click", e => {
   const b = e.target.closest("[data-n]"); if (!b) return;
-  N = +b.dataset.n; try { localStorage.setItem("adc.n", String(N)); } catch (err) {}
+  N = +b.dataset.n; try { localStorage.setItem("adc.n40", String(N)); } catch (err) {}
   pickKey = null; render();
 });
 const icon = c => `https://ddragon.leagueoflegends.com/cdn/${VER}/img/champion/${encodeURIComponent(FIX[c]||c)}.png`;
