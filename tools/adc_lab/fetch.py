@@ -126,10 +126,15 @@ def main():
         todo = sorted((i for i in set(ids) if i not in done), key=lambda i: int(i.split("_")[1]), reverse=True)[:max_new]
 
         games = {g["id"]: g for g in load("games.json", [])}
+        debug = []
         for mid in todo:
             match = riot(f"/lol/match/v5/matches/{mid}", key)
             tl = riot(f"/lol/match/v5/matches/{mid}/timeline", key) if match else None
             if match and tl:
+                if len(debug) < 3:
+                    debug.append({"id": mid, "patch": match["info"].get("gameVersion"), "team": next((p["teamId"] for p in match["info"]["participants"] if p["puuid"] == puuid), None),
+                                  "plates": [[e.get("timestamp", 0) // 1000, e.get("teamId"), e.get("laneType"), (e.get("position") or {}).get("x"), (e.get("position") or {}).get("y"), e.get("killerId")]
+                                             for f in tl["info"]["frames"] for e in f.get("events", []) if e.get("type") == "TURRET_PLATE_DESTROYED"]})
                 g = analyse.analyse(match, tl, puuid, costs)
                 if g:
                     games[mid] = g
@@ -154,6 +159,8 @@ def main():
         save("games.json", ordered)
         save("summary.json", summary)
         save("state.json", state)
+        if debug:
+            save("debug.json", debug)   # diagnostic temporaire des plaques
         print(f"{len(todo)} nouvelle(s) partie(s), {len(ordered)} au total.")
     except KeyError_ as e:
         save("state.json", state)

@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 TZ = ZoneInfo("Europe/Zurich")
-VERSION = 2              # à augmenter quand le calcul change : les parties récentes sont alors réanalysées
+VERSION = 3              # à augmenter quand le calcul change : les parties récentes sont alors réanalysées
 RIVER = 14800            # sur la carte, x + y ≈ 14800 sépare les deux moitiés
 TRADE_BEFORE = 10_000    # une contrepartie peut arriver 10 s avant la mort…
 TRADE_AFTER = 30_000     # …ou jusqu'à 30 s après
