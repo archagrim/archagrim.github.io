@@ -12,6 +12,7 @@ TRADE_BEFORE = 10_000    # une contrepartie peut arriver 10 s avant la mort…
 TRADE_AFTER = 30_000     # …ou jusqu'à 30 s après
 FIGHT_GAP = 15_000       # deux kills à moins de 15 s font partie du même combat
 SESSION_GAP = 45 * 60    # plus de 45 min entre deux parties = nouvelle session
+REMAKE_MAX = 600        # une classée qui finit avant 10 min est un remake (aucun abandon normal avant 15 min)
 OBJ_NEAR = 3000          # distance (unités de jeu) pour compter comme « sur place »
 
 PHASES = [(0, 3, "0-3"), (3, 8, "3-8"), (8, 14, "8-14"), (14, 20, "14-20"), (20, 999, "20+")]
@@ -229,7 +230,7 @@ def analyse(match, tl, puuid, item_cost=None):
     return {
         "id": match["metadata"]["matchId"], "start": start // 1000, "local": local.strftime("%Y-%m-%d %H:%M"),
         "dur": duration, "queue": info["queueId"], "patch": ".".join(info.get("gameVersion", "").split(".")[:2]),
-        "win": bool(me["win"]), "remake": bool(me.get("gameEndedInEarlySurrender")),
+        "win": bool(me["win"]), "remake": bool(me.get("gameEndedInEarlySurrender")) or duration < REMAKE_MAX,
         "champ": me["championName"], "pos": me.get("teamPosition", ""),
         "sup": my_sup["championName"] if my_sup else "", "eAdc": e_adc["championName"] if e_adc else "",
         "eSup": e_sup["championName"] if e_sup else "",
@@ -298,7 +299,7 @@ def block(games, sess):
 
 def summarise(games, now=None):
     now = now or datetime.now(timezone.utc)
-    games = sorted([g for g in games if not g.get("remake")], key=lambda g: -g["start"])
+    games = sorted([g for g in games if not g.get("remake") and g.get("dur", 0) >= REMAKE_MAX], key=lambda g: -g["start"])
     all_sess = sessions(games)
     mon, nxt = week_bounds(now)
     prev = mon - timedelta(days=7)
