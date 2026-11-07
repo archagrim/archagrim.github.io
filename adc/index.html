@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ADC Lab</title>
+<meta name="description" content="Analyse automatique de mes parties classées en ADC : morts, objectifs, lane et sessions.">
+<meta name="theme-color" content="#010A13">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ADC Lab">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+<style>
+/* Layout : tableau de bord une colonne, résumé de la semaine en tête puis détail ; navigation par ancres collante ; thème client LoL */
+:root{
+  --bg:#010A13; --card:#0A1520; --card2:#0E1C2A; --sep:rgba(200,170,110,.15); --edge:rgba(200,170,110,.32);
+  --fg:#F0E6D2; --muted:#A09B8C; --faint:#5F6067;
+  --gold:#C8AA6E; --gold-hi:#F0E6D2; --gold-grad:linear-gradient(180deg,#F7EEDB 0%,#C8AA6E 55%,#8A6A30 100%);
+  --hex:#0AC8B9; --hex-hi:#CDFAFA; --win:#0AC8B9; --loss:#E84057; --warn:#E8C670;
+  --phys:#E0904F; --magic:#8E7CF0;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter","Segoe UI",Roboto,sans-serif;
+  --display:"Cinzel","Trajan Pro",Georgia,serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;background:var(--bg)}
+body{margin:0;color:var(--fg);font:400 15px/1.45 var(--font);-webkit-font-smoothing:antialiased;
+  background:radial-gradient(1000px 480px at 50% -160px,rgba(10,200,185,.11),transparent 62%),var(--bg);
+  padding-bottom:env(safe-area-inset-bottom)}
+a{color:var(--gold)}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--hex);outline-offset:2px}
+.wrap{max-width:1120px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+[hidden]{display:none!important}
+
+header.top{position:sticky;top:0;z-index:20;background:rgba(2,10,19,.82);-webkit-backdrop-filter:saturate(160%) blur(20px);backdrop-filter:saturate(160%) blur(20px);padding-top:env(safe-area-inset-top)}
+header.top::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:linear-gradient(90deg,transparent,rgba(200,170,110,.55) 30%,rgba(240,230,210,.7) 50%,rgba(200,170,110,.55) 70%,transparent)}
+.bar{display:flex;align-items:center;gap:12px;min-height:54px;padding-block:8px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand b{font:700 18px/1 var(--display);letter-spacing:.14em;background:var(--gold-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.brand svg{width:28px;height:32px}
+.who{margin-left:auto;text-align:right;font-size:12px;color:var(--muted);line-height:1.3}
+.who b{color:var(--fg);font-weight:600}
+nav.jump{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:10px}
+nav.jump::-webkit-scrollbar{display:none}
+nav.jump a{flex:none;text-decoration:none;color:var(--muted);font-size:13px;font-weight:600;padding:6px 12px;border-radius:999px;border:1px solid var(--sep);background:rgba(1,10,19,.5)}
+nav.jump a:hover{color:var(--fg);border-color:var(--edge)}
+
+main{padding-block:22px 60px;display:grid;gap:30px}
+section{scroll-margin-top:118px;min-width:0}
+.over{font:700 11.5px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--hex)}
+h2{font:700 26px/1.1 var(--display);letter-spacing:.03em;margin:6px 0 4px;background:var(--gold-grad);-webkit-background-clip:text;background-clip:text;color:transparent;text-wrap:balance}
+.lead{margin:0 0 14px;color:var(--muted);max-width:66ch}
+.card{background:linear-gradient(180deg,var(--card2),var(--card));border:1px solid var(--sep);border-radius:16px;padding:16px;min-width:0}
+.banner{border-radius:14px;padding:14px 16px;border:1px solid rgba(232,198,112,.4);background:rgba(232,198,112,.08)}
+.banner b{color:var(--warn)}
+.banner ol{margin:8px 0 0;padding-left:20px;display:grid;gap:4px}
+
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:760px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{position:relative;background:linear-gradient(180deg,var(--card2),var(--card));border:1px solid var(--sep);border-radius:14px;padding:14px;min-width:0}
+.kpi.focus{border-color:var(--gold);box-shadow:0 0 22px rgba(200,170,110,.12)}
+.kpi .l{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.kpi .tag{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#1A1206;background:var(--gold-grad);border-radius:999px;padding:1px 7px}
+.kpi .v{font:700 30px/1.1 var(--font);margin-top:6px;font-variant-numeric:tabular-nums}
+.kpi .d{font-size:12.5px;margin-top:3px;font-variant-numeric:tabular-nums}
+.good{color:var(--win)}.bad{color:var(--loss)}.flat{color:var(--muted)}
+.wk{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;margin-bottom:12px;color:var(--muted);font-size:14px}
+.wk b{color:var(--fg)}
+
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--sep);background:rgba(1,10,19,.55);border-radius:999px;height:31px;padding:0 12px;font-size:13px;font-weight:500;color:var(--muted)}
+.chip[aria-pressed="true"]{border-color:var(--gold);color:var(--gold-hi);background:linear-gradient(180deg,rgba(200,170,110,.22),rgba(200,170,110,.08))}
+.chartbox{position:relative;height:260px;margin-top:12px}
+
+.mapgrid{display:grid;grid-template-columns:minmax(0,520px) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:820px){.mapgrid{grid-template-columns:minmax(0,1fr)}}
+.map{position:relative;width:100%;max-width:520px;aspect-ratio:1;border-radius:12px;overflow:hidden;border:1px solid var(--edge);background:#0A1428 center/cover no-repeat}
+.map::after{content:"";position:absolute;inset:0;background:rgba(1,10,19,.25);pointer-events:none}
+.dot{position:absolute;z-index:1;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;border:2px solid #010A13;padding:0}
+.dot.free{background:var(--loss);box-shadow:0 0 8px rgba(232,64,87,.8)}
+.dot.trade{background:var(--gold)}
+.dot[aria-pressed="true"]{outline:2px solid #fff;outline-offset:1px;z-index:2}
+.legend{display:flex;gap:14px;font-size:12.5px;color:var(--muted);margin-top:8px;flex-wrap:wrap}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+.pick{margin-top:12px}
+
+table{border-collapse:collapse;width:100%;font-size:13.5px;font-variant-numeric:tabular-nums}
+th,td{padding:8px 8px;text-align:left;border-top:1px solid var(--sep);white-space:nowrap;vertical-align:middle}
+thead th{border-top:0;font-size:11px;color:var(--gold);font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+td.r,th.r{text-align:right}
+.tw{overflow-x:auto}
+.ci{width:24px;height:24px;border-radius:50%;vertical-align:middle;box-shadow:0 0 0 1.5px #785A28;background:#0A1428;font-size:0;color:transparent;overflow:hidden;object-fit:cover}
+.ci.l{width:36px;height:36px}
+.pill{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:2px 8px}
+.pill.w{background:rgba(10,200,185,.16);color:var(--win)}.pill.l{background:rgba(232,64,87,.16);color:#FF8A9B}
+.pill.free{background:rgba(232,64,87,.16);color:#FF8A9B}.pill.ok{background:rgba(200,170,110,.15);color:var(--gold-hi)}
+.pill.flag{background:rgba(232,198,112,.15);color:var(--warn)}
+
+.games{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin}
+.g{flex:none;display:flex;align-items:center;gap:8px;border:1px solid var(--sep);background:rgba(1,10,19,.55);border-radius:12px;padding:6px 10px 6px 6px;text-align:left}
+.g[aria-pressed="true"]{border-color:var(--gold);box-shadow:0 0 14px rgba(200,170,110,.15)}
+.g small{display:block;font-size:11px;color:var(--muted)}
+.g b{font-size:13px}
+.g .wl{width:4px;align-self:stretch;border-radius:2px}
+.audit-h{display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between;margin:14px 0 8px}
+.vs{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.vs b{font-size:16px}
+.btn{display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 14px;border:2px solid transparent;border-radius:10px;
+  background:linear-gradient(180deg,#0B3C46,#0A1E2E) padding-box,linear-gradient(180deg,#C8AA6E,#785A28) border-box;color:var(--hex-hi);font:700 12px/1 var(--display);letter-spacing:.09em;text-transform:uppercase}
+.btn:hover{box-shadow:0 0 16px rgba(10,200,185,.3)}
+.deaths{display:grid;gap:8px}
+.death{display:grid;grid-template-columns:62px minmax(0,1fr);gap:12px;padding:12px;border-radius:12px;border:1px solid var(--sep);background:rgba(1,10,19,.45)}
+.death.free{border-color:rgba(232,64,87,.4)}
+.death .t{font:700 17px/1 var(--font);font-variant-numeric:tabular-nums}
+.death .t small{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-top:4px}
+.death .z{font-weight:600}
+.death .who2{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px;font-size:13px;color:var(--muted)}
+.death .tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.dmgbar{display:flex;height:6px;border-radius:3px;overflow:hidden;background:rgba(160,155,140,.15);margin-top:8px;max-width:360px}
+.dmgbar i{display:block;height:100%}
+.lanegrid{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13.5px;color:var(--muted)}
+.lanegrid b{color:var(--fg)}
+.objs{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;margin-top:10px}
+.obj{border:1px solid var(--sep);border-radius:12px;padding:10px 12px;background:rgba(1,10,19,.45)}
+.obj b{display:block}.obj span{font-size:12.5px;color:var(--muted)}
+.meter{height:6px;border-radius:3px;background:rgba(160,155,140,.15);overflow:hidden;margin-top:8px}.meter i{display:block;height:100%;background:linear-gradient(90deg,#005A82,var(--hex))}
+.sess{display:grid;gap:8px}
+.ses{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:10px 12px;border:1px solid var(--sep);border-radius:12px;background:rgba(1,10,19,.45)}
+.ses.broke{border-color:rgba(232,198,112,.45)}
+.ses .d{min-width:120px;font-size:13px;color:var(--muted)}.ses .d b{display:block;color:var(--fg)}
+.seq{display:flex;gap:4px;flex-wrap:wrap}
+.seq span{position:relative;line-height:0;border-radius:50%;padding:2px}
+.seq span.w{background:var(--win)}.seq span.l{background:var(--loss)}
+.seq span.after{outline:2px dashed var(--warn);outline-offset:2px}
+.seq img{width:26px;height:26px;border-radius:50%;display:block;background:#0A1428}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+@media (max-width:820px){.two{grid-template-columns:minmax(0,1fr)}}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:50;background:rgba(4,13,23,.95);color:var(--gold-hi);border:1px solid var(--edge);padding:10px 16px;border-radius:12px;font-weight:600;max-width:calc(100% - 32px)}
+textarea.copy{width:100%;min-height:160px;margin-top:10px;background:rgba(1,10,19,.6);color:var(--fg);border:1px solid var(--sep);border-radius:10px;padding:10px;font:12.5px/1.5 ui-monospace,Menlo,Consolas,monospace}
+footer{color:var(--faint);font-size:12.5px;padding-bottom:30px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="bar">
+      <a class="brand" href="../" style="text-decoration:none"><svg viewBox="0 0 32 36" aria-hidden="true"><defs><linearGradient id="hg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F0E6D2"/><stop offset=".5" stop-color="#C8AA6E"/><stop offset="1" stop-color="#785A28"/></linearGradient></defs><path d="M16 1.5l13 7.5v18L16 34.5 3 27V9z" fill="#0A1428" stroke="url(#hg)" stroke-width="2"/><circle cx="16" cy="18" r="6.5" fill="none" stroke="#0AC8B9" stroke-width="1.6"/><path d="M16 8.5v5M16 22.5v5M6.5 18h5M20.5 18h5" stroke="url(#hg)" stroke-width="2" stroke-linecap="round"/></svg><b>ADC Lab</b></a>
+      <div class="who" id="who">Chargement…</div>
+    </div>
+    <nav class="jump" aria-label="Sections">
+      <a href="#semaine">Semaine</a><a href="#tendance">Tendance</a><a href="#carte">Carte des morts</a><a href="#audit">Audit</a><a href="#objectifs">Objectifs</a><a href="#lane">Lane</a><a href="#sessions">Sessions</a><a href="#champions">Champions</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap" id="main">
+  <div id="banner"></div>
+
+  <section id="semaine">
+    <div class="over">Programme de climb · ton focus en premier</div>
+    <h2 id="wk-title">Cette semaine</h2>
+    <p class="lead">Les chiffres qui comptent pour ton programme, comparés à la semaine dernière.</p>
+    <div class="wk" id="wk-line"></div>
+    <div class="kpis" id="kpis"></div>
+  </section>
+
+  <section id="tendance">
+    <div class="over">Partie après partie</div>
+    <h2>Tendance</h2>
+    <div class="card">
+      <div class="chips" role="group" aria-label="Indicateur">
+        <button class="chip" data-trend="free" aria-pressed="true">Morts sans contrepartie</button>
+        <button class="chip" data-trend="d" aria-pressed="false">Morts</button>
+        <button class="chip" data-trend="cs10" aria-pressed="false">CS à 10 min</button>
+        <button class="chip" data-trend="gd10" aria-pressed="false">Écart d'or à 10 min</button>
+      </div>
+      <div class="chartbox"><canvas id="trendChart" aria-label="Tendance sur les dernières parties"></canvas></div>
+      <p class="muted" style="margin:8px 0 0;font-size:12.5px">Barres : chaque partie (bleu = victoire, rouge = défaite). Ligne : moyenne des 5 dernières.</p>
+    </div>
+  </section>
+
+  <section id="carte">
+    <div class="over">Où tu meurs</div>
+    <h2>Carte des morts</h2>
+    <p class="lead">Tes morts sur les 20 dernières parties. Rouge : aucune contrepartie pour ton équipe dans les 30 secondes.</p>
+    <div class="mapgrid">
+      <div>
+        <div class="chips" role="group" aria-label="Phase" id="phaseChips"></div>
+        <div class="chips" style="margin-top:8px"><button class="chip" id="onlyFree" aria-pressed="false">Sans contrepartie seulement</button></div>
+        <div class="map" id="map" style="margin-top:12px"></div>
+        <div class="legend"><span><i style="background:var(--loss)"></i>Sans contrepartie</span><span><i style="background:var(--gold)"></i>Avec contrepartie</span><span id="mapCount"></span></div>
+        <div class="pick card" id="mapPick" hidden></div>
+      </div>
+      <div class="card tw"><table><thead><tr><th>Zone</th><th class="r">Morts</th><th class="r">Sans contrepartie</th></tr></thead><tbody id="zones"></tbody></table>
+        <p class="muted" style="margin:10px 0 0;font-size:12.5px">Sur les 20 dernières parties.</p></div>
+    </div>
+  </section>
+
+  <section id="audit">
+    <div class="over">Grille de review</div>
+    <h2>Audit des morts</h2>
+    <p class="lead">Choisis une partie : chaque mort avec sa phase, sa zone, qui était là et ce que ton équipe a obtenu en échange. La question « quelle information me manquait ? » reste à toi.</p>
+    <div class="games" id="games" role="group" aria-label="Parties"></div>
+    <div id="auditBody"></div>
+  </section>
+
+  <section id="objectifs">
+    <div class="over">Bloc B · fenêtres d'objectif</div>
+    <h2>Objectifs</h2>
+    <p class="lead">Ta présence aux objectifs sur les 20 dernières parties : sur place ou dans le combat, et vivant dans la minute qui précède.</p>
+    <div class="objs" id="objs"></div>
+    <p class="muted" style="font-size:12.5px;margin:10px 0 0">Riot ne donne ta position qu'une fois par minute : c'est une bonne approximation, pas une mesure à la seconde.</p>
+  </section>
+
+  <section id="lane">
+    <div class="over">Contre l'ADC adverse</div>
+    <h2>Phase de lane</h2>
+    <div class="card tw"><table><thead><tr><th>Partie</th><th>Face à</th><th class="r">CS 10</th><th class="r">Or 10</th><th class="r">XP 10</th><th class="r">Or 14</th><th class="r">Niveau 2</th><th class="r">Plaques</th><th class="r">1er retour</th><th class="r">Morts &lt;14</th></tr></thead><tbody id="laneRows"></tbody></table></div>
+  </section>
+
+  <section id="sessions">
+    <div class="over">Discipline de session</div>
+    <h2>Sessions</h2>
+    <p class="lead">Règle : stop après 2 défaites d'affilée. Les parties jouées après sont entourées en jaune.</p>
+    <div class="sess" id="sess"></div>
+    <div class="two" style="margin-top:14px">
+      <div class="card"><b>Victoires selon le numéro de la partie</b><div class="chartbox" style="height:200px"><canvas id="idxChart" aria-label="Victoires selon le numéro de la partie dans la session"></canvas></div></div>
+      <div class="card"><b>Victoires selon l'heure</b><div class="chartbox" style="height:200px"><canvas id="hourChart" aria-label="Victoires selon l'heure de début"></canvas></div></div>
+    </div>
+  </section>
+
+  <section id="champions">
+    <div class="over">Ton pool</div>
+    <h2>Champions</h2>
+    <div class="card tw"><table><thead><tr><th>Champion</th><th class="r">Parties</th><th class="r">Victoires</th><th class="r">Sans contrepartie / partie</th><th class="r">CS 10</th><th class="r">Or 10</th></tr></thead><tbody id="champRows"></tbody></table></div>
+  </section>
+
+  <footer>Données : API officielle de Riot Games, parties classées de ce compte uniquement. Mise à jour automatique toutes les 3 heures. ADC Lab n'est pas approuvé par Riot Games.</footer>
+</main>
+<div id="toastHost" aria-live="polite"></div>
+
+<script>
+(() => {
+"use strict";
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const mmss = s => `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
+const sign = v => v == null ? "—" : (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(Math.round(v)).toLocaleString("fr-CH").replace(/ | /g, " ");
+const fr = v => v == null ? "—" : String(Math.round(v * 10) / 10).replace(".", ",");
+const PHASES = ["0-3","3-8","8-14","14-20","20+"];
+const FIX = {FiddleSticks:"Fiddlesticks"};
+let VER = "15.20.1", S = null, G = [];
+const icon = c => `https://ddragon.leagueoflegends.com/cdn/${VER}/img/champion/${encodeURIComponent(FIX[c]||c)}.png`;
+const img = (c, cls) => `<img class="ci${cls?" "+cls:""}" src="${icon(c)}" alt="${esc(c)}" title="${esc(c)}" loading="lazy" width="24" height="24">`;
+const NAME = {Kaisa:"Kai'Sa",KogMaw:"Kog'Maw",MissFortune:"Miss Fortune",MonkeyKing:"Wukong",TahmKench:"Tahm Kench",JarvanIV:"Jarvan IV",LeeSin:"Lee Sin",MasterYi:"Maître Yi",XinZhao:"Xin Zhao",DrMundo:"Dr. Mundo",AurelionSol:"Aurelion Sol",TwistedFate:"Twisted Fate",Belveth:"Bel'Veth",Chogath:"Cho'Gath",Khazix:"Kha'Zix",KSante:"K'Santé",Leblanc:"LeBlanc",RekSai:"Rek'Sai",Velkoz:"Vel'Koz",Nunu:"Nunu et Willump",Renata:"Renata Glasc",FiddleSticks:"Fiddlesticks"};
+const nm = c => NAME[c] || c;
+function toast(t){const h=$("#toastHost");h.innerHTML=`<div class="toast">${esc(t)}</div>`;clearTimeout(toast.t);toast.t=setTimeout(()=>h.innerHTML="",2600);}
+
+async function load(){
+  try{
+    const [s,g] = await Promise.all([fetch("data/summary.json",{cache:"no-store"}).then(r=>r.ok?r.json():null), fetch("data/games.json",{cache:"no-store"}).then(r=>r.ok?r.json():[]).catch(()=>[])]);
+    S = s || {}; G = Array.isArray(g) ? g : [];
+  }catch(e){ S = {}; G = []; }
+  if (S.ddragon) VER = S.ddragon;
+  render();
+}
+
+function render(){
+  const st = S.status || {};
+  const upd = S.updated || st.checked;
+  $("#who").innerHTML = `<b>${esc(S.riotId || "ArchaGrim#game1")}</b><br>${upd ? "Mis à jour " + esc(ago(upd)) : "Pas encore de données"}`;
+  banner(st);
+  week(); trend(); mapInit(); games(); objectives(); lane(); sessions(); champs();
+}
+function ago(iso){const d=(Date.now()-new Date(iso).getTime())/60000;if(d<2)return "à l'instant";if(d<60)return `il y a ${Math.round(d)} min`;if(d<48*60)return `il y a ${Math.round(d/60)} h`;return `le ${new Date(iso).toLocaleDateString("fr-CH")}`;}
+function banner(st){
+  const b = $("#banner");
+  if (st.code === "cle_absente" || (!S.status && !G.length)) {
+    b.innerHTML = `<div class="banner"><b>En attente de ta clé Riot.</b> Dès qu'elle est enregistrée, tes parties classées arrivent ici automatiquement.
+      <ol><li>Sur <a href="https://developer.riotgames.com" target="_blank" rel="noopener">developer.riotgames.com</a>, connecte-toi et copie ta clé.</li>
+      <li>Dans le dépôt GitHub <b>archagrim.github.io</b> : Settings → Secrets and variables → Actions → New repository secret, nom <b>RIOT_API_KEY</b>.</li>
+      <li>Onglet Actions → ADC Lab → Run workflow.</li></ol></div>`;
+  } else if (st.code === "cle_refusee") {
+    b.innerHTML = `<div class="banner"><b>Ta clé Riot a expiré ou a été refusée.</b> Les données affichées datent de la dernière mise à jour réussie. Remplace le secret <b>RIOT_API_KEY</b> dans le dépôt GitHub (une clé de développement expire après 24 h).</div>`;
+  } else if (st.code === "compte_introuvable") {
+    b.innerHTML = `<div class="banner"><b>Compte Riot introuvable.</b> Vérifie le Riot ID dans le fichier du workflow.</div>`;
+  } else b.innerHTML = "";
+}
+
+/* ---------- Semaine ---------- */
+function week(){
+  const w = S.week || {}, cur = (w.cur && w.cur.games) ? w.cur : null, prev = w.prev && w.prev.games ? w.prev : null;
+  const blk = cur || S.last20 || {games:0};
+  $("#wk-title").textContent = cur ? "Cette semaine" : "Tes 20 dernières parties";
+  if (!blk.games) { $("#wk-line").innerHTML = `<span>Aucune partie analysée pour l'instant.</span>`; $("#kpis").innerHTML = ""; return; }
+  $("#wk-line").innerHTML = `<span><b class="num">${blk.games}</b> parties</span><span><b class="num">${blk.wins} V – ${blk.games-blk.wins} D</b> (${blk.wr} %)</span><span><b class="num">${blk.sessions||0}</b> sessions</span>${cur&&prev?`<span>Semaine dernière : ${prev.games} parties, ${prev.wr} %</span>`:""}`;
+  const ref = cur ? prev : null;
+  const K = [
+    {k:"free", l:"Morts sans contrepartie / partie", tag:"Ton focus", focus:true, better:-1, f:fr},
+    {k:"deaths14", l:"Morts avant 14 min / partie", better:-1, f:fr},
+    {k:"objPresent", l:"Présence aux objectifs majeurs", better:1, f:v=>v==null?"—":v+" %", unit:" pts", dp:0},
+    {k:"cs10", l:"CS à 10 min", better:1, f:fr},
+    {k:"gd10", l:"Écart d'or à 10 min", better:1, f:sign, dp:0},
+    {k:"breaks", l:"Sessions au-delà de 2 défaites", better:-1, f:v=>v==null?"—":String(v)},
+  ];
+  $("#kpis").innerHTML = K.map(x => {
+    const v = blk[x.k], p = ref ? ref[x.k] : null;
+    let d = "";
+    if (v != null && p != null) {
+      const diff = x.dp === 0 ? Math.round(v - p) : Math.round((v - p) * 10) / 10, good = diff * x.better > 0, cls = diff === 0 ? "flat" : good ? "good" : "bad";
+      d = `<div class="d ${cls}">${diff===0?"=":(diff>0?"+":"−")+Math.abs(diff).toLocaleString("fr-FR")}${x.unit||""} vs semaine dernière</div>`;
+    } else if (!cur) d = `<div class="d flat">Moyenne sur 20 parties</div>`;
+    return `<div class="kpi${x.focus?" focus":""}"><div class="l">${esc(x.l)}${x.tag?`<span class="tag">${x.tag}</span>`:""}</div><div class="v">${x.f(v)}</div>${d}</div>`;
+  }).join("");
+}
+
+/* ---------- Tendance ---------- */
+let trendChart = null, trendKey = "free";
+function chartBase(){return {responsive:true,maintainAspectRatio:false,animation:{duration:300},interaction:{mode:"index",intersect:false},
+  plugins:{legend:{display:false},tooltip:{backgroundColor:"rgba(4,13,23,.95)",borderColor:"#C8AA6E",borderWidth:1,titleColor:"#F0E6D2",bodyColor:"#F0E6D2"}},
+  scales:{x:{grid:{color:"rgba(200,170,110,.08)"},ticks:{color:"#A09B8C",font:{size:10},maxRotation:0,autoSkip:true}},y:{grid:{color:"rgba(200,170,110,.1)"},ticks:{color:"#A09B8C",font:{size:11}}}}};}
+function trend(){
+  const t = S.trend || [];
+  const box = $("#trendChart").parentNode;
+  if (!t.length || !window.Chart) { box.innerHTML = `<p class="muted" style="margin:30px 0;text-align:center">${t.length?"Le graphique n'a pas pu se charger.":"Les courbes apparaîtront avec tes premières parties."}</p>`; return; }
+  const vals = t.map(x => x[trendKey] ?? null);
+  const roll = vals.map((_,i) => { const w = vals.slice(Math.max(0,i-4), i+1).filter(v=>v!=null); return w.length ? Math.round(w.reduce((a,b)=>a+b,0)/w.length*10)/10 : null; });
+  const labels = t.map(x => x.local.slice(5,10).split("-").reverse().join("."));
+  const data = {labels, datasets:[
+    {type:"bar", data:vals, backgroundColor:t.map(x=>x.w?"rgba(10,200,185,.55)":"rgba(232,64,87,.55)"), borderRadius:4},
+    {type:"line", data:roll, borderColor:"#C8AA6E", backgroundColor:"#C8AA6E", pointRadius:0, borderWidth:2.5, tension:.3}]};
+  const opt = chartBase();
+  opt.plugins.tooltip.callbacks = {title:i=>{const x=t[i[0].dataIndex];return `${nm(x.c)} · ${x.w?"Victoire":"Défaite"} · ${x.local}`;}, label:c=>c.datasetIndex===0?`Partie : ${c.formattedValue}`:`Moyenne 5 parties : ${c.formattedValue}`};
+  if (trendChart) trendChart.destroy();
+  trendChart = new Chart($("#trendChart"), {type:"bar", data, options:opt});
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-trend]"); if (!b) return;
+  trendKey = b.dataset.trend; document.querySelectorAll("[data-trend]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); trend();
+});
+
+/* ---------- Carte des morts ---------- */
+let phaseF = "", onlyFree = false, pickKey = null;
+const MIN = -120, MAXX = 14870, MAXY = 14980;
+function mapInit(){
+  $("#map").style.backgroundImage = `url(img/map11.png)`;
+  $("#phaseChips").innerHTML = [["","Toutes"],...PHASES.map(p=>[p,p+" min"])].map(([v,l])=>`<button class="chip" data-phase="${v}" aria-pressed="${phaseF===v}">${l}</button>`).join("");
+  drawMap();
+  $("#zones").innerHTML = (S.zones||[]).map(([z,n,f])=>`<tr><td>${esc(z)}</td><td class="r">${n}</td><td class="r ${f?"bad":""}">${f}</td></tr>`).join("") || `<tr><td colspan="3" class="muted">Pas encore de données.</td></tr>`;
+}
+function mapDeaths(){
+  const out = [];
+  G.slice(0,20).forEach(g => g.deaths.forEach((d,i) => { if (d.pos) out.push({g,d,key:g.id+"#"+i}); }));
+  return out.filter(x => (!phaseF || x.d.ph === phaseF) && (!onlyFree || x.d.free));
+}
+function drawMap(){
+  const list = mapDeaths();
+  $("#map").innerHTML = list.map(({d,key}) => {
+    const l = (d.pos.x - MIN) / (MAXX - MIN) * 100, t = (1 - (d.pos.y - MIN) / (MAXY - MIN)) * 100;
+    return `<button class="dot ${d.free?"free":"trade"}" style="left:${l.toFixed(2)}%;top:${t.toFixed(2)}%" data-dot="${esc(key)}" aria-pressed="${pickKey===key}" aria-label="Mort à ${mmss(d.t)}, ${esc(d.zone)}"></button>`;
+  }).join("");
+  $("#mapCount").textContent = `${list.length} mort${list.length>1?"s":""}`;
+  const p = list.find(x => x.key === pickKey);
+  const box = $("#mapPick");
+  if (p) { box.hidden = false; box.innerHTML = deathHTML(p.d, p.g, true); } else box.hidden = true;
+}
+document.addEventListener("click", e => {
+  const ph = e.target.closest("[data-phase]");
+  if (ph) { phaseF = ph.dataset.phase; document.querySelectorAll("[data-phase]").forEach(x=>x.setAttribute("aria-pressed",String(x===ph))); pickKey=null; drawMap(); return; }
+  if (e.target.closest("#onlyFree")) { onlyFree = !onlyFree; $("#onlyFree").setAttribute("aria-pressed", String(onlyFree)); pickKey=null; drawMap(); return; }
+  const dot = e.target.closest("[data-dot]");
+  if (dot) { pickKey = pickKey === dot.dataset.dot ? null : dot.dataset.dot; drawMap(); }
+});
+
+/* ---------- Audit ---------- */
+let gameSel = null;
+function games(){
+  const list = G.slice(0, 25);
+  if (!list.length) { $("#games").innerHTML = `<p class="muted">Aucune partie analysée pour l'instant.</p>`; $("#auditBody").innerHTML = ""; return; }
+  if (!gameSel || !list.some(g => g.id === gameSel)) gameSel = list[0].id;
+  $("#games").innerHTML = list.map(g => `<button class="g" data-game="${esc(g.id)}" aria-pressed="${g.id===gameSel}"><span class="wl" style="background:${g.win?"var(--win)":"var(--loss)"}"></span>${img(g.champ)}<span><b class="num">${g.k}/${g.d}/${g.a}</b><small>${esc(g.local.slice(8,10)+"."+g.local.slice(5,7)+" "+g.local.slice(11))}${g.free?` · <span class="bad">${g.free} sans contrep.</span>`:""}</small></span></button>`).join("");
+  audit();
+}
+function deathHTML(d, g, withGame){
+  const total = d.dmg.reduce((a,x)=>a+x[1],0) || 1;
+  const cols = ["#E84057","#E0904F","#8E7CF0","#0AC8B9"];
+  const tags = [];
+  tags.push(d.free ? `<span class="pill free">Sans contrepartie</span>` : `<span class="pill ok">Contrepartie : ${esc([...new Set(d.trade)].join(", "))}</span>`);
+  if (d.gank) tags.push(`<span class="pill flag">Gank / roam</span>`);
+  if (d.first) tags.push(`<span class="pill flag">Premier mort du combat</span>`);
+  if (d.burst) tags.push(`<span class="pill flag">Burst : ${d.top} % par ${esc(nm(d.dmg[0][0]))}</span>`);
+  if (!d.by.length) tags.push(`<span class="pill flag">Tour ou sbires</span>`);
+  return `<div class="death${d.free?" free":""}"><div class="t">${mmss(d.t)}<small>${d.ph} min</small></div><div style="min-width:0">
+    ${withGame?`<div class="muted" style="font-size:12.5px;margin-bottom:4px">${esc(nm(g.champ))} · ${g.win?"Victoire":"Défaite"} · ${esc(g.local)}</div>`:""}
+    <div class="z">${esc(d.zone)}</div>
+    <div class="who2">${d.by.length?d.by.map((c,i)=>`${img(c)}<span>${esc(nm(c))}${d.roles[i]?` (${esc(d.roles[i])})`:""}</span>`).join(""):"Aucun champion impliqué"}${d.fight>1?` · combat de ${d.fight} morts (${d.fFor} pour vous, ${d.fAg} contre)`:""}</div>
+    ${d.dmg.length?`<div class="dmgbar" title="Dégâts reçus">${d.dmg.map((x,i)=>`<i style="width:${x[1]*100/total}%;background:${cols[i%4]}" title="${esc(nm(x[0]))} : ${x[1]}"></i>`).join("")}</div>
+      <div class="who2" style="margin-top:4px">${d.dmg.map((x,i)=>`<span style="color:${cols[i%4]}">●</span><span>${esc(nm(x[0]))} ${Math.round(x[1]*100/total)} %</span>`).join(" ")}</div>`:""}
+    <div class="tags">${tags.join("")}${d.gd!=null?`<span class="pill ${d.gd<0?"l":"w"}">Or vs ADC : ${sign(d.gd)}</span>`:""}${d.dealt?`<span class="pill ok">Infligé avant de mourir : ${d.dealt}</span>`:""}</div>
+  </div></div>`;
+}
+function audit(){
+  const g = G.find(x => x.id === gameSel); if (!g) return;
+  const L = g.lane || {};
+  const lv = L.lvl2!=null&&L.lvl2E!=null ? `${mmss(L.lvl2)} vs ${mmss(L.lvl2E)} (${L.lvl2<=L.lvl2E?"avance":"retard"} de ${Math.abs(L.lvl2-L.lvl2E)} s)` : "—";
+  $("#auditBody").innerHTML = `<div class="audit-h"><div class="vs">${img(g.champ,"l")}<b>${esc(nm(g.champ))}</b>${g.sup?`<span class="muted">+ ${esc(nm(g.sup))}</span>`:""}<span class="muted">contre</span>${g.eAdc?img(g.eAdc,"l")+`<b>${esc(nm(g.eAdc))}</b>`:""}${g.eSup?`<span class="muted">+ ${esc(nm(g.eSup))}</span>`:""}
+      <span class="pill ${g.win?"w":"l"}">${g.win?"Victoire":"Défaite"}</span></div><button class="btn" data-copy="${esc(g.id)}">Copier pour ma review</button></div>
+    <div class="lanegrid" style="margin-bottom:12px"><span>KDA <b class="num">${g.k}/${g.d}/${g.a}</b></span><span>CS/min <b class="num">${fr(g.csm)}</b></span><span>Participation <b class="num">${g.kp} %</b></span><span>Part des dégâts <b class="num">${g.dmgShare} %</b></span><span>Vision/min <b class="num">${fr(g.vis)}</b></span><span>Durée <b class="num">${mmss(g.dur)}</b></span>
+      <span>CS 10 <b class="num">${L.cs10??"—"}</b> (${sign(L.csd10)})</span><span>Or 10 <b class="num">${sign(L.gd10)}</b></span><span>Niveau 2 <b class="num">${lv}</b></span><span>Plaques <b class="num">+${L.platesWon||0} / −${L.platesLost||0}</b></span></div>
+    <div class="deaths">${g.deaths.length?g.deaths.map(d=>deathHTML(d,g)).join(""):`<p class="muted">Aucune mort dans cette partie.</p>`}</div>
+    <div id="copyOut"></div>`;
+}
+function reviewText(g){
+  const L = g.lane || {}, by = {}; PHASES.forEach(p=>by[p]=0); g.deaths.forEach(d=>by[d.ph]++);
+  const lines = [
+    `Partie du ${g.local} : ${nm(g.champ)}${g.sup?" + "+nm(g.sup):""} contre ${nm(g.eAdc||"?")}${g.eSup?" + "+nm(g.eSup):""}, ${g.win?"victoire":"défaite"} ${g.k}/${g.d}/${g.a} en ${mmss(g.dur)}`,
+    `Lane : CS 10 ${L.cs10??"?"} (${sign(L.csd10)}), or 10 ${sign(L.gd10)}, or 14 ${sign(L.gd14)}, niveau 2 ${L.lvl2!=null?mmss(L.lvl2):"?"} vs ${L.lvl2E!=null?mmss(L.lvl2E):"?"}, plaques +${L.platesWon||0}/−${L.platesLost||0}`,
+    `Morts par phase : ${PHASES.map(p=>p+" : "+by[p]).join(" · ")} (${g.free} sans contrepartie)`, ``, `Audit des morts :`];
+  g.deaths.forEach((d,i) => {
+    lines.push(`${i+1}. ${mmss(d.t)} (${d.ph}) ${d.zone}. Tué par ${d.by.length?d.by.map((c,j)=>nm(c)+(d.roles[j]?" ("+d.roles[j]+")":"")).join(", "):"tour/sbires"}${d.burst?`, burst ${d.top} % ${nm(d.dmg[0][0])}`:""}${d.first?", premier mort du combat":""}. ${d.free?"Sans contrepartie":"Contrepartie : "+[...new Set(d.trade)].join(", ")}. Or vs ADC ${sign(d.gd)}.`);
+    lines.push(`   Quelle information me manquait ? `);
+  });
+  const objs = (g.objs||[]).map(o=>`${o.label} ${mmss(o.t)} (${o.us?"nous":"eux"}) : ${o.present?"présent":o.dead?"mort juste avant":"absent"}${o.reset?", reset fait":""}`);
+  if (objs.length) lines.push(``, `Objectifs : ${objs.join(" ; ")}`);
+  return lines.join("\n");
+}
+document.addEventListener("click", e => {
+  const g = e.target.closest("[data-game]");
+  if (g) { gameSel = g.dataset.game; document.querySelectorAll("[data-game]").forEach(x=>x.setAttribute("aria-pressed",String(x===g))); audit(); return; }
+  const c = e.target.closest("[data-copy]");
+  if (c) {
+    const game = G.find(x => x.id === c.dataset.copy), txt = reviewText(game);
+    const fallback = () => { $("#copyOut").innerHTML = `<textarea class="copy" readonly>${esc(txt)}</textarea>`; $("#copyOut textarea").select(); toast("Texte sélectionné : copie-le."); };
+    try { navigator.clipboard.writeText(txt).then(()=>toast("Audit copié : colle-le à Claude pour ta review."), fallback); } catch(err) { fallback(); }
+  }
+});
+
+/* ---------- Objectifs ---------- */
+function objectives(){
+  const list = G.slice(0,20).flatMap(g => g.objs || []);
+  if (!list.length) { $("#objs").innerHTML = `<p class="muted">Pas encore de données.</p>`; return; }
+  const T = [["DRAGON","Dragons"],["HORDE","Larves"],["RIFTHERALD","Héraut"],["ATAKHAN","Atakhan"],["BARON_NASHOR","Baron"]];
+  $("#objs").innerHTML = T.map(([k,l]) => {
+    const o = list.filter(x => x.type === k); if (!o.length) return "";
+    const p = o.filter(x=>x.present).length, us = o.filter(x=>x.us).length, dead = o.filter(x=>x.dead).length, pct = Math.round(p*100/o.length);
+    return `<div class="obj"><b>${l}</b><span class="num">Présent ${p}/${o.length} · ${pct} %</span><div class="meter"><i style="width:${pct}%"></i></div><span class="num" style="display:block;margin-top:6px">Pris par ton équipe : ${us}/${o.length}${dead?` · mort juste avant : ${dead}`:""}</span></div>`;
+  }).join("");
+}
+
+/* ---------- Lane ---------- */
+function lane(){
+  const list = G.slice(0,20);
+  $("#laneRows").innerHTML = list.map(g => { const L = g.lane || {}, b = L.back1;
+    const d2 = L.lvl2!=null&&L.lvl2E!=null ? L.lvl2E - L.lvl2 : null;
+    const c = v => v==null?"":v>0?"good":v<0?"bad":"";
+    return `<tr><td>${img(g.champ)} <span class="pill ${g.win?"w":"l"}">${g.win?"V":"D"}</span> <span class="muted">${esc(g.local.slice(8,10)+"."+g.local.slice(5,7))}</span></td><td>${g.eAdc?img(g.eAdc):""} ${esc(nm(g.eAdc||""))}</td>
+      <td class="r">${L.cs10??"—"} <span class="${c(L.csd10)}">(${sign(L.csd10)})</span></td><td class="r ${c(L.gd10)}">${sign(L.gd10)}</td><td class="r ${c(L.xpd10)}">${sign(L.xpd10)}</td><td class="r ${c(L.gd14)}">${sign(L.gd14)}</td>
+      <td class="r ${c(d2)}">${d2==null?"—":(d2>=0?"avance ":"retard ")+Math.abs(d2)+" s"}</td><td class="r">+${L.platesWon||0} / −${L.platesLost||0}</td>
+      <td class="r">${b?mmss(b.t)+(b.gold?` · ${b.gold} po`:""):"—"}</td><td class="r ${L.deaths14?"bad":""}">${L.deaths14??"—"}</td></tr>`;
+  }).join("") || `<tr><td colspan="10" class="muted">Pas encore de données.</td></tr>`;
+}
+
+/* ---------- Sessions ---------- */
+let idxChart=null, hourChart=null;
+function sessions(){
+  const ss = S.sessions || [];
+  $("#sess").innerHTML = ss.map(s => `<div class="ses${s.broke!=null?" broke":""}"><div class="d"><b>${esc(s.day.split("-").reverse().join("."))}</b>${esc(s.from)} → ${esc(s.to)}</div>
+    <div class="seq">${s.games.map((g,i)=>`<span class="${g.w?"w":"l"}${s.broke!=null&&i>=s.broke?" after":""}" title="${esc(nm(g.c))} : ${g.w?"victoire":"défaite"}"><img src="${icon(g.c)}" alt="${esc(nm(g.c))}" loading="lazy" width="26" height="26"></span>`).join("")}</div>
+    ${s.broke!=null?`<span class="pill flag">${s.extra} partie${s.extra>1?"s":""} après 2 défaites</span>`:`<span class="pill ok">Règle respectée</span>`}</div>`).join("") || `<p class="muted">Pas encore de sessions.</p>`;
+  if (!window.Chart) return;
+  const bar = (canvas, src, labelOf, prev) => {
+    const keys = Object.keys(src||{}); if (prev) prev.destroy(); if (!keys.length) return null;
+    const opt = chartBase(); opt.scales.y.min = 0; opt.scales.y.max = 100; opt.scales.y.ticks.callback = v => v + " %";
+    opt.plugins.tooltip.callbacks = {label:c=>`${c.formattedValue} % de victoires sur ${src[keys[c.dataIndex]].n} partie${src[keys[c.dataIndex]].n>1?"s":""}`};
+    return new Chart(canvas,{type:"bar",data:{labels:keys.map(labelOf),datasets:[{data:keys.map(k=>src[k].wr),backgroundColor:keys.map(k=>src[k].wr>=50?"rgba(10,200,185,.6)":"rgba(232,64,87,.6)"),borderRadius:4}]},options:opt});
+  };
+  idxChart = bar($("#idxChart"), S.byIndex, k => k==="6" ? "6e +" : k + (k==="1"?"re":"e"), idxChart);
+  hourChart = bar($("#hourChart"), S.byHour, k => k + " h", hourChart);
+}
+
+/* ---------- Champions ---------- */
+function champs(){
+  $("#champRows").innerHTML = (S.champs||[]).map(c => `<tr><td>${img(c.c)} ${esc(nm(c.c))}</td><td class="r">${c.n}</td><td class="r ${c.wr>=50?"good":"bad"}">${c.wr} %</td><td class="r">${fr(c.free)}</td><td class="r">${fr(c.cs10)}</td><td class="r">${sign(c.gd10)}</td></tr>`).join("") || `<tr><td colspan="6" class="muted">Pas encore de données.</td></tr>`;
+}
+
+load();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+name: ADC Lab
+
+# Récupère mes nouvelles parties classées toutes les 3 heures et met à jour adc/data/.
+on:
+  schedule:
+    - cron: "23 */3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: adc-lab
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Analyser les nouvelles parties
+        env:
+          RIOT_API_KEY: ${{ secrets.RIOT_API_KEY }}
+          RIOT_ID: "ArchaGrim#game1"
+          QUEUES: "420"
+        run: python tools/adc_lab/fetch.py
+
+      - name: Publier les données
+        run: |
+          if [ -n "$(git status --porcelain adc/data)" ]; then
+            git config user.name "adc-lab-bot"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add adc/data
+            git commit -m "ADC Lab : mise à jour des parties"
+            git pull --rebase
+            git push
+          fi
