@@ -1,9 +1,10 @@
 name: ADC Lab
 
-# Récupère mes nouvelles parties classées toutes les 3 heures et met à jour adc/data/.
+# Vérifie toutes les 5 minutes s'il y a de nouvelles parties classées et met à jour adc/data/.
+# 5 minutes est l'intervalle minimum de GitHub ; les lancements programmés peuvent avoir quelques minutes de retard.
 on:
   schedule:
-    - cron: "23 */3 * * *"
+    - cron: "*/5 * * * *"
   workflow_dispatch:
   push:
     branches: [main]
@@ -21,7 +22,7 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 

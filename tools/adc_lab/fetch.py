@@ -5,7 +5,7 @@ Variables d'environnement :
   RIOT_API_KEY  clé Riot (secret GitHub, jamais écrite dans le dépôt)
   RIOT_ID       compte suivi, ex. « ArchaGrim#game1 »
   QUEUES        files suivies (420 = classé solo/duo, 440 = flexible), défaut « 420 »
-  MAX_NEW       parties analysées au maximum par exécution, défaut 40
+  MAX_NEW       parties analysées au maximum par exécution, défaut 100
 """
 import json
 import os
@@ -91,7 +91,7 @@ def main():
     key = os.environ.get("RIOT_API_KEY", "").strip()
     riot_id = os.environ.get("RIOT_ID", "ArchaGrim#game1")
     queues = [int(q) for q in os.environ.get("QUEUES", "420").split(",") if q.strip()]
-    max_new = int(os.environ.get("MAX_NEW", "40"))
+    max_new = int(os.environ.get("MAX_NEW", "100"))
     state = load("state.json", {"processed": []})
     state["riotId"] = riot_id
     if not key:
@@ -135,13 +135,20 @@ def main():
 
         ordered = sorted(games.values(), key=lambda g: -g["start"])[:KEEP]
         state["processed"] = state["processed"][-2000:]
-        save("games.json", ordered)
         summary = analyse.summarise(ordered)
         summary["riotId"] = riot_id
         summary["ddragon"] = state.get("ddragon")
+        pending = max(0, len(set(ids) - set(state["processed"])))
+        old = load("summary.json", {})
+        same = (not todo and old.get("status", {}).get("ok")
+                and {k: v for k, v in old.items() if k not in ("updated", "status")} == json.loads(json.dumps(summary)))
+        if same:
+            # Rien de neuf : on n'écrit rien, donc pas de commit ni de republication du site.
+            print("Aucune nouvelle partie.")
+            return 0
         summary["updated"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-        summary["status"] = {"ok": True, "code": "ok", "new": len(todo), "pending": max(0, len(set(ids) - set(state["processed"]))),
-                             "checked": summary["updated"]}
+        summary["status"] = {"ok": True, "code": "ok", "new": len(todo), "pending": pending, "checked": summary["updated"]}
+        save("games.json", ordered)
         save("summary.json", summary)
         save("state.json", state)
         print(f"{len(todo)} nouvelle(s) partie(s), {len(ordered)} au total.")
