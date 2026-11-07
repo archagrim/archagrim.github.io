@@ -119,6 +119,9 @@ def main():
         ids = []
         for q in queues:
             ids += riot(f"/lol/match/v5/matches/by-puuid/{puuid}/ids?queue={q}&start=0&count=100", key) or []
+        if state.get("version") != analyse.VERSION:
+            # Le calcul a changé : on réanalyse les parties récentes (les anciennes analyses restent en place d'ici là).
+            state["processed"], state["version"] = [], analyse.VERSION
         done = set(state["processed"])
         todo = sorted((i for i in set(ids) if i not in done), key=lambda i: int(i.split("_")[1]), reverse=True)[:max_new]
 

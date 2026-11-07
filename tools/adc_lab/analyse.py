@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 TZ = ZoneInfo("Europe/Zurich")
+VERSION = 2              # à augmenter quand le calcul change : les parties récentes sont alors réanalysées
 RIVER = 14800            # sur la carte, x + y ≈ 14800 sépare les deux moitiés
 TRADE_BEFORE = 10_000    # une contrepartie peut arriver 10 s avant la mort…
 TRADE_AFTER = 30_000     # …ou jusqu'à 30 s après
@@ -209,7 +210,8 @@ def analyse(match, tl, puuid, item_cost=None):
                      and e.get("participantId") == p["participantId"] and e.get("level") == 2), None)
 
     lane["lvl2"], lane["lvl2E"] = lvl2(me), lvl2(e_adc)
-    plates = [e for e in evs if e["type"] == "TURRET_PLATE_DESTROYED" and e.get("laneType") == "BOT_LANE"]
+    # La lane se déduit de la position de la plaque (tours extérieures bot : x - y ≈ 9400), plus fiable que laneType.
+    plates = [e for e in evs if e["type"] == "TURRET_PLATE_DESTROYED" and _bot(e.get("position"))]
     lane["platesWon"] = sum(1 for e in plates if e.get("teamId") == enemy_team)
     lane["platesLost"] = sum(1 for e in plates if e.get("teamId") == team)
     lane["platesMine"] = sum(1 for e in plates if e.get("killerId") == pid)
@@ -245,6 +247,10 @@ def analyse(match, tl, puuid, item_cost=None):
 
 
 # ---------------------------------------------------------------- Agrégats
+
+def _bot(pos):
+    return bool(pos) and pos.get("x", 0) - pos.get("y", 0) > 5000
+
 
 def _avg(vals):
     vals = [v for v in vals if v is not None]
@@ -285,13 +291,14 @@ def block(games, sess):
     if not n:
         return {"games": 0}
     objs = [o for g in games for o in g["objs"] if o["type"] in ("DRAGON", "BARON_NASHOR", "ATAKHAN")]
+    bot = [g for g in games if g.get("pos") == "BOTTOM"]   # stats de lane : parties jouées ADC uniquement
     return {
         "games": n, "wins": sum(g["win"] for g in games), "wr": round(sum(g["win"] for g in games) * 100 / n),
         "free": _avg([g["free"] for g in games]), "deaths": _avg([g["d"] for g in games]),
         "deaths14": _avg([g["lane"].get("deaths14") for g in games]),
         "objPresent": round(sum(o["present"] for o in objs) * 100 / len(objs)) if objs else None,
-        "cs10": _avg([g["lane"].get("cs10") for g in games]), "gd10": _avg([g["lane"].get("gd10") for g in games]),
-        "gd14": _avg([g["lane"].get("gd14") for g in games]),
+        "cs10": _avg([g["lane"].get("cs10") for g in bot]), "gd10": _avg([g["lane"].get("gd10") for g in bot]),
+        "gd14": _avg([g["lane"].get("gd14") for g in bot]),
         "first": _avg([sum(1 for d in g["deaths"] if d["first"]) for g in games]),
         "breaks": sum(1 for s in sess if s["broke"] is not None), "sessions": len(sess),
     }
@@ -334,7 +341,8 @@ def summarise(games, now=None):
         "byHour": {str(k): {"n": len(v), "wr": round(sum(v) * 100 / len(v))} for k, v in sorted(by_hour.items())},
         "zones": sorted(([z, n, f] for z, (n, f) in zones.items()), key=lambda x: -x[1]),
         "champs": sorted(({"c": c, "n": len(v), "wr": round(sum(x["win"] for x in v) * 100 / len(v)),
-                           "free": _avg([x["free"] for x in v]), "cs10": _avg([x["lane"].get("cs10") for x in v]),
-                           "gd10": _avg([x["lane"].get("gd10") for x in v])} for c, v in champs.items()),
+                           "free": _avg([x["free"] for x in v]),
+                           "cs10": _avg([x["lane"].get("cs10") for x in v if x.get("pos") == "BOTTOM"]),
+                           "gd10": _avg([x["lane"].get("gd10") for x in v if x.get("pos") == "BOTTOM"])} for c, v in champs.items()),
                          key=lambda x: -x["n"]),
     }

@@ -49,7 +49,14 @@ header.top::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1p
 .brand{display:flex;align-items:center;gap:10px}
 .brand b{font:700 18px/1 var(--display);letter-spacing:.14em;background:var(--gold-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 .brand svg{width:28px;height:32px}
-.who{margin-left:auto;text-align:right;font-size:12px;color:var(--muted);line-height:1.3}
+.who{text-align:right;font-size:12px;color:var(--muted);line-height:1.3}
+.period{margin-left:auto;display:flex;align-items:center;gap:5px}
+.period>span{font-size:12px;color:var(--muted);margin-right:3px}
+.period .chip{height:28px;padding:0 11px}
+@media (max-width:620px){.bar{flex-wrap:wrap;row-gap:6px}.who{margin-left:auto}.period{order:3;width:100%;margin-left:0}}
+tr.avg td{background:rgba(200,170,110,.07);font-weight:600}
+tr.off td{opacity:.6}
+.map.many .dot{width:10px;height:10px;margin:-5px 0 0 -5px;border-width:1.5px}
 .who b{color:var(--fg);font-weight:600}
 nav.jump{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:10px}
 nav.jump::-webkit-scrollbar{display:none}
@@ -157,6 +164,7 @@ footer{color:var(--faint);font-size:12.5px;padding-bottom:30px}
   <div class="wrap">
     <div class="bar">
       <a class="brand" href="../" style="text-decoration:none"><svg viewBox="0 0 32 36" aria-hidden="true"><defs><linearGradient id="hg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F0E6D2"/><stop offset=".5" stop-color="#C8AA6E"/><stop offset="1" stop-color="#785A28"/></linearGradient></defs><path d="M16 1.5l13 7.5v18L16 34.5 3 27V9z" fill="#0A1428" stroke="url(#hg)" stroke-width="2"/><circle cx="16" cy="18" r="6.5" fill="none" stroke="#0AC8B9" stroke-width="1.6"/><path d="M16 8.5v5M16 22.5v5M6.5 18h5M20.5 18h5" stroke="url(#hg)" stroke-width="2" stroke-linecap="round"/></svg><b>ADC Lab</b></a>
+      <div class="period" role="group" aria-label="Nombre de parties analysées" id="period"></div>
       <div class="who" id="who">Chargement…</div>
     </div>
     <nav class="jump" aria-label="Sections">
@@ -171,7 +179,8 @@ footer{color:var(--faint);font-size:12.5px;padding-bottom:30px}
   <section id="semaine">
     <div class="over">Programme de climb · ton focus en premier</div>
     <h2 id="wk-title">Cette semaine</h2>
-    <p class="lead">Les chiffres qui comptent pour ton programme, comparés à la semaine dernière.</p>
+    <p class="lead" id="wk-lead">Les chiffres qui comptent pour ton programme.</p>
+    <div class="chips" id="wkMode" role="group" aria-label="Période affichée" hidden style="margin-bottom:12px"><button class="chip" data-wk="week">Cette semaine</button><button class="chip" data-wk="period" id="wkPeriodBtn"></button></div>
     <div class="wk" id="wk-line"></div>
     <div class="kpis" id="kpis"></div>
   </section>
@@ -187,14 +196,14 @@ footer{color:var(--faint);font-size:12.5px;padding-bottom:30px}
         <button class="chip" data-trend="gd10" aria-pressed="false">Écart d'or à 10 min</button>
       </div>
       <div class="chartbox"><canvas id="trendChart" aria-label="Tendance sur les dernières parties"></canvas></div>
-      <p class="muted" style="margin:8px 0 0;font-size:12.5px">Barres : chaque partie (bleu = victoire, rouge = défaite). Ligne : moyenne des 5 dernières.</p>
+      <p class="muted" style="margin:8px 0 0;font-size:12.5px" id="trendNote"></p>
     </div>
   </section>
 
   <section id="carte">
     <div class="over">Où tu meurs</div>
     <h2>Carte des morts</h2>
-    <p class="lead">Tes morts sur les 20 dernières parties. Rouge : aucune contrepartie pour ton équipe dans les 30 secondes.</p>
+    <p class="lead">Tes morts sur <span class="nlab"></span>. Rouge : aucune contrepartie pour ton équipe dans les 30 secondes.</p>
     <div class="mapgrid">
       <div>
         <div class="chips" role="group" aria-label="Phase" id="phaseChips"></div>
@@ -204,7 +213,7 @@ footer{color:var(--faint);font-size:12.5px;padding-bottom:30px}
         <div class="pick card" id="mapPick" hidden></div>
       </div>
       <div class="card tw"><table><thead><tr><th>Zone</th><th class="r">Morts</th><th class="r">Sans contrepartie</th></tr></thead><tbody id="zones"></tbody></table>
-        <p class="muted" style="margin:10px 0 0;font-size:12.5px">Sur les 20 dernières parties.</p></div>
+        <p class="muted" style="margin:10px 0 0;font-size:12.5px">Sur <span class="nlab"></span>.</p></div>
     </div>
   </section>
 
@@ -219,7 +228,7 @@ footer{color:var(--faint);font-size:12.5px;padding-bottom:30px}
   <section id="objectifs">
     <div class="over">Bloc B · fenêtres d'objectif</div>
     <h2>Objectifs</h2>
-    <p class="lead">Ta présence aux objectifs sur les 20 dernières parties : sur place ou dans le combat, et vivant dans la minute qui précède.</p>
+    <p class="lead">Ta présence aux objectifs sur <span class="nlab"></span> : sur place ou dans le combat, et vivant dans la minute qui précède.</p>
     <div class="objs" id="objs"></div>
     <p class="muted" style="font-size:12.5px;margin:10px 0 0">Riot ne donne ta position qu'une fois par minute : c'est une bonne approximation, pas une mesure à la seconde.</p>
   </section>
@@ -247,7 +256,7 @@ footer{color:var(--faint);font-size:12.5px;padding-bottom:30px}
     <div class="card tw"><table><thead><tr><th>Champion</th><th class="r">Parties</th><th class="r">Victoires</th><th class="r">Sans contrepartie / partie</th><th class="r">CS 10</th><th class="r">Or 10</th></tr></thead><tbody id="champRows"></tbody></table></div>
   </section>
 
-  <footer>Données : API officielle de Riot Games, parties classées de ce compte uniquement. Mise à jour automatique toutes les 3 heures. ADC Lab n'est pas approuvé par Riot Games.</footer>
+  <footer>Données : API officielle de Riot Games, parties classées de ce compte uniquement. Vérification automatique des nouvelles parties toutes les 5 minutes. ADC Lab n'est pas approuvé par Riot Games.</footer>
 </main>
 <div id="toastHost" aria-live="polite"></div>
 
@@ -261,7 +270,45 @@ const sign = v => v == null ? "—" : (v > 0 ? "+" : v < 0 ? "−" : "") + Math.
 const fr = v => v == null ? "—" : String(Math.round(v * 10) / 10).replace(".", ",");
 const PHASES = ["0-3","3-8","8-14","14-20","20+"];
 const FIX = {FiddleSticks:"Fiddlesticks"};
-let VER = "15.20.1", S = null, G = [];
+let VER = "15.20.1", S = null, G = [], R = [];
+const NS = [20, 50, 100];
+let N = 100, wkMode = null;
+try { const v = localStorage.getItem("adc.n"); if (v !== null && [0, ...NS].includes(+v)) N = +v; } catch (e) {}
+const W = () => N ? R.slice(0, N) : R;
+const nlab = () => N && R.length > N ? `tes ${N} dernières parties` : `tes ${R.length} dernière${R.length > 1 ? "s" : ""} partie${R.length > 1 ? "s" : ""}`;
+const avg = a => { a = a.filter(v => v != null); return a.length ? Math.round(a.reduce((x, y) => x + y, 0) / a.length * 100) / 100 : null; };
+const LN = g => g.lane || {};
+const BOT = g => g.pos === "BOTTOM";
+const ROLEFR = {TOP:"Top", JUNGLE:"Jungle", MIDDLE:"Mid", UTILITY:"Support"};
+function sessionsOf(games){
+  const asc = [...games].sort((a, b) => a.start - b.start), out = []; let cur = [];
+  for (const g of asc) { const l = cur[cur.length - 1]; if (l && g.start - (l.start + l.dur) > 2700) { out.push(cur); cur = []; } cur.push(g); }
+  if (cur.length) out.push(cur);
+  return out.map(s => { let streak = 0, broke = null;
+    s.forEach((g, i) => { if (streak >= 2 && broke == null) broke = i; streak = g.win ? 0 : streak + 1; });
+    return {day: s[0].local.slice(0, 10), from: s[0].local.slice(11), to: s[s.length - 1].local.slice(11), games: s.map(g => ({id: g.id, w: g.win, c: g.champ})), broke, extra: broke != null ? s.length - broke : 0}; });
+}
+function blockOf(games){
+  const n = games.length; if (!n) return {games: 0};
+  const sess = sessionsOf(games), wins = games.filter(g => g.win).length, bot = games.filter(BOT);
+  const objs = games.flatMap(g => (g.objs || []).filter(o => ["DRAGON", "BARON_NASHOR", "ATAKHAN"].includes(o.type)));
+  return {games: n, wins, wr: Math.round(wins * 100 / n), free: avg(games.map(g => g.free)), deaths: avg(games.map(g => g.d)),
+    deaths14: avg(games.map(g => LN(g).deaths14)), objPresent: objs.length ? Math.round(objs.filter(o => o.present).length * 100 / objs.length) : null,
+    cs10: avg(bot.map(g => LN(g).cs10)), gd10: avg(bot.map(g => LN(g).gd10)), gd14: avg(bot.map(g => LN(g).gd14)),
+    breaks: sess.filter(x => x.broke != null).length, sessions: sess.length};
+}
+function periodUI(){
+  const opts = NS.filter(n => n < R.length || n === NS[0]).map(n => [n, String(n)]);
+  if (R.length > 20) opts.push([0, `Toutes (${R.length})`]);
+  if (N && !opts.some(o => o[0] === N)) N = opts[opts.length - 1][0];
+  $("#period").innerHTML = R.length ? `<span>Parties</span>` + opts.map(([v, l]) => `<button class="chip" data-n="${v}" aria-pressed="${v === N}">${l}</button>`).join("") : "";
+  document.querySelectorAll(".nlab").forEach(x => x.textContent = nlab());
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-n]"); if (!b) return;
+  N = +b.dataset.n; try { localStorage.setItem("adc.n", String(N)); } catch (err) {}
+  pickKey = null; render();
+});
 const icon = c => `https://ddragon.leagueoflegends.com/cdn/${VER}/img/champion/${encodeURIComponent(FIX[c]||c)}.png`;
 const img = (c, cls) => `<img class="ci${cls?" "+cls:""}" src="${icon(c)}" alt="${esc(c)}" title="${esc(c)}" loading="lazy" width="24" height="24">`;
 const NAME = {Kaisa:"Kai'Sa",KogMaw:"Kog'Maw",MissFortune:"Miss Fortune",MonkeyKing:"Wukong",TahmKench:"Tahm Kench",JarvanIV:"Jarvan IV",LeeSin:"Lee Sin",MasterYi:"Maître Yi",XinZhao:"Xin Zhao",DrMundo:"Dr. Mundo",AurelionSol:"Aurelion Sol",TwistedFate:"Twisted Fate",Belveth:"Bel'Veth",Chogath:"Cho'Gath",Khazix:"Kha'Zix",KSante:"K'Santé",Leblanc:"LeBlanc",RekSai:"Rek'Sai",Velkoz:"Vel'Koz",Nunu:"Nunu et Willump",Renata:"Renata Glasc",FiddleSticks:"Fiddlesticks"};
@@ -272,6 +319,7 @@ async function load(){
   try{
     const [s,g] = await Promise.all([fetch("data/summary.json",{cache:"no-store"}).then(r=>r.ok?r.json():null), fetch("data/games.json",{cache:"no-store"}).then(r=>r.ok?r.json():[]).catch(()=>[])]);
     S = s || {}; G = Array.isArray(g) ? g : [];
+    R = G.filter(x => !x.remake && x.dur >= 600).sort((a, b) => b.start - a.start);
   }catch(e){ S = {}; G = []; }
   if (S.ddragon) VER = S.ddragon;
   render();
@@ -282,6 +330,7 @@ function render(){
   const upd = S.updated || st.checked;
   $("#who").innerHTML = `<b>${esc(S.riotId || "ArchaGrim#game1")}</b><br>${upd ? "Mis à jour " + esc(ago(upd)) : "Pas encore de données"}`;
   banner(st);
+  periodUI();
   week(); trend(); mapInit(); games(); objectives(); lane(); sessions(); champs();
 }
 function ago(iso){const d=(Date.now()-new Date(iso).getTime())/60000;if(d<2)return "à l'instant";if(d<60)return `il y a ${Math.round(d)} min`;if(d<48*60)return `il y a ${Math.round(d/60)} h`;return `le ${new Date(iso).toLocaleDateString("fr-CH")}`;}
@@ -304,11 +353,19 @@ function banner(st){
 /* ---------- Semaine ---------- */
 function week(){
   const w = S.week || {}, cur = (w.cur && w.cur.games) ? w.cur : null, prev = w.prev && w.prev.games ? w.prev : null;
-  const blk = cur || S.last20 || {games:0};
-  $("#wk-title").textContent = cur ? "Cette semaine" : "Tes 20 dernières parties";
+  if (!cur) wkMode = "period"; else if (!wkMode) wkMode = "week";
+  const P = W(), pb = blockOf(P), older = N ? R.slice(N, 2 * N) : [], ob = N && older.length >= N ? blockOf(older) : null;
+  const isWeek = wkMode === "week" && !!cur;
+  $("#wkMode").hidden = !cur;
+  $("#wkPeriodBtn").textContent = N && R.length > N ? `${N} dernières parties` : "Toutes les parties";
+  document.querySelectorAll("[data-wk]").forEach(x => x.setAttribute("aria-pressed", String((x.dataset.wk === "week") === isWeek)));
+  const blk = isWeek ? cur : pb, ref = isWeek ? prev : ob;
+  const refTxt = isWeek ? "vs semaine dernière" : `vs les ${N} d'avant`;
+  $("#wk-title").textContent = isWeek ? "Cette semaine" : (N && R.length > N ? `Tes ${N} dernières parties` : "Toutes tes parties");
+  $("#wk-lead").textContent = "Les chiffres qui comptent pour ton programme" + (isWeek ? (prev ? ", comparés à la semaine dernière." : ".") : ob ? `, comparés aux ${N} parties d'avant.` : ".");
   if (!blk.games) { $("#wk-line").innerHTML = `<span>Aucune partie analysée pour l'instant.</span>`; $("#kpis").innerHTML = ""; return; }
-  $("#wk-line").innerHTML = `<span><b class="num">${blk.games}</b> parties</span><span><b class="num">${blk.wins} V – ${blk.games-blk.wins} D</b> (${blk.wr} %)</span><span><b class="num">${blk.sessions||0}</b> sessions</span>${cur&&prev?`<span>Semaine dernière : ${prev.games} parties, ${prev.wr} %</span>`:""}`;
-  const ref = cur ? prev : null;
+  const refLine = isWeek ? (prev ? `<span>Semaine dernière : ${prev.games} parties, ${prev.wr} %</span>` : "") : ob ? `<span>Les ${N} d'avant : ${ob.wins} V – ${ob.games - ob.wins} D (${ob.wr} %)</span>` : "";
+  $("#wk-line").innerHTML = `<span><b class="num">${blk.games}</b> parties</span><span><b class="num">${blk.wins} V – ${blk.games-blk.wins} D</b> (${blk.wr} %)</span><span><b class="num">${blk.sessions||0}</b> sessions</span>${refLine}`;
   const K = [
     {k:"free", l:"Morts sans contrepartie / partie", tag:"Ton focus", focus:true, better:-1, f:fr},
     {k:"deaths14", l:"Morts avant 14 min / partie", better:-1, f:fr},
@@ -322,11 +379,15 @@ function week(){
     let d = "";
     if (v != null && p != null) {
       const diff = x.dp === 0 ? Math.round(v - p) : Math.round((v - p) * 10) / 10, good = diff * x.better > 0, cls = diff === 0 ? "flat" : good ? "good" : "bad";
-      d = `<div class="d ${cls}">${diff===0?"=":(diff>0?"+":"−")+Math.abs(diff).toLocaleString("fr-FR")}${x.unit||""} vs semaine dernière</div>`;
-    } else if (!cur) d = `<div class="d flat">Moyenne sur 20 parties</div>`;
+      d = `<div class="d ${cls}">${diff===0?"=":(diff>0?"+":"−")+Math.abs(diff).toLocaleString("fr-FR")}${x.unit||""} ${refTxt}</div>`;
+    } else d = `<div class="d flat">${x.k === "breaks" ? `Sur ${blk.sessions} sessions` : `Moyenne sur ${blk.games} parties`}</div>`;
     return `<div class="kpi${x.focus?" focus":""}"><div class="l">${esc(x.l)}${x.tag?`<span class="tag">${x.tag}</span>`:""}</div><div class="v">${x.f(v)}</div>${d}</div>`;
   }).join("");
 }
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-wk]"); if (!b) return;
+  wkMode = b.dataset.wk; week();
+});
 
 /* ---------- Tendance ---------- */
 let trendChart = null, trendKey = "free";
@@ -334,17 +395,19 @@ function chartBase(){return {responsive:true,maintainAspectRatio:false,animation
   plugins:{legend:{display:false},tooltip:{backgroundColor:"rgba(4,13,23,.95)",borderColor:"#C8AA6E",borderWidth:1,titleColor:"#F0E6D2",bodyColor:"#F0E6D2"}},
   scales:{x:{grid:{color:"rgba(200,170,110,.08)"},ticks:{color:"#A09B8C",font:{size:10},maxRotation:0,autoSkip:true}},y:{grid:{color:"rgba(200,170,110,.1)"},ticks:{color:"#A09B8C",font:{size:11}}}}};}
 function trend(){
-  const t = S.trend || [];
+  const t = [...W()].reverse(), TV = {free: g => g.free, d: g => g.d, cs10: g => BOT(g) ? LN(g).cs10 : null, gd10: g => BOT(g) ? LN(g).gd10 : null};
+  const k = t.length > 40 ? 10 : 5;
+  $("#trendNote").textContent = `Barres : chaque partie (bleu = victoire, rouge = défaite). Ligne : moyenne des ${k} dernières.`;
   const box = $("#trendChart").parentNode;
   if (!t.length || !window.Chart) { box.innerHTML = `<p class="muted" style="margin:30px 0;text-align:center">${t.length?"Le graphique n'a pas pu se charger.":"Les courbes apparaîtront avec tes premières parties."}</p>`; return; }
-  const vals = t.map(x => x[trendKey] ?? null);
-  const roll = vals.map((_,i) => { const w = vals.slice(Math.max(0,i-4), i+1).filter(v=>v!=null); return w.length ? Math.round(w.reduce((a,b)=>a+b,0)/w.length*10)/10 : null; });
+  const vals = t.map(x => TV[trendKey](x) ?? null);
+  const roll = vals.map((_,i) => { const w = vals.slice(Math.max(0,i-k+1), i+1).filter(v=>v!=null); return w.length ? Math.round(w.reduce((a,b)=>a+b,0)/w.length*10)/10 : null; });
   const labels = t.map(x => x.local.slice(5,10).split("-").reverse().join("."));
   const data = {labels, datasets:[
-    {type:"bar", data:vals, backgroundColor:t.map(x=>x.w?"rgba(10,200,185,.55)":"rgba(232,64,87,.55)"), borderRadius:4},
+    {type:"bar", data:vals, backgroundColor:t.map(x=>x.win?"rgba(10,200,185,.55)":"rgba(232,64,87,.55)"), borderRadius:t.length>60?2:4},
     {type:"line", data:roll, borderColor:"#C8AA6E", backgroundColor:"#C8AA6E", pointRadius:0, borderWidth:2.5, tension:.3}]};
   const opt = chartBase();
-  opt.plugins.tooltip.callbacks = {title:i=>{const x=t[i[0].dataIndex];return `${nm(x.c)} · ${x.w?"Victoire":"Défaite"} · ${x.local}`;}, label:c=>c.datasetIndex===0?`Partie : ${c.formattedValue}`:`Moyenne 5 parties : ${c.formattedValue}`};
+  opt.plugins.tooltip.callbacks = {title:i=>{const x=t[i[0].dataIndex];return `${nm(x.champ)} · ${x.win?"Victoire":"Défaite"} · ${x.local}`;}, label:c=>c.datasetIndex===0?`Partie : ${c.formattedValue}`:`Moyenne ${k} parties : ${c.formattedValue}`};
   if (trendChart) trendChart.destroy();
   trendChart = new Chart($("#trendChart"), {type:"bar", data, options:opt});
 }
@@ -360,15 +423,18 @@ function mapInit(){
   $("#map").style.backgroundImage = `url(img/map11.png)`;
   $("#phaseChips").innerHTML = [["","Toutes"],...PHASES.map(p=>[p,p+" min"])].map(([v,l])=>`<button class="chip" data-phase="${v}" aria-pressed="${phaseF===v}">${l}</button>`).join("");
   drawMap();
-  $("#zones").innerHTML = (S.zones||[]).map(([z,n,f])=>`<tr><td>${esc(z)}</td><td class="r">${n}</td><td class="r ${f?"bad":""}">${f}</td></tr>`).join("") || `<tr><td colspan="3" class="muted">Pas encore de données.</td></tr>`;
+  const Z = {};
+  W().forEach(g => g.deaths.forEach(d => { const z = d.zone.split(",")[0]; (Z[z] = Z[z] || [0, 0])[0]++; if (d.free) Z[z][1]++; }));
+  $("#zones").innerHTML = Object.entries(Z).map(([z, [n, f]]) => [z, n, f]).sort((a, b) => b[1] - a[1]).map(([z,n,f])=>`<tr><td>${esc(z)}</td><td class="r">${n}</td><td class="r ${f?"bad":""}">${f}</td></tr>`).join("") || `<tr><td colspan="3" class="muted">Pas encore de données.</td></tr>`;
 }
 function mapDeaths(){
   const out = [];
-  G.slice(0,20).forEach(g => g.deaths.forEach((d,i) => { if (d.pos) out.push({g,d,key:g.id+"#"+i}); }));
+  W().forEach(g => g.deaths.forEach((d,i) => { if (d.pos) out.push({g,d,key:g.id+"#"+i}); }));
   return out.filter(x => (!phaseF || x.d.ph === phaseF) && (!onlyFree || x.d.free));
 }
 function drawMap(){
   const list = mapDeaths();
+  $("#map").classList.toggle("many", list.length > 120);
   $("#map").innerHTML = list.map(({d,key}) => {
     const l = (d.pos.x - MIN) / (MAXX - MIN) * 100, t = (1 - (d.pos.y - MIN) / (MAXY - MIN)) * 100;
     return `<button class="dot ${d.free?"free":"trade"}" style="left:${l.toFixed(2)}%;top:${t.toFixed(2)}%" data-dot="${esc(key)}" aria-pressed="${pickKey===key}" aria-label="Mort à ${mmss(d.t)}, ${esc(d.zone)}"></button>`;
@@ -389,7 +455,7 @@ document.addEventListener("click", e => {
 /* ---------- Audit ---------- */
 let gameSel = null;
 function games(){
-  const list = G.slice(0, 25);
+  const list = W();
   if (!list.length) { $("#games").innerHTML = `<p class="muted">Aucune partie analysée pour l'instant.</p>`; $("#auditBody").innerHTML = ""; return; }
   if (!gameSel || !list.some(g => g.id === gameSel)) gameSel = list[0].id;
   $("#games").innerHTML = list.map(g => `<button class="g" data-game="${esc(g.id)}" aria-pressed="${g.id===gameSel}"><span class="wl" style="background:${g.win?"var(--win)":"var(--loss)"}"></span>${img(g.champ)}<span><b class="num">${g.k}/${g.d}/${g.a}</b><small>${esc(g.local.slice(8,10)+"."+g.local.slice(5,7)+" "+g.local.slice(11))}${g.free?` · <span class="bad">${g.free} sans contrep.</span>`:""}</small></span></button>`).join("");
@@ -451,7 +517,7 @@ document.addEventListener("click", e => {
 
 /* ---------- Objectifs ---------- */
 function objectives(){
-  const list = G.slice(0,20).flatMap(g => g.objs || []);
+  const list = W().flatMap(g => g.objs || []);
   if (!list.length) { $("#objs").innerHTML = `<p class="muted">Pas encore de données.</p>`; return; }
   const T = [["DRAGON","Dragons"],["HORDE","Larves"],["RIFTHERALD","Héraut"],["ATAKHAN","Atakhan"],["BARON_NASHOR","Baron"]];
   $("#objs").innerHTML = T.map(([k,l]) => {
@@ -463,10 +529,16 @@ function objectives(){
 
 /* ---------- Lane ---------- */
 function lane(){
-  const list = G.slice(0,20);
-  $("#laneRows").innerHTML = list.map(g => { const L = g.lane || {}, b = L.back1;
+  const list = W();
+  const c0 = v => v==null?"":v>0?"good":v<0?"bad":"";
+  const Ls = list.filter(BOT).map(LN), d2s = Ls.map(L => L.lvl2!=null&&L.lvl2E!=null ? L.lvl2E - L.lvl2 : null), backs = Ls.map(L => L.back1 && L.back1.t);
+  const A = k => avg(Ls.map(L => L[k])), ad2 = avg(d2s), ab = avg(backs);
+  const avgRow = Ls.length ? `<tr class="avg"><td>Moyenne · ${Ls.length} parties en ADC</td><td></td><td class="r">${fr(A("cs10"))} <span class="${c0(A("csd10"))}">(${sign(A("csd10"))})</span></td><td class="r ${c0(A("gd10"))}">${sign(A("gd10"))}</td><td class="r ${c0(A("xpd10"))}">${sign(A("xpd10"))}</td><td class="r ${c0(A("gd14"))}">${sign(A("gd14"))}</td>
+    <td class="r ${c0(ad2)}">${ad2==null?"—":(ad2>=0?"avance ":"retard ")+Math.abs(Math.round(ad2))+" s"}</td><td class="r">+${fr(A("platesWon"))} / −${fr(A("platesLost"))}</td><td class="r">${ab==null?"—":mmss(Math.round(ab))}</td><td class="r">${fr(A("deaths14"))}</td></tr>` : "";
+  $("#laneRows").innerHTML = avgRow + list.map(g => { const L = g.lane || {}, b = L.back1;
     const d2 = L.lvl2!=null&&L.lvl2E!=null ? L.lvl2E - L.lvl2 : null;
     const c = v => v==null?"":v>0?"good":v<0?"bad":"";
+    if (!BOT(g)) return `<tr class="off"><td>${img(g.champ)} <span class="pill ${g.win?"w":"l"}">${g.win?"V":"D"}</span> <span class="muted">${esc(g.local.slice(8,10)+"."+g.local.slice(5,7))}</span></td><td colspan="9" class="muted">Partie en ${esc(ROLEFR[g.pos] || "autre rôle")} : hors statistiques de lane</td></tr>`;
     return `<tr><td>${img(g.champ)} <span class="pill ${g.win?"w":"l"}">${g.win?"V":"D"}</span> <span class="muted">${esc(g.local.slice(8,10)+"."+g.local.slice(5,7))}</span></td><td>${g.eAdc?img(g.eAdc):""} ${esc(nm(g.eAdc||""))}</td>
       <td class="r">${L.cs10??"—"} <span class="${c(L.csd10)}">(${sign(L.csd10)})</span></td><td class="r ${c(L.gd10)}">${sign(L.gd10)}</td><td class="r ${c(L.xpd10)}">${sign(L.xpd10)}</td><td class="r ${c(L.gd14)}">${sign(L.gd14)}</td>
       <td class="r ${c(d2)}">${d2==null?"—":(d2>=0?"avance ":"retard ")+Math.abs(d2)+" s"}</td><td class="r">+${L.platesWon||0} / −${L.platesLost||0}</td>
@@ -477,7 +549,7 @@ function lane(){
 /* ---------- Sessions ---------- */
 let idxChart=null, hourChart=null;
 function sessions(){
-  const ss = S.sessions || [];
+  const ss = sessionsOf(W()).reverse();
   $("#sess").innerHTML = ss.map(s => `<div class="ses${s.broke!=null?" broke":""}"><div class="d"><b>${esc(s.day.split("-").reverse().join("."))}</b>${esc(s.from)} → ${esc(s.to)}</div>
     <div class="seq">${s.games.map((g,i)=>`<span class="${g.w?"w":"l"}${s.broke!=null&&i>=s.broke?" after":""}" title="${esc(nm(g.c))} : ${g.w?"victoire":"défaite"}"><img src="${icon(g.c)}" alt="${esc(nm(g.c))}" loading="lazy" width="26" height="26"></span>`).join("")}</div>
     ${s.broke!=null?`<span class="pill flag">${s.extra} partie${s.extra>1?"s":""} après 2 défaites</span>`:`<span class="pill ok">Règle respectée</span>`}</div>`).join("") || `<p class="muted">Pas encore de sessions.</p>`;
@@ -488,13 +560,20 @@ function sessions(){
     opt.plugins.tooltip.callbacks = {label:c=>`${c.formattedValue} % de victoires sur ${src[keys[c.dataIndex]].n} partie${src[keys[c.dataIndex]].n>1?"s":""}`};
     return new Chart(canvas,{type:"bar",data:{labels:keys.map(labelOf),datasets:[{data:keys.map(k=>src[k].wr),backgroundColor:keys.map(k=>src[k].wr>=50?"rgba(10,200,185,.6)":"rgba(232,64,87,.6)"),borderRadius:4}]},options:opt});
   };
-  idxChart = bar($("#idxChart"), S.byIndex, k => k==="6" ? "6e +" : k + (k==="1"?"re":"e"), idxChart);
-  hourChart = bar($("#hourChart"), S.byHour, k => k + " h", hourChart);
+  const BI = {}, BH = {};
+  sessionsOf(W()).forEach(s => s.games.forEach((g, i) => { const k = String(Math.min(i + 1, 6)); (BI[k] = BI[k] || []).push(g.w); }));
+  W().forEach(g => { const k = String(+g.local.slice(11, 13)); (BH[k] = BH[k] || []).push(g.win); });
+  const pack = o => Object.fromEntries(Object.keys(o).sort((a, b) => a - b).map(k => [k, {n: o[k].length, wr: Math.round(o[k].filter(Boolean).length * 100 / o[k].length)}]));
+  idxChart = bar($("#idxChart"), pack(BI), k => k==="6" ? "6e +" : k + (k==="1"?"re":"e"), idxChart);
+  hourChart = bar($("#hourChart"), pack(BH), k => k + " h", hourChart);
 }
 
 /* ---------- Champions ---------- */
 function champs(){
-  $("#champRows").innerHTML = (S.champs||[]).map(c => `<tr><td>${img(c.c)} ${esc(nm(c.c))}</td><td class="r">${c.n}</td><td class="r ${c.wr>=50?"good":"bad"}">${c.wr} %</td><td class="r">${fr(c.free)}</td><td class="r">${fr(c.cs10)}</td><td class="r">${sign(c.gd10)}</td></tr>`).join("") || `<tr><td colspan="6" class="muted">Pas encore de données.</td></tr>`;
+  const C = {};
+  W().forEach(g => (C[g.champ] = C[g.champ] || []).push(g));
+  const list = Object.entries(C).map(([c, v]) => ({c, n: v.length, wr: Math.round(v.filter(x => x.win).length * 100 / v.length), free: avg(v.map(x => x.free)), cs10: avg(v.filter(BOT).map(x => LN(x).cs10)), gd10: avg(v.filter(BOT).map(x => LN(x).gd10))})).sort((a, b) => b.n - a.n);
+  $("#champRows").innerHTML = list.map(c => `<tr><td>${img(c.c)} ${esc(nm(c.c))}</td><td class="r">${c.n}</td><td class="r ${c.wr>=50?"good":"bad"}">${c.wr} %</td><td class="r">${fr(c.free)}</td><td class="r">${fr(c.cs10)}</td><td class="r">${sign(c.gd10)}</td></tr>`).join("") || `<tr><td colspan="6" class="muted">Pas encore de données.</td></tr>`;
 }
 
 load();
