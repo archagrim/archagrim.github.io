@@ -166,6 +166,7 @@ footer{color:var(--faint);font-size:12.5px;padding-bottom:30px}
       <a class="brand" href="../" style="text-decoration:none"><svg viewBox="0 0 32 36" aria-hidden="true"><defs><linearGradient id="hg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F0E6D2"/><stop offset=".5" stop-color="#C8AA6E"/><stop offset="1" stop-color="#785A28"/></linearGradient></defs><path d="M16 1.5l13 7.5v18L16 34.5 3 27V9z" fill="#0A1428" stroke="url(#hg)" stroke-width="2"/><circle cx="16" cy="18" r="6.5" fill="none" stroke="#0AC8B9" stroke-width="1.6"/><path d="M16 8.5v5M16 22.5v5M6.5 18h5M20.5 18h5" stroke="url(#hg)" stroke-width="2" stroke-linecap="round"/></svg><b>ADC Lab</b></a>
       <div class="period" role="group" aria-label="Nombre de parties analysées" id="period"></div>
       <div class="who" id="who">Chargement…</div>
+      <button class="chip" id="install" type="button" hidden>Installer</button>
     </div>
     <nav class="jump" aria-label="Sections">
       <a href="#semaine">Semaine</a><a href="#tendance">Tendance</a><a href="#carte">Carte des morts</a><a href="#audit">Audit</a><a href="#objectifs">Objectifs</a><a href="#lane">Lane</a><a href="#sessions">Sessions</a><a href="#champions">Champions</a>
@@ -577,6 +578,18 @@ function champs(){
 }
 
 load();
+
+/* ---------- Installation (Android, Chrome, Edge) ---------- */
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+let deferredInstall = null;
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferredInstall = e; $("#install").hidden = false; });
+$("#install").addEventListener("click", async () => {
+  if (!deferredInstall) return;
+  deferredInstall.prompt();
+  await deferredInstall.userChoice.catch(() => null);
+  deferredInstall = null; $("#install").hidden = true;
+});
+window.addEventListener("appinstalled", () => { $("#install").hidden = true; });
 })();
 </script>
 </body>
