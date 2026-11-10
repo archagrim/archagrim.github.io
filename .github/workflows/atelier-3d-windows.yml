@@ -48,7 +48,8 @@ jobs:
           echo "{\"version\":\"$VERSION\"}" > ver.json
           npx tauri build --config ver.json
           cp src-tauri/target/release/bundle/nsis/*-setup.exe ../Atelier3D-setup.exe
-          ls -l ../Atelier3D-setup.exe
+          cp src-tauri/target/release/atelier-3d.exe ../Atelier3D-portable.exe
+          ls -l ../Atelier3D-setup.exe ../Atelier3D-portable.exe
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Publication dans les Releases
@@ -64,8 +65,10 @@ jobs:
           3. Les fichiers .3mf et .stl s'ouvrent ensuite d'un double-clic.
 
           Pour mettre à jour, installez simplement la nouvelle version par-dessus : vos réglages et votre bibliothèque sont gardés.
+
+          **Sans installation** (ordinateur où l'on ne peut rien installer) : **Atelier3D-portable.exe** se lance directement, par exemple depuis une clé USB. Il faut que Microsoft Edge WebView2 soit présent sur l'ordinateur (c'est le cas sur Windows 11 et la plupart des Windows 10). Pas de double-clic sur les fichiers .3mf dans ce mode : ouvrez-les depuis le programme.
           EOF
-          gh release create "atelier-3d-v$VERSION" Atelier3D-setup.exe \
+          gh release create "atelier-3d-v$VERSION" Atelier3D-setup.exe Atelier3D-portable.exe \
             --target "${{ github.sha }}" \
             --title "Atelier 3D $VERSION pour Windows" \
             --notes-file notes.md \

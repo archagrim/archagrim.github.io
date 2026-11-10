@@ -27,6 +27,8 @@ struct Entry {
 #[derive(Serialize)]
 struct Info {
     version: String,
+    /// Lancé sans installation (par exemple depuis une clé USB) : pas de désinstalleur à côté du programme.
+    portable: bool,
 }
 
 fn entry_of(path: &Path) -> Option<Entry> {
@@ -105,8 +107,13 @@ fn take_launch_files(state: State<'_, Launch>) -> Vec<String> {
 
 #[tauri::command]
 fn app_info(app: AppHandle) -> Info {
+    let portable = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(|dir| !dir.join("uninstall.exe").exists()))
+        .unwrap_or(false);
     Info {
         version: app.package_info().version.to_string(),
+        portable,
     }
 }
 

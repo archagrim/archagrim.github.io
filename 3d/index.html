@@ -2832,7 +2832,12 @@ $('ihelpClose').addEventListener('click', closeHelp);
 document.addEventListener('click', (e) => { if (!$('ihelp').hidden && !$('ihelp').contains(e.target) && e.target !== $('install')) closeHelp(); });
 
 $('install').addEventListener('click', async () => {
-  if (desktop) { if (updateURL) desktop.open(updateURL); return; }
+  if (desktop) {
+    if (!updateURL) return;
+    desktop.open(updateURL);
+    if (portableApp) toast('<strong>Nouvelle version en téléchargement.</strong> Fermez Atelier 3D, puis remplacez « Atelier 3D.exe » sur votre clé par le fichier Atelier3D-portable.exe téléchargé (renommé de la même façon).');
+    return;
+  }
   if (deferredInstall) {
     deferredInstall.prompt();
     const choice = await deferredInstall.userChoice.catch(() => null);
@@ -2848,6 +2853,8 @@ window.addEventListener('appinstalled', () => { $('install').hidden = true; clos
 // ---------- Version programme : fichiers ouverts par double-clic, et mises à jour ----------
 let updateURL = null;
 const DOWNLOAD_WIN = 'https://github.com/archagrim/archagrim.github.io/releases/latest/download/Atelier3D-setup.exe';
+const DOWNLOAD_PORTABLE = 'https://github.com/archagrim/archagrim.github.io/releases/latest/download/Atelier3D-portable.exe';
+let portableApp = false;
 if (desktop) {
   const openPaths = async (paths) => {
     if (!paths || !paths.length) return;
@@ -2870,7 +2877,8 @@ if (desktop) {
       let newer = false;
       for (let i = 0; i < 3; i++) { if ((a[i] || 0) !== (b[i] || 0)) { newer = (a[i] || 0) > (b[i] || 0); break; } }
       if (!newer) return;
-      updateURL = DOWNLOAD_WIN;
+      portableApp = !!info.portable;
+      updateURL = portableApp ? DOWNLOAD_PORTABLE : DOWNLOAD_WIN;
       const btn = $('install');
       btn.textContent = 'Mise à jour';
       btn.title = 'Télécharger la version ' + latest + ' (vous avez la ' + info.version + ')';
