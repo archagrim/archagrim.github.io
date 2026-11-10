@@ -33,6 +33,7 @@ Chaque nouveau site peut avoir son propre dossier ici et sera publié à `https:
 - Jusqu'à **60 fichiers** ouverts à la fois, lus en parallèle, avec une liste de vignettes ; flèches du clavier pour passer de l'un à l'autre. Chaque fichier garde sa propre échelle. Les gros modèles les moins récemment vus sont mis en veille pour ne pas saturer la mémoire et relus à la demande.
 - Windows n'affiche **Ouvrir avec** que jusqu'à 15 fichiers sélectionnés : au-delà, glisser-déposer ou **Ouvrir des fichiers**.
 - **Ouvrir un dossier** (Ctrl + Maj + O, ou glisser un dossier) : sous-dossiers compris, les 60 premiers modèles par ordre alphabétique ; recherche et tri (nom, hauteur) dans la liste.
+- **Garder cette taille** (section Échelle) : mémorise l'échelle d'une figurine (reconnue à son nom et au poids exact du fichier) ; elle se rouvre ensuite toujours à cette taille, y compris en côte à côte et dans la bibliothèque. **Oublier** revient à la taille d'origine. Gardé dans le navigateur (`localStorage`, clé `atelier3d.sizes`), séparément sur chaque appareil pour l'instant.
 - **Côte à côte** : jusqu'à 16 modèles (30 millions de triangles au total) alignés en taille réelle, avec leur nom et leur hauteur.
 - **Sous-couche** : aperçu résine, noire, blanche ou zénithale.
 - **Mesurer** : deux clics sur le modèle donnent la distance en mm, à l'échelle choisie (point trouvé par la carte graphique, instantané même sur des millions de triangles).

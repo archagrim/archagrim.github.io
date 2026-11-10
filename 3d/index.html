@@ -199,6 +199,9 @@ dd.warn{color:var(--warn)}
 .field .box{display:flex;align-items:center;height:30px;border-radius:8px;background:var(--fill);padding:0 10px 0 4px}
 .field input{width:64px;height:28px;border:0;background:transparent;text-align:right;font:500 13px var(--font);font-variant-numeric:tabular-nums;color:var(--ink);padding:0 4px}
 .field input:focus{outline:none}
+.keep{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:6px;margin-top:10px;font-size:13px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.keep span{margin-right:auto}
+.keep span:empty{display:none}
 .field .box:focus-within{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 45%,transparent)}
 .field .box span{color:var(--ink-3)}
 .segfull{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding:2px;border-radius:9px;background:var(--fill)}
@@ -537,7 +540,8 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
         <button class="chip" type="button" data-base="0" aria-pressed="true" disabled>Origine</button>
       </div>
       <label class="field" for="scaleInput">Échelle <span class="box"><input id="scaleInput" type="number" min="5" max="400" step="1" value="100" disabled><span>%</span></span></label>
-      <p class="foot">Choisissez le diamètre de socle voulu : toutes les cotes suivent et, en taille réelle, le modèle change de taille à l'écran. Chaque fichier garde sa propre échelle.</p>
+      <div class="keep"><span id="keepInfo"></span><button class="btn plain" id="keepForget" type="button" hidden>Oublier</button><button class="btn" id="keepBtn" type="button" disabled>Garder cette taille</button></div>
+      <p class="foot">Choisissez le diamètre de socle voulu : toutes les cotes suivent et, en taille réelle, le modèle change de taille à l'écran. « Garder cette taille » la mémorise : la figurine se rouvrira toujours à cette taille.</p>
     </section>
 
     <section class="group">
@@ -1125,6 +1129,7 @@ function setNum(id, value, format, ms = 450) {
 function setControlsEnabled(on) {
   chips.forEach(c => { c.disabled = !on; });
   scaleInput.disabled = !on;
+  $('keepBtn').disabled = !on;
   $('shotBtn').disabled = !on || recording;
   $('videoBtn').disabled = !on || recording;
 }
@@ -1133,6 +1138,7 @@ function clearPanel() {
   for (const k of Object.keys(shown)) delete shown[k];
   setControlsEnabled(false);
   renderCheck(null);
+  $('keepInfo').textContent = ''; $('keepForget').hidden = true; $('keepBtn').hidden = false; $('keepBtn').textContent = 'Garder cette taille';
 }
 const mm = (v) => fmt(v) + ' mm';
 const ml = (v) => '≈ ' + fmt(v, v < 10 ? 2 : 1) + ' ml';
@@ -1152,6 +1158,7 @@ function setScale(s, from, animate = true) {
     const match = b === 0 ? Math.abs(scale - 1) < 1e-6 : Math.abs(info.footprint * scale - b) < 0.05;
     c.setAttribute('aria-pressed', String(match));
   });
+  updateKeep();
   const e = entries().find(x => x.it.id === shownId);
   if (!e) return;
   e.ts = scale;
@@ -1174,6 +1181,50 @@ chips.forEach(c => c.addEventListener('click', () => {
 scaleInput.addEventListener('input', () => {
   const v = parseFloat(scaleInput.value.replace(',', '.'));
   if (Number.isFinite(v) && v > 0) setScale(v / 100, 'input');
+});
+
+// ---------- Tailles gardées : une échelle mémorisée par figurine ----------
+// Une figurine est reconnue à son nom et au poids exact de son fichier, sur n'importe quel ordinateur.
+// Chaque entrée garde sa date : « oublier » laisse une trace datée, pour pouvoir fusionner avec un autre appareil.
+const SIZES_KEY = 'atelier3d.sizes';
+const sizeKey = (name, bytes) => String(name).toLowerCase() + '|' + bytes;
+let kept = {};
+try { kept = JSON.parse(localStorage.getItem(SIZES_KEY) || '{}') || {}; } catch (e) { kept = {}; }
+function keptScale(name, bytes) { const k = kept[sizeKey(name, bytes)]; return k && k.s ? k.s : null; }
+function saveKept() {
+  try { localStorage.setItem(SIZES_KEY, JSON.stringify(kept)); return true; }
+  catch (e) { toast('<strong>Taille non enregistrée.</strong> Le stockage du navigateur est indisponible.'); return false; }
+}
+const pctText = (s) => fmt(s * 100, Math.abs(s * 1000 - Math.round(s * 100) * 10) < 0.5 ? 0 : 1) + ' %';
+function updateKeep() {
+  const it = items.find(i => i.id === shownId);
+  const btn = $('keepBtn'), forget = $('keepForget'), txt = $('keepInfo');
+  if (!it || !info) { btn.hidden = false; btn.textContent = 'Garder cette taille'; forget.hidden = true; txt.textContent = ''; return; }
+  const k = keptScale(it.name, it.size);
+  const same = k && Math.abs(k - it.scale) < 1e-4;
+  txt.textContent = k ? 'Taille gardée : ' + pctText(k) : '';
+  forget.hidden = !k;
+  btn.hidden = !!same;
+  btn.textContent = k ? 'Garder ' + pctText(it.scale) : 'Garder cette taille';
+}
+function refreshKeptTiles(it) {
+  for (const c of lib.cols) for (const m of c.models) if (m.name === it.name && m.size === it.size) repaint(m);
+}
+$('keepBtn').addEventListener('click', () => {
+  const it = items.find(i => i.id === shownId);
+  if (!it) return;
+  kept[sizeKey(it.name, it.size)] = { s: it.scale, n: it.name, t: Date.now() };
+  if (!saveKept()) return;
+  updateKeep(); refreshKeptTiles(it);
+  toast('<strong>' + esc(baseName(it.name)) + '</strong> se rouvrira à ' + pctText(it.scale) + ' (' + fmt(info.h * it.scale) + ' mm de haut).');
+});
+$('keepForget').addEventListener('click', () => {
+  const it = items.find(i => i.id === shownId);
+  if (!it) return;
+  kept[sizeKey(it.name, it.size)] = { s: null, n: it.name, t: Date.now() };
+  if (!saveKept()) return;
+  updateKeep(); refreshKeptTiles(it);
+  toast('<strong>Taille oubliée</strong> pour ' + esc(baseName(it.name)) + ' : retour à la taille d\'origine à la prochaine ouverture.');
 });
 
 // ---------- Contrôle du maillage ----------
@@ -1593,7 +1644,7 @@ function addFiles(list) {
     const dup = items.find(it => it.name === f.name && it.size === f.size && it.file.lastModified === f.lastModified);
     if (dup) { firstExisting = firstExisting || dup; continue; }
     if (items.length >= MAX_FILES) { tooMany++; continue; }
-    const it = { id: ++seq, file: f, name: f.name, size: f.size, status: 'queued', progress: 0, data: null, stats: null, check: null, thumb: null, zen: null, scale: 1, secs: 0, error: null, lastUsed: 0, el: null };
+    const it = { id: ++seq, file: f, name: f.name, size: f.size, status: 'queued', progress: 0, data: null, stats: null, check: null, thumb: null, zen: null, scale: keptScale(f.name, f.size) || 1, secs: 0, error: null, lastUsed: 0, el: null };
     items.push(it);
     firstNew = firstNew || it;
   }
@@ -2528,7 +2579,8 @@ async function paintTile(m, t) {
   tm.append(tag);
   if (m.level) { const d = document.createElement('span'); d.className = 'dot ' + m.level; tm.append(d); }
   const parts = [];
-  if (m.stats) parts.push(fmt(m.stats.h) + ' mm');
+  const ks = m.size ? keptScale(m.name, m.size) : null;
+  if (m.stats) parts.push(fmt(m.stats.h * (ks || 1)) + ' mm' + (ks && Math.abs(ks - 1) > 1e-6 ? ', ' + pctText(ks) : ''));
   else if (m.size) parts.push(fmt(m.size / 1048576, m.size < 10485760 ? 1 : 0) + ' Mo');
   if (t._showCol) parts.push(m.col.name);
   else if (m.sub) parts.push(m.sub);
