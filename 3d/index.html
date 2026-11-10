@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Atelier 3D</title>
-<meta name="description" content="Visionneuse de fichiers 3MF et STL en taille réelle : dimensions, échelle par socle, volume de résine.">
+<meta name="description" content="Visionneuse de fichiers 3MF et STL en taille réelle : jusqu'à 20 fichiers ouverts, dimensions, échelle par socle, volume de résine.">
 <meta name="theme-color" content="#010A13">
 <meta name="color-scheme" content="dark">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700&display=swap">
 <style>
-/* Layout : barre collante en tête ; scène 3D à gauche, fiche d'impression à droite ; empilé sur téléphone ; thème client LoL du site */
+/* Layout : barre collante en tête ; à gauche la barre des fichiers ouverts puis la scène 3D, à droite la fiche d'impression ; empilé sur téléphone ; thème client LoL du site */
 :root{
   --bg:#010A13; --card:#0A1520; --card2:#0E1C2A; --stage:#05101A; --sep:rgba(200,170,110,.15); --edge:rgba(200,170,110,.32);
   --fg:#F0E6D2; --muted:#A09B8C; --faint:#5F6067;
@@ -27,8 +27,10 @@
   --model:#CFC6B4; --grid:#16303B;
   --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter","Segoe UI",Roboto,sans-serif;
   --display:"Cinzel","Trajan Pro",Georgia,serif;
+  --strip-h:0px;
   color-scheme:dark;
 }
+body.has-files{--strip-h:96px}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;background:var(--bg)}
 body{margin:0;color:var(--fg);font:400 15px/1.45 var(--font);-webkit-font-smoothing:antialiased;
@@ -37,7 +39,6 @@ body{margin:0;color:var(--fg);font:400 15px/1.45 var(--font);-webkit-font-smooth
 button{font:inherit;color:inherit;cursor:pointer}
 :focus-visible{outline:2px solid var(--hex);outline-offset:2px}
 [hidden]{display:none!important}
-.num{font-variant-numeric:tabular-nums}
 .wrap{max-width:1400px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
 
 header.top{position:sticky;top:0;z-index:20;background:rgba(2,10,19,.82);-webkit-backdrop-filter:saturate(160%) blur(20px);backdrop-filter:saturate(160%) blur(20px);padding-top:env(safe-area-inset-top)}
@@ -49,19 +50,42 @@ header.top::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1p
 .fname{min-width:0;flex:1;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fname b{color:var(--fg);font-weight:600}
 .actions{display:flex;gap:8px;flex:none}
+@media (max-width:560px){.fname{display:none}.actions{margin-left:auto}}
 
 .btn{height:34px;padding:0 14px;border-radius:999px;border:1px solid var(--sep);background:rgba(1,10,19,.55);font-size:13px;font-weight:600;color:var(--fg);transition:border-color .15s,background .15s;white-space:nowrap}
 .btn:hover{border-color:var(--edge)}
 .btn.gold{border-color:rgba(200,170,110,.6);background:linear-gradient(180deg,rgba(200,170,110,.22),rgba(200,170,110,.08));color:var(--fg)}
 .btn.gold:hover{border-color:var(--gold)}
+.btn.small{height:28px;padding:0 10px;font-size:12px}
 .btn[aria-pressed="true"]{border-color:var(--hex);background:rgba(10,200,185,.14);color:var(--hex-hi)}
 
 main{padding-block:16px 28px}
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;align-items:start}
 @media (max-width:900px){.layout{grid-template-columns:minmax(0,1fr)}}
+.viewer{display:flex;flex-direction:column;gap:10px;min-width:0}
 
-.stage{position:relative;background:var(--stage);border:1px solid var(--sep);border-radius:16px;overflow:hidden;height:calc(100vh - 54px - env(safe-area-inset-top) - 46px);min-height:420px}
-@media (max-width:900px){.stage{height:64vh;min-height:360px}}
+/* Barre des fichiers ouverts */
+.strip{display:flex;align-items:stretch;gap:10px;height:86px;min-width:0}
+.strip-meta{flex:none;display:flex;flex-direction:column;justify-content:center;gap:6px;padding-right:2px}
+.strip-meta .count{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.strip-meta .count b{color:var(--fg);font-weight:700}
+.files{flex:1;min-width:0;display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:rgba(200,170,110,.3) transparent;padding-bottom:4px}
+.fitem{position:relative;flex:none;width:204px}
+.fcard{width:100%;height:78px;display:flex;align-items:center;gap:10px;padding:8px 26px 8px 8px;text-align:left;border-radius:12px;border:1px solid var(--sep);background:linear-gradient(180deg,var(--card2),var(--card))}
+.fcard:hover{border-color:var(--edge)}
+.fcard[aria-selected="true"]{border-color:var(--hex);background:linear-gradient(180deg,rgba(10,200,185,.16),rgba(10,200,185,.05))}
+.thumb{flex:none;width:60px;height:60px;border-radius:9px;background:var(--stage);border:1px solid var(--sep);overflow:hidden;display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--hex);font-variant-numeric:tabular-nums}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb.err{color:var(--loss);font-size:20px}
+.ftxt{min-width:0;display:flex;flex-direction:column;gap:2px}
+.fn{font-size:12.5px;font-weight:600;line-height:1.25;color:var(--fg);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+.fm{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fm.err{color:var(--loss)}
+.fclose{position:absolute;top:5px;right:5px;width:22px;height:22px;border-radius:50%;border:0;background:transparent;color:var(--muted);font-size:15px;line-height:22px;padding:0}
+.fclose:hover{background:rgba(232,64,87,.18);color:var(--fg)}
+
+.stage{position:relative;background:var(--stage);border:1px solid var(--sep);border-radius:16px;overflow:hidden;height:calc(100vh - 54px - env(safe-area-inset-top) - 46px - var(--strip-h));min-height:420px}
+@media (max-width:900px){.stage{height:62vh;min-height:360px}}
 .stage canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
 .stage canvas:active{cursor:grabbing}
 .stage.drag{border-color:var(--hex);box-shadow:inset 0 0 0 2px rgba(10,200,185,.5)}
@@ -70,15 +94,15 @@ main{padding-block:16px 28px}
 .hint .warn{color:var(--warn)}
 
 .empty,.status{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center}
-.empty-box{max-width:420px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.empty-box{max-width:440px;display:flex;flex-direction:column;align-items:center;gap:12px}
 .empty-box img{width:84px;height:84px;border-radius:20px;opacity:.95}
 .empty-box h1{margin:4px 0 0;font:700 24px/1.15 var(--display);letter-spacing:.04em;background:var(--gold-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 .empty-box p{margin:0;color:var(--muted)}
-.empty-box .small{font-size:12.5px;color:var(--faint);max-width:44ch}
+.empty-box .small{font-size:12.5px;color:var(--faint);max-width:46ch}
 .drop{border:1.5px dashed var(--edge);border-radius:16px;padding:22px 26px;display:flex;flex-direction:column;align-items:center;gap:12px;background:rgba(1,10,19,.35)}
 .stage.drag .drop{border-color:var(--hex)}
 
-.status{background:rgba(5,16,26,.7);font-size:13px;color:var(--muted)}
+.status{background:rgba(5,16,26,.72);font-size:13px;color:var(--muted)}
 .status .pbar{width:220px;height:3px;background:var(--sep);border-radius:2px;margin:10px auto 0;overflow:hidden}
 .status .pbar i{display:block;height:100%;width:0;background:var(--hex);transition:width .15s}
 .status .err{color:var(--fg);max-width:46ch}
@@ -87,6 +111,9 @@ main{padding-block:16px 28px}
 .toolbar{position:absolute;left:12px;right:12px;bottom:12px;display:flex;flex-wrap:wrap;gap:6px;justify-content:space-between;pointer-events:none}
 .toolbar .group{display:flex;flex-wrap:wrap;gap:6px;pointer-events:auto}
 .toolbar .btn{height:32px;padding:0 12px;font-size:12.5px;background:rgba(2,10,19,.78)}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:40;max-width:min(560px,calc(100vw - 32px));padding:10px 16px;border-radius:12px;border:1px solid rgba(232,198,112,.45);background:#13202b;color:var(--fg);font-size:13.5px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+.toast b{color:var(--warn)}
 
 aside{display:flex;flex-direction:column;gap:12px;min-width:0}
 .card{background:linear-gradient(180deg,var(--card2),var(--card));border:1px solid var(--sep);border-radius:16px;padding:16px;min-width:0}
@@ -131,48 +158,58 @@ dd{margin:0;text-align:right;font-size:13.5px;font-weight:600;font-variant-numer
     <div class="fname" id="fname">Aucun fichier ouvert</div>
     <div class="actions">
       <button class="btn" id="install" type="button" hidden>Installer</button>
-      <button class="btn gold" id="openBtn" type="button" title="Ctrl + O">Ouvrir un fichier</button>
+      <button class="btn gold" id="openBtn" type="button" title="Ctrl + O">Ouvrir des fichiers</button>
     </div>
   </div>
 </header>
 
-<input id="fileInput" type="file" accept=".3mf,.stl,model/3mf,model/stl" hidden>
+<input id="fileInput" type="file" accept=".3mf,.stl,model/3mf,model/stl" multiple hidden>
 
 <main class="wrap">
   <div class="layout">
-    <div class="stage" id="stage">
-      <div class="hint" id="hint" hidden></div>
+    <div class="viewer">
+      <div class="strip" id="strip" hidden>
+        <div class="strip-meta">
+          <span class="count" id="count"></span>
+          <button class="btn small" id="closeAll" type="button">Tout fermer</button>
+        </div>
+        <div class="files" id="files" role="tablist" aria-label="Fichiers ouverts"></div>
+      </div>
 
-      <div class="empty" id="empty">
-        <div class="empty-box">
-          <img src="icons/icon-192.png" alt="">
-          <h1>Ouvre un modèle 3D</h1>
-          <div class="drop">
-            <p>Glisse un fichier <b>.3mf</b> ou <b>.stl</b> ici</p>
-            <button class="btn gold" id="openBtn2" type="button">Choisir un fichier</button>
+      <div class="stage" id="stage">
+        <div class="hint" id="hint" hidden></div>
+
+        <div class="empty" id="empty">
+          <div class="empty-box">
+            <img src="icons/icon-192.png" alt="">
+            <h1>Ouvre tes modèles 3D</h1>
+            <div class="drop">
+              <p>Glisse des fichiers <b>.3mf</b> ou <b>.stl</b> ici, jusqu'à 20 à la fois</p>
+              <button class="btn gold" id="openBtn2" type="button">Choisir des fichiers</button>
+            </div>
+            <p class="small">Les fichiers restent sur ton PC : ils sont lus ici, rien n'est envoyé en ligne. Une fois l'app installée, sélectionne des .3mf ou .stl dans l'Explorateur → clic droit → Ouvrir avec → Atelier 3D.</p>
           </div>
-          <p class="small">Le fichier reste sur ton PC : il est lu ici, rien n'est envoyé en ligne. Une fois l'app installée, clic droit sur un .3mf ou un .stl → Ouvrir avec → Atelier 3D.</p>
         </div>
-      </div>
 
-      <div class="status" id="status" hidden>
-        <div>
-          <div id="statusText">Lecture…</div>
-          <div class="pbar" id="pbar"><i id="pfill"></i></div>
+        <div class="status" id="status" hidden>
+          <div>
+            <div id="statusText">Lecture…</div>
+            <div class="pbar" id="pbar"><i id="pfill"></i></div>
+          </div>
         </div>
-      </div>
 
-      <div class="toolbar" id="toolbar" hidden>
-        <div class="group" role="group" aria-label="Vues">
-          <button class="btn" id="v-front" type="button">Face</button>
-          <button class="btn" id="v-side" type="button">Côté</button>
-          <button class="btn" id="v-back" type="button">Dos</button>
-          <button class="btn" id="v-top" type="button">Dessus</button>
-        </div>
-        <div class="group">
-          <button class="btn" id="t-real" type="button" aria-pressed="true">Taille réelle 1:1</button>
-          <button class="btn" id="t-spin" type="button" aria-pressed="false">Rotation auto</button>
-          <button class="btn" id="t-grid" type="button" aria-pressed="true">Grille 10 mm</button>
+        <div class="toolbar" id="toolbar" hidden>
+          <div class="group" role="group" aria-label="Vues">
+            <button class="btn" id="v-front" type="button">Face</button>
+            <button class="btn" id="v-side" type="button">Côté</button>
+            <button class="btn" id="v-back" type="button">Dos</button>
+            <button class="btn" id="v-top" type="button">Dessus</button>
+          </div>
+          <div class="group">
+            <button class="btn" id="t-real" type="button" aria-pressed="true">Taille réelle 1:1</button>
+            <button class="btn" id="t-spin" type="button" aria-pressed="false">Rotation auto</button>
+            <button class="btn" id="t-grid" type="button" aria-pressed="true">Grille 10 mm</button>
+          </div>
         </div>
       </div>
     </div>
@@ -201,7 +238,7 @@ dd{margin:0;text-align:right;font-size:13.5px;font-weight:600;font-variant-numer
           <button class="chip" type="button" data-base="0" aria-pressed="true" disabled>Origine</button>
         </div>
         <label class="scale-row" for="scaleInput">Échelle <input id="scaleInput" type="number" min="5" max="400" step="1" value="100" disabled> %</label>
-        <p class="note">Choisis le diamètre du socle voulu : toutes les cotes suivent, et en 1:1 la figurine change de taille à l'écran.</p>
+        <p class="note">Choisis le diamètre du socle voulu : toutes les cotes suivent, et en 1:1 la figurine change de taille à l'écran. Chaque fichier garde sa propre échelle.</p>
       </section>
 
       <section class="card">
@@ -227,6 +264,8 @@ dd{margin:0;text-align:right;font-size:13.5px;font-weight:600;font-variant-numer
   </div>
 </main>
 
+<div class="toast" id="toast" role="status" hidden></div>
+
 <div class="calib" id="calib" hidden role="dialog" aria-modal="true" aria-labelledby="calibTitle">
   <div class="calib-box">
     <h2 id="calibTitle">Calibrer la taille réelle</h2>
@@ -249,6 +288,9 @@ dd{margin:0;text-align:right;font-size:13.5px;font-weight:600;font-variant-numer
 import * as THREE from 'three';
 import { OrbitControls } from './lib/OrbitControls.js';
 
+const MAX_FILES = 20;
+const POOL = Math.min(4, Math.max(1, (navigator.hardwareConcurrency || 4) - 1));   // lectures en parallèle
+const MEMORY_BUDGET = 1.2e9;                            // au-delà, les modèles non affichés sont mis en veille
 const CARD = { w: 53.98, h: 85.6, r: 3.18 };           // carte bancaire ISO ID-1, en portrait
 const NOMINAL = 96 / 25.4;                              // px CSS par mm selon la norme CSS
 const STORE_KEY = 'atelier3d.pxPerMm';
@@ -274,8 +316,9 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 stage.prepend(renderer.domElement);
 
+const STAGE_COLOR = new THREE.Color(css('--stage'));
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(css('--stage'));
+scene.background = STAGE_COLOR;
 const persp = new THREE.PerspectiveCamera(32, 1, 1, 5000);
 const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 5000);
 let realSize = true;
@@ -294,16 +337,13 @@ function makeControls(cam, prevTarget) {
   return c;
 }
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0x2b3a44, 1.05));
-const key = new THREE.DirectionalLight(0xfff4e2, 2.0);
-key.position.set(-120, 180, 160);
-scene.add(key);
-const rim = new THREE.DirectionalLight(0x9fe8ff, 1.0);
-rim.position.set(140, 90, -160);
-scene.add(rim);
-const fill = new THREE.DirectionalLight(0xffffff, 0.35);
-fill.position.set(80, 20, 120);
-scene.add(fill);
+function addLights(sc) {
+  sc.add(new THREE.HemisphereLight(0xffffff, 0x2b3a44, 1.05));
+  const key = new THREE.DirectionalLight(0xfff4e2, 2.0); key.position.set(-120, 180, 160); sc.add(key);
+  const rim = new THREE.DirectionalLight(0x9fe8ff, 1.0); rim.position.set(140, 90, -160); sc.add(rim);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.35); fill.position.set(80, 20, 120); sc.add(fill);
+}
+addLights(scene);
 
 const material = new THREE.MeshStandardMaterial({ color: new THREE.Color(css('--model')), roughness: 0.58, metalness: 0 });
 const gridColor = new THREE.Color(css('--grid'));
@@ -329,15 +369,56 @@ function resize() {
 new ResizeObserver(resize).observe(stage);
 resize();
 
-function updateHint() {
-  hint.innerHTML = realSize
-    ? '<b>1:1</b>' + (calibrated ? '' : ' <span class="warn">(écran non calibré)</span>') + ' · glisser pour tourner · clic droit pour déplacer'
-    : 'Glisser pour tourner · molette pour zoomer · clic droit pour déplacer';
+// Vignettes : petit rendu séparé, de face
+const THUMB = 120;
+const thumbRenderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+thumbRenderer.setPixelRatio(1);
+thumbRenderer.setSize(THUMB, THUMB, false);
+thumbRenderer.outputColorSpace = THREE.SRGBColorSpace;
+const thumbScene = new THREE.Scene();
+thumbScene.background = STAGE_COLOR;
+addLights(thumbScene);
+const thumbCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 5000);
+
+function makeGeometry(data) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(data.pos, 3));
+  g.setAttribute('normal', new THREE.BufferAttribute(data.nrm, 3, true));
+  g.setIndex(new THREE.BufferAttribute(data.idx, 1));
+  g.computeBoundingBox();
+  g.computeBoundingSphere();
+  return g;
 }
-updateHint();
+
+function makeThumb(it) {
+  try {
+    const g = makeGeometry(it.data);
+    const m = new THREE.Mesh(g, material);
+    thumbScene.add(m);
+    const s = g.boundingSphere;
+    const r = s.radius;
+    thumbCam.left = -r; thumbCam.right = r; thumbCam.top = r; thumbCam.bottom = -r;
+    thumbCam.position.copy(s.center).addScaledVector(new THREE.Vector3(0, 0.18, 1).normalize(), r * 4);
+    thumbCam.near = 0.1; thumbCam.far = r * 10;
+    thumbCam.lookAt(s.center);
+    thumbCam.updateProjectionMatrix();
+    thumbRenderer.render(thumbScene, thumbCam);
+    it.thumb = thumbRenderer.domElement.toDataURL('image/png');
+    thumbScene.remove(m);
+    g.dispose();
+  } catch (e) { it.thumb = null; }
+}
+
+function updateHint() {
+  const multi = items.length > 1 ? ' · ← → pour changer de fichier' : '';
+  hint.innerHTML = (realSize
+    ? '<b>1:1</b>' + (calibrated ? '' : ' <span class="warn">(écran non calibré)</span>') + ' · glisser pour tourner · clic droit pour déplacer'
+    : 'Glisser pour tourner · molette pour zoomer · clic droit pour déplacer') + multi;
+}
 
 let mesh = null;
-let info = null;       // mesures d'origine du modèle ouvert
+let shownId = null;
+let info = null;       // mesures d'origine du modèle affiché
 let scale = 1;
 const target = new THREE.Vector3();
 const VIEWS = {
@@ -405,9 +486,19 @@ $('t-grid').addEventListener('click', () => {
 // ---------- Échelle ----------
 const scaleInput = $('scaleInput');
 const chips = [...document.querySelectorAll('.chip')];
+function setControlsEnabled(on) {
+  chips.forEach(c => { c.disabled = !on; });
+  scaleInput.disabled = !on;
+}
+function clearPanel() {
+  for (const id of ['d-h', 'd-w', 'd-d', 'd-b', 'd-v', 'm-t', 'm-v', 'm-o', 'm-s', 'm-time']) $(id).textContent = '—';
+  setControlsEnabled(false);
+}
 function setScale(s, from) {
   if (!info) return;
   scale = Math.min(4, Math.max(0.05, s));
+  const it = items.find(i => i.id === shownId);
+  if (it) { it.scale = scale; updateCard(it); }
   $('d-h').textContent = fmt(info.h * scale) + ' mm';
   $('d-w').textContent = fmt(info.w * scale) + ' mm';
   $('d-d').textContent = fmt(info.d * scale) + ' mm';
@@ -469,24 +560,305 @@ $('calibReset').addEventListener('click', () => {
 function closeCalib() { calib.hidden = true; $('calibOpen').focus(); }
 $('calibOpen').addEventListener('click', () => { setPx(pxPerMm, false); calib.hidden = false; calibRange.focus(); });
 $('calibDone').addEventListener('click', closeCalib);
-calibRange.value = String(pxPerMm);
-updateCalibState();
 
-// ---------- Ouverture des fichiers ----------
-const fileInput = $('fileInput');
+// ---------- Fichiers ouverts ----------
+const items = [];          // { id, file, name, size, status, progress, data, stats, thumb, scale, secs, error, lastUsed, el }
+const running = new Map(); // id → worker
+let activeId = null;
+let seq = 0;
+
+const filesEl = $('files');
 const statusEl = $('status');
 const statusText = $('statusText');
 const pfill = $('pfill');
-let worker = null;
+const fileInput = $('fileInput');
 
-function pickFile() { fileInput.click(); }
-$('openBtn').addEventListener('click', pickFile);
-$('openBtn2').addEventListener('click', pickFile);
-fileInput.addEventListener('change', () => { if (fileInput.files[0]) openFile(fileInput.files[0]); fileInput.value = ''; });
+let toastTimer = 0;
+function toast(html) {
+  const t = $('toast');
+  t.innerHTML = html; t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; }, 7000);
+}
+
+function addFiles(list) {
+  const all = [...list];
+  const ok = all.filter(f => /\.(3mf|stl)$/i.test(f.name));
+  const wrongType = all.length - ok.length;
+  let firstNew = null, firstExisting = null, tooMany = 0;
+  for (const f of ok) {
+    const dup = items.find(it => it.name === f.name && it.size === f.size && it.file.lastModified === f.lastModified);
+    if (dup) { firstExisting = firstExisting || dup; continue; }
+    if (items.length >= MAX_FILES) { tooMany++; continue; }
+    const it = { id: ++seq, file: f, name: f.name, size: f.size, status: 'queued', progress: 0, data: null, stats: null, thumb: null, scale: 1, secs: 0, error: null, lastUsed: 0, el: null };
+    items.push(it);
+    firstNew = firstNew || it;
+  }
+  const msgs = [];
+  if (tooMany) msgs.push(`<b>${MAX_FILES} fichiers maximum.</b> ${tooMany} fichier${tooMany > 1 ? 's n\'ont' : ' n\'a'} pas été ouvert${tooMany > 1 ? 's' : ''} : ferme des fichiers pour en ouvrir d'autres.`);
+  if (wrongType) msgs.push(`<b>${wrongType} fichier${wrongType > 1 ? 's ignorés' : ' ignoré'} :</b> seuls les .3mf et .stl sont lus.`);
+  if (msgs.length) toast(msgs.join('<br>'));
+  renderStrip();
+  const pick = firstNew || firstExisting;
+  if (pick) select(pick.id);
+  pump();
+}
+
+function bytesOf(it) { return it.data ? it.data.pos.byteLength + it.data.idx.byteLength + it.data.nrm.byteLength : 0; }
+
+function enforceBudget() {
+  let total = items.reduce((s, it) => s + bytesOf(it), 0);
+  if (total <= MEMORY_BUDGET) return;
+  const candidates = items.filter(it => it.data && it.id !== activeId && it.id !== shownId).sort((a, b) => a.lastUsed - b.lastUsed);
+  for (const it of candidates) {
+    if (total <= MEMORY_BUDGET) break;
+    total -= bytesOf(it);
+    it.data = null;
+    it.status = 'sleeping';     // mesures et vignette gardées, relu si on le rouvre
+  }
+}
+
+function pump() {
+  while (running.size < POOL) {
+    const active = items.find(it => it.id === activeId);
+    const next = (active && active.status === 'queued') ? active : items.find(it => it.status === 'queued');
+    if (!next) break;
+    startParse(next);
+  }
+}
+
+function startParse(it) {
+  it.status = 'loading'; it.progress = 0; it.error = null;
+  updateCard(it);
+  if (it.id === activeId) renderActiveStatus();
+  const t0 = performance.now();
+  const w = new Worker('./parser.js', { type: 'module' });
+  running.set(it.id, w);
+  const finish = () => { w.terminate(); running.delete(it.id); pump(); };
+  w.onmessage = (e) => {
+    const m = e.data;
+    if (m.type === 'progress') {
+      it.progress = m.phase === 'lecture' ? m.p * 0.95 : 0.97;
+      updateCard(it);
+      if (it.id === activeId) renderActiveStatus();
+    } else if (m.type === 'done') {
+      it.data = { pos: m.pos, idx: m.idx, nrm: m.nrm };
+      it.stats = m.stats;
+      it.secs = (performance.now() - t0) / 1000;
+      it.status = 'ready';
+      if (!it.thumb) makeThumb(it);
+      updateCard(it);
+      if (it.id === activeId) showItem(it);
+      enforceBudget();
+      finish();
+    } else if (m.type === 'error') {
+      it.status = 'error'; it.error = m.message;
+      updateCard(it);
+      if (it.id === activeId) renderActiveStatus();
+      finish();
+    }
+  };
+  w.onerror = (e) => {
+    e.preventDefault();
+    it.status = 'error'; it.error = 'le lecteur a rencontré une erreur';
+    updateCard(it);
+    if (it.id === activeId) renderActiveStatus();
+    finish();
+  };
+  w.postMessage({ name: it.name, file: it.file });
+}
+
+function select(id) {
+  const it = items.find(i => i.id === id);
+  if (!it) return;
+  activeId = id;
+  it.lastUsed = performance.now();
+  for (const x of items) if (x.el) x.el.card.setAttribute('aria-selected', String(x.id === id));
+  if (it.el) it.el.card.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  setHeaderName(it.name);
+  if (it.status === 'ready') { showItem(it); return; }
+  if (it.status === 'sleeping') { it.status = 'queued'; updateCard(it); }
+  hideMesh();
+  renderActiveStatus();
+  pump();
+}
+
+function setHeaderName(name) {
+  const fn = $('fname'); fn.textContent = '';
+  if (!name) { fn.textContent = 'Aucun fichier ouvert'; document.title = 'Atelier 3D'; return; }
+  const b = document.createElement('b'); b.textContent = name; fn.append(b);
+  if (items.length > 1) fn.append(document.createTextNode('  ·  ' + (items.findIndex(i => i.id === activeId) + 1) + ' / ' + items.length));
+  document.title = name.replace(/\.(3mf|stl)$/i, '') + ' · Atelier 3D';
+}
+
+let savedDir = null;     // garde l'angle de vue d'un fichier à l'autre
+function hideMesh() {
+  if (mesh) { savedDir = currentDir(); scene.remove(mesh); mesh.geometry.dispose(); mesh = null; }
+  shownId = null; info = null;
+  grid.visible = false;
+  $('toolbar').hidden = true;
+  hint.hidden = true;
+  clearPanel();
+}
+
+function renderActiveStatus() {
+  const it = items.find(i => i.id === activeId);
+  if (!it) return;
+  statusEl.hidden = false;
+  if (it.status === 'error') {
+    $('pbar').hidden = true;
+    statusText.innerHTML = '';
+    const d = document.createElement('div'); d.className = 'err';
+    const b = document.createElement('b'); b.textContent = 'Lecture impossible. ';
+    d.append(b, document.createTextNode(it.name + ' n\'a pas pu être lu (' + it.error + '). Vérifie qu\'il s\'agit bien d\'un .3mf ou d\'un .stl.'));
+    statusText.append(d);
+    return;
+  }
+  $('pbar').hidden = false;
+  pfill.style.width = Math.round(it.progress * 100) + '%';
+  statusText.textContent = it.status === 'queued'
+    ? 'En attente : ' + it.name
+    : (it.progress >= 0.96 ? 'Calcul des mesures…' : 'Lecture de ' + it.name + '… ' + Math.round(it.progress * 100) + ' %');
+}
+
+function showItem(it) {
+  const dir = mesh ? currentDir() : (savedDir || VIEWS.front);
+  if (mesh) { scene.remove(mesh); mesh.geometry.dispose(); mesh = null; }
+  mesh = new THREE.Mesh(makeGeometry(it.data), material);
+  scene.add(mesh);
+  shownId = it.id;
+  info = it.stats;
+  const sizeMb = it.size / 1048576;
+  $('m-t').textContent = fmtInt(info.tris);
+  $('m-v').textContent = fmtInt(info.verts);
+  $('m-o').textContent = fmtInt(info.objects);
+  $('m-s').textContent = fmt(sizeMb, sizeMb < 10 ? 1 : 0) + ' Mo';
+  $('m-time').textContent = fmt(it.secs, 1) + ' s';
+  setControlsEnabled(true);
+  grid.visible = $('t-grid').getAttribute('aria-pressed') === 'true';
+  $('toolbar').hidden = false;
+  hint.hidden = false;
+  updateHint();
+  statusEl.hidden = true;
+  mesh.scale.setScalar(it.scale);
+  setScale(it.scale);
+  frame(dir);
+}
+
+function closeItem(id) {
+  const i = items.findIndex(x => x.id === id);
+  if (i < 0) return;
+  const it = items[i];
+  const w = running.get(id);
+  if (w) { w.terminate(); running.delete(id); }
+  if (it.el) it.el.root.remove();
+  items.splice(i, 1);
+  if (shownId === id) hideMesh();
+  if (activeId === id) {
+    activeId = null;
+    const next = items[i] || items[i - 1];
+    if (next) select(next.id);
+  }
+  afterListChange();
+  pump();
+}
+
+function closeAll() {
+  for (const w of running.values()) w.terminate();
+  running.clear();
+  items.length = 0;
+  filesEl.textContent = '';
+  activeId = null;
+  hideMesh();
+  afterListChange();
+}
+
+function afterListChange() {
+  const n = items.length;
+  $('strip').hidden = n === 0;
+  document.body.classList.toggle('has-files', n > 0);
+  $('count').innerHTML = `<b>${n}</b> / ${MAX_FILES} fichiers`;
+  if (!n) {
+    statusEl.hidden = true;
+    $('empty').hidden = false;
+    setHeaderName(null);
+  } else {
+    $('empty').hidden = true;
+    const a = items.find(x => x.id === activeId);
+    setHeaderName(a ? a.name : null);
+  }
+  updateHint();
+}
+
+function renderStrip() {
+  for (const it of items) {
+    if (it.el) continue;
+    const root = document.createElement('div'); root.className = 'fitem';
+    const card = document.createElement('button');
+    card.type = 'button'; card.className = 'fcard'; card.setAttribute('role', 'tab');
+    card.setAttribute('aria-selected', 'false'); card.title = it.name;
+    const thumb = document.createElement('span'); thumb.className = 'thumb';
+    const txt = document.createElement('span'); txt.className = 'ftxt';
+    const fn = document.createElement('span'); fn.className = 'fn'; fn.textContent = it.name.replace(/\.(3mf|stl)$/i, '');
+    const fm = document.createElement('span'); fm.className = 'fm';
+    txt.append(fn, fm);
+    card.append(thumb, txt);
+    card.addEventListener('click', () => select(it.id));
+    const close = document.createElement('button');
+    close.type = 'button'; close.className = 'fclose'; close.textContent = '×';
+    close.setAttribute('aria-label', 'Fermer ' + it.name);
+    close.addEventListener('click', (e) => { e.stopPropagation(); closeItem(it.id); });
+    root.append(card, close);
+    filesEl.append(root);
+    it.el = { root, card, thumb, fm };
+    updateCard(it);
+  }
+  afterListChange();
+}
+
+function updateCard(it) {
+  if (!it.el) return;
+  const { thumb, fm } = it.el;
+  const ext = it.name.split('.').pop().toUpperCase();
+  fm.classList.remove('err');
+  thumb.classList.remove('err');
+  if (it.thumb) {
+    if (!thumb.firstChild || thumb.firstChild.tagName !== 'IMG') {
+      thumb.textContent = '';
+      const img = document.createElement('img'); img.alt = ''; img.src = it.thumb; thumb.append(img);
+    }
+  } else if (it.status === 'error') {
+    thumb.textContent = '!'; thumb.classList.add('err');
+  } else {
+    thumb.textContent = it.status === 'loading' ? Math.round(it.progress * 100) + ' %' : '…';
+  }
+  if (it.status === 'error') { fm.textContent = 'Illisible'; fm.classList.add('err'); }
+  else if (it.status === 'queued' && !it.stats) fm.textContent = ext + ' · en attente';
+  else if (it.status === 'loading' && !it.stats) fm.textContent = ext + ' · lecture ' + Math.round(it.progress * 100) + ' %';
+  else if (it.stats) fm.textContent = ext + ' · ' + fmt(it.stats.h * it.scale) + ' mm' + (Math.abs(it.scale - 1) > 1e-6 ? ' (' + fmt(it.scale * 100, 0) + ' %)' : '');
+}
+
+// ---------- Ouverture ----------
+function pickFiles() { fileInput.click(); }
+$('openBtn').addEventListener('click', pickFiles);
+$('openBtn2').addEventListener('click', pickFiles);
+$('closeAll').addEventListener('click', closeAll);
+fileInput.addEventListener('change', () => { if (fileInput.files.length) addFiles(fileInput.files); fileInput.value = ''; });
+
+function step(delta) {
+  if (items.length < 2) return;
+  let i = items.findIndex(x => x.id === activeId);
+  i = (i + delta + items.length) % items.length;
+  select(items[i].id);
+}
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !calib.hidden) { closeCalib(); return; }
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') { e.preventDefault(); pickFile(); }
+  if (!calib.hidden) { if (e.key === 'Escape') closeCalib(); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') { e.preventDefault(); pickFiles(); return; }
+  const tag = (e.target && e.target.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || e.altKey || e.ctrlKey || e.metaKey) return;
+  if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
 });
 
 let dragDepth = 0;
@@ -495,94 +867,22 @@ window.addEventListener('dragleave', () => { dragDepth = Math.max(0, dragDepth -
 window.addEventListener('dragover', (e) => { e.preventDefault(); });
 window.addEventListener('drop', (e) => {
   e.preventDefault(); dragDepth = 0; stage.classList.remove('drag');
-  const f = e.dataTransfer && e.dataTransfer.files[0];
-  if (f) openFile(f);
+  if (e.dataTransfer && e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
 });
 
-// Ouverture depuis l'Explorateur (« Ouvrir avec » une fois l'app installée)
+// Ouverture depuis l'Explorateur (« Ouvrir avec » une fois l'app installée), plusieurs fichiers possibles
 if ('launchQueue' in window) {
   window.launchQueue.setConsumer(async (params) => {
     if (!params.files || !params.files.length) return;
-    try { openFile(await params.files[0].getFile()); } catch (e) { showError("le fichier n'a pas pu être ouvert depuis l'Explorateur"); }
+    const files = [];
+    for (const h of params.files) { try { files.push(await h.getFile()); } catch (e) { /* fichier inaccessible */ } }
+    if (files.length) addFiles(files);
+    else toast('<b>Ouverture impossible :</b> les fichiers n\'ont pas pu être lus depuis l\'Explorateur.');
   });
 }
 
-function showStatus(text, p) {
-  statusEl.hidden = false;
-  statusText.textContent = text;
-  $('pbar').hidden = p == null;
-  if (p != null) pfill.style.width = Math.round(p * 100) + '%';
-}
-function showError(msg) {
-  statusEl.hidden = false;
-  $('pbar').hidden = true;
-  statusText.innerHTML = '';
-  const d = document.createElement('div');
-  d.className = 'err';
-  const b = document.createElement('b'); b.textContent = 'Lecture impossible. ';
-  d.append(b, document.createTextNode('Ce fichier n\'a pas pu être lu (' + msg + '). Vérifie qu\'il s\'agit bien d\'un .3mf ou d\'un .stl.'));
-  const again = document.createElement('button');
-  again.className = 'btn gold'; again.type = 'button'; again.textContent = 'Choisir un autre fichier';
-  again.style.marginTop = '14px';
-  again.addEventListener('click', pickFile);
-  statusText.append(d, again);
-}
-
-function openFile(file) {
-  if (!/\.(3mf|stl)$/i.test(file.name)) { showError('format non pris en charge : seuls .3mf et .stl sont lus'); $('empty').hidden = true; return; }
-  if (worker) worker.terminate();
-  $('empty').hidden = true;
-  const sizeMb = file.size / 1048576;
-  showStatus('Lecture de ' + file.name + '…', 0);
-  const t0 = performance.now();
-  worker = new Worker('./parser.js', { type: 'module' });
-  worker.onmessage = (e) => {
-    const m = e.data;
-    if (m.type === 'progress') {
-      if (m.phase === 'lecture') showStatus('Lecture de ' + file.name + '… ' + Math.round(m.p * 100) + ' %', m.p);
-      else showStatus('Calcul des mesures…', 1);
-    } else if (m.type === 'done') {
-      worker.terminate(); worker = null;
-      showModel(file, m, sizeMb, (performance.now() - t0) / 1000);
-    } else if (m.type === 'error') {
-      worker.terminate(); worker = null;
-      showError(m.message);
-    }
-  };
-  worker.onerror = (e) => { e.preventDefault(); showError('le lecteur a rencontré une erreur'); };
-  worker.postMessage({ name: file.name, file });
-}
-
-function showModel(file, m, sizeMb, secs) {
-  if (mesh) { scene.remove(mesh); mesh.geometry.dispose(); mesh = null; }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(m.pos, 3));
-  geo.setAttribute('normal', new THREE.BufferAttribute(m.nrm, 3));
-  geo.setIndex(new THREE.BufferAttribute(m.idx, 1));
-  geo.computeBoundingBox();
-  geo.computeBoundingSphere();
-  mesh = new THREE.Mesh(geo, material);
-  scene.add(mesh);
-  info = m.stats;
-
-  const fn = $('fname'); fn.textContent = '';
-  const b = document.createElement('b'); b.textContent = file.name; fn.append(b);
-  document.title = file.name.replace(/\.(3mf|stl)$/i, '') + ' · Atelier 3D';
-  $('m-t').textContent = fmtInt(info.tris);
-  $('m-v').textContent = fmtInt(info.verts);
-  $('m-o').textContent = fmtInt(info.objects);
-  $('m-s').textContent = fmt(sizeMb, sizeMb < 10 ? 1 : 0) + ' Mo';
-  $('m-time').textContent = fmt(secs, 1) + ' s';
-
-  chips.forEach(c => { c.disabled = false; });
-  scaleInput.disabled = false;
-  grid.visible = $('t-grid').getAttribute('aria-pressed') === 'true';
-  $('toolbar').hidden = false;
-  hint.hidden = false;
-  statusEl.hidden = true;
-  setScale(1);
-  frame(VIEWS.front);
-}
+calibRange.value = String(pxPerMm);
+updateCalibState();
 
 renderer.setAnimationLoop(() => {
   controls.update();

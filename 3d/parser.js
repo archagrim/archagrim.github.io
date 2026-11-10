@@ -289,12 +289,16 @@ export function finish(mesh) {
     nrm[c] += nx; nrm[c + 1] += ny; nrm[c + 2] += nz;
     vol += ax * (by * cz2 - bz * cy) - ay * (bx * cz2 - bz * cx2) + az * (bx * cy - by * cx2);
   }
+  // Normales stockées sur 16 bits : deux fois moins de mémoire, sans différence visible
+  const n16 = new Int16Array(nrm.length);
   for (let i = 0; i < nrm.length; i += 3) {
     const l = Math.hypot(nrm[i], nrm[i + 1], nrm[i + 2]) || 1;
-    nrm[i] /= l; nrm[i + 1] /= l; nrm[i + 2] /= l;
+    n16[i] = Math.round(nrm[i] / l * 32767);
+    n16[i + 1] = Math.round(nrm[i + 1] / l * 32767);
+    n16[i + 2] = Math.round(nrm[i + 2] / l * 32767);
   }
   return {
-    pos, idx, nrm,
+    pos, idx, nrm: n16,
     stats: { tris: idx.length / 3, verts: pos.length / 3, objects: mesh.objects, w, h, d, footprint, volume: Math.abs(vol) / 6 },
   };
 }
