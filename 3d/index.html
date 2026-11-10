@@ -77,6 +77,14 @@ button:disabled{cursor:default}
 .btn.wide{width:100%;justify-content:flex-start}
 .btn[aria-pressed="true"]{background:var(--accent-tint);color:var(--accent)}
 
+/* Choix de la vue */
+.app-left{display:flex;align-items:center;gap:14px;min-width:0}
+.viewseg{display:flex;padding:2px;border-radius:9px;background:var(--fill)}
+.viewseg button{height:26px;padding:0 12px;border:0;border-radius:7px;background:transparent;font-size:12.5px;font-weight:500;color:var(--ink-2);white-space:nowrap;transition:background-color .15s,color .15s}
+.viewseg button[aria-selected="true"]{background:var(--panel);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12),0 0 0 .5px rgba(0,0,0,.04)}
+@media (max-width:700px){.app-name span{display:none}}
+body.view-library .title,body.view-library #openDirBtn{visibility:hidden}
+
 /* Volets */
 .app{display:grid;grid-template-columns:minmax(0,1fr);min-height:0}
 body.has-files .app{grid-template-columns:252px minmax(0,1fr) 300px}
@@ -221,6 +229,71 @@ dd.warn{color:var(--warn)}
   .fclose{opacity:1}
 }
 
+/* Bibliothèque : grille de couvertures façon iTunes, panneau déroulant à la couleur de la couverture */
+.library{min-height:0;overflow:auto;background:var(--panel);position:relative;
+  padding:0 max(28px,env(safe-area-inset-right)) calc(120px + env(safe-area-inset-bottom)) max(28px,env(safe-area-inset-left))}
+.lib-head{position:sticky;top:0;z-index:6;display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 20px;padding:26px 0 18px;background:var(--panel)}
+.lib-head h1{margin:0;font:700 34px/1.1 var(--font-display);letter-spacing:-.022em}
+.lib-head p{margin:4px 0 0;color:var(--ink-2);font-size:13px;font-variant-numeric:tabular-nums}
+.lib-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.lib-actions input{height:30px;width:min(240px,60vw);border:0;border-radius:8px;background:var(--fill);padding:0 10px;font:400 13px var(--font);color:var(--ink)}
+.lib-actions input:focus{outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 45%,transparent)}
+.lib-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:30px 22px;align-items:start}
+@media (max-width:520px){.library{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}.lib-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 14px}}
+.album{display:flex;flex-direction:column;gap:8px;border:0;background:none;padding:0;text-align:left;color:inherit;min-width:0}
+.cover{position:relative;width:100%;aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--fill);
+  box-shadow:0 1px 2px rgba(0,0,0,.08),0 8px 24px rgba(0,0,0,.09);transition:transform .3s cubic-bezier(.2,.7,.2,1),box-shadow .3s}
+.album:hover .cover{transform:translateY(-3px);box-shadow:0 2px 4px rgba(0,0,0,.08),0 16px 34px rgba(0,0,0,.16)}
+.album[aria-expanded="true"] .cover{outline:3px solid var(--accent);outline-offset:3px}
+.album.dropping .cover{outline:3px dashed var(--accent);outline-offset:3px}
+.cover>img{width:100%;height:100%;object-fit:cover;display:block}
+.mosaic{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;width:100%;height:100%;background:linear-gradient(180deg,#F4F4F7,#E2E2E8)}
+.mosaic img{width:100%;height:100%;object-fit:contain;display:block}
+.ph{width:100%;height:100%;display:grid;place-items:center;color:rgba(255,255,255,.9)}
+.ph svg{width:42%;height:42%}
+.album .an{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.album .ac{font-size:12px;color:var(--ink-2);font-variant-numeric:tabular-nums;margin-top:-6px}
+.panel{grid-column:1/-1;position:relative;display:grid;grid-template-columns:200px minmax(0,1fr);gap:26px;padding:26px;border-radius:16px;color:#fff;
+  background:var(--pbg,#2C2C2E);transition:background-color .6s}
+.panel::before{content:"";position:absolute;top:-8px;left:calc(var(--nx,50%) - 9px);width:18px;height:18px;background:var(--pbg,#2C2C2E);transform:rotate(45deg);border-radius:3px;transition:background-color .6s}
+@media (max-width:760px){.panel{grid-template-columns:1fr;padding:18px}.panel .pside{display:grid;grid-template-columns:96px minmax(0,1fr);gap:14px;align-items:center}}
+.pcover{width:100%;aspect-ratio:1;border-radius:10px;overflow:hidden;box-shadow:0 12px 32px rgba(0,0,0,.35)}
+.pcover>*{width:100%;height:100%}
+.panel h2{margin:16px 0 2px;font:700 24px/1.15 var(--font-display);letter-spacing:-.02em;overflow-wrap:anywhere}
+@media (max-width:760px){.panel h2{margin-top:0;font-size:20px}}
+.panel .pmeta{font-size:13px;color:rgba(255,255,255,.72);font-variant-numeric:tabular-nums}
+.pactions{display:flex;flex-direction:column;gap:6px;margin-top:16px}
+.panel .btn{background:rgba(255,255,255,.14);color:#fff}
+.panel .btn:hover:not(:disabled){background:rgba(255,255,255,.22)}
+.panel .btn.primary{background:#fff;color:#1D1D1F}
+.panel .btn.primary:hover{background:rgba(255,255,255,.88)}
+.panel .pfoot{font-size:11.5px;color:rgba(255,255,255,.6);margin:10px 0 0}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:16px 14px;align-content:start;min-width:0}
+.tile{position:relative;display:flex;flex-direction:column;gap:6px;border:0;background:none;padding:0;color:inherit;text-align:left;min-width:0}
+.timg{position:relative;width:100%;aspect-ratio:1;border-radius:10px;overflow:hidden;display:grid;place-items:center;background:color-mix(in srgb,currentColor 9%,transparent);transition:box-shadow .15s}
+.timg img{width:100%;height:100%;object-fit:contain;display:block}
+.timg .ring{width:26px;height:26px}
+.timg .tph{width:40%;height:40%;opacity:.45}
+.tile:hover .timg{box-shadow:0 0 0 1.5px color-mix(in srgb,currentColor 30%,transparent)}
+.tile[aria-pressed="true"] .timg{box-shadow:0 0 0 3px var(--accent)}
+.tcheck{position:absolute;top:7px;left:7px;width:22px;height:22px;border-radius:50%;border:1.5px solid rgba(255,255,255,.9);background:rgba(0,0,0,.28);display:grid;place-items:center;opacity:0;transition:opacity .15s;color:#fff}
+.tcheck svg{width:12px;height:12px;opacity:0}
+.tile:hover .tcheck,.tile:focus-visible .tcheck,.tile[aria-pressed="true"] .tcheck{opacity:1}
+.tile[aria-pressed="true"] .tcheck{background:var(--accent);border-color:var(--accent)}
+.tile[aria-pressed="true"] .tcheck svg{opacity:1}
+.tn{font-size:12.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tm{display:flex;align-items:center;gap:6px;font-size:11.5px;opacity:.68;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;margin-top:-4px}
+.tm .tag{font-size:9.5px;font-weight:600;border:1px solid currentColor;border-radius:4px;padding:0 4px;line-height:14px;opacity:.85}
+.tm .dot{width:6px;height:6px;border-radius:50%;flex:none}
+.tm .dot.ok{background:var(--ok)}.tm .dot.warn{background:var(--warn)}.tm .dot.bad{background:var(--danger)}
+.lib-results h2{margin:0 0 14px;font-size:15px;font-weight:600}
+.lib-hero{display:grid;place-items:center;min-height:calc(100% - 120px);padding:40px 0}
+.lib-hero .hero .lede{max-width:38ch}
+.selbar{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:20;display:flex;align-items:center;gap:8px;max-width:calc(100vw - 32px);
+  padding:6px 6px 6px 16px;border-radius:14px;background:var(--glass);border:1px solid var(--line);box-shadow:var(--shadow);
+  -webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);font-size:13px;font-weight:500;white-space:nowrap}
+.selbar span{font-variant-numeric:tabular-nums;margin-right:4px}
+
 /* Notification, aide à l'installation, calibrage */
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:60;max-width:min(520px,calc(100vw - 32px));
   padding:12px 18px;border-radius:14px;background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);font-size:13px;color:var(--ink-2)}
@@ -269,6 +342,12 @@ dd.warn{color:var(--warn)}
   .flabel{animation:fade .5s .4s both}
   .mlabel:not([hidden]){animation:pop .2s cubic-bezier(.2,.8,.2,1) both}
   .fitem.enter{animation:rowIn .5s cubic-bezier(.2,.7,.2,1) both;animation-delay:var(--d,0ms)}
+  .album{animation:rise .6s cubic-bezier(.2,.7,.2,1) both;animation-delay:var(--d,0ms)}
+  .panel{animation:panelIn .45s cubic-bezier(.2,.8,.2,1) both}
+  .tile{animation:rowIn .45s cubic-bezier(.2,.7,.2,1) both;animation-delay:var(--d,0ms)}
+  .timg img{animation:thumbIn .5s cubic-bezier(.2,.7,.2,1) both}
+  .selbar:not([hidden]){animation:toastIn .4s cubic-bezier(.2,.8,.2,1) both}
+  .library:not([hidden]) .lib-head{animation:fade .4s both}
   .fitem.leave{animation:rowOut .22s ease-in forwards;pointer-events:none}
   .thumb img{animation:thumbIn .55s cubic-bezier(.2,.7,.2,1) both}
   .status:not([hidden])>div{animation:fade .35s .15s both}
@@ -291,6 +370,7 @@ dd.warn{color:var(--warn)}
 @keyframes pop{from{opacity:0;transform:scale(.94) translateY(-6px)}to{opacity:1;transform:none}}
 @keyframes sheetIn{from{opacity:0;transform:scale(.96) translateY(10px)}to{opacity:1;transform:none}}
 @keyframes dropIn{from{opacity:0;transform:scale(.985)}to{opacity:1;transform:none}}
+@keyframes panelIn{from{opacity:0;transform:translateY(-10px) scaleY(.96)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 <script type="importmap">
@@ -307,11 +387,19 @@ dd.warn{color:var(--warn)}
   <symbol id="i-measure" viewBox="0 0 16 16"><circle cx="3" cy="13" r="1.7" fill="currentColor"/><circle cx="13" cy="3" r="1.7" fill="currentColor"/><path d="M4.3 11.7l7.4-7.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-dasharray="2 2"/></symbol>
   <symbol id="i-image" viewBox="0 0 16 16"><rect x="1.5" y="2.5" width="13" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="5.5" cy="6.2" r="1.3" fill="currentColor"/><path d="M2 12l3.8-3.6 2.6 2.4 2.4-2.2L14 11.4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></symbol>
   <symbol id="i-video" viewBox="0 0 16 16"><rect x="1.5" y="3.5" width="9.5" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M11 7l3.5-2v6L11 9" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></symbol>
+  <symbol id="i-check" viewBox="0 0 12 12"><path d="M2.5 6.3l2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 64 64"><path d="M8 18a4 4 0 0 1 4-4h13l5 6h22a4 4 0 0 1 4 4v24a4 4 0 0 1-4 4H12a4 4 0 0 1-4-4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M32 27l9 5v10l-9 5-9-5V32z M23 32l9 5 9-5 M32 37v10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></symbol>
   <symbol id="i-warn" viewBox="0 0 16 16"><path d="M8 2.2l6.2 11H1.8z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 6.5v3.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="11.4" r=".8" fill="currentColor"/></symbol>
 </svg>
 
 <header class="toolbar">
-  <div class="app-name"><img src="icons/icon-192.png" alt="">Atelier 3D</div>
+  <div class="app-left">
+    <div class="app-name"><img src="icons/icon-192.png" alt=""><span>Atelier 3D</span></div>
+    <div class="viewseg" role="tablist" aria-label="Vue">
+      <button type="button" role="tab" id="tabLib" aria-selected="false">Bibliothèque</button>
+      <button type="button" role="tab" id="tabView" aria-selected="true">Visionneuse</button>
+    </div>
+  </div>
   <div class="title" id="title"></div>
   <div class="actions">
     <button class="btn plain" id="install" type="button" aria-controls="ihelp" hidden>Installer</button>
@@ -322,6 +410,37 @@ dd.warn{color:var(--warn)}
 
 <input id="fileInput" type="file" accept=".3mf,.stl,model/3mf,model/stl" multiple hidden>
 <input id="dirInput" type="file" webkitdirectory multiple hidden>
+<input id="coverInput" type="file" accept="image/*" hidden>
+
+<section class="library" id="library" aria-label="Bibliothèque" hidden>
+  <div class="lib-head" id="libHead" hidden>
+    <div>
+      <h1 id="libName">Bibliothèque</h1>
+      <p id="libMeta"></p>
+    </div>
+    <div class="lib-actions">
+      <input id="libSearch" type="search" placeholder="Rechercher un modèle" aria-label="Rechercher dans la bibliothèque" autocomplete="off">
+      <button class="btn" id="libRefresh" type="button">Actualiser</button>
+      <button class="btn" id="libChange" type="button">Changer de dossier…</button>
+    </div>
+  </div>
+  <div class="lib-hero" id="libEmpty" hidden>
+    <div class="hero">
+      <svg aria-hidden="true"><use href="#i-folder"/></svg>
+      <h1 id="libEmptyTitle">Votre bibliothèque de figurines.</h1>
+      <p class="lede" id="libEmptyText">Reliez le dossier où vous rangez vos modèles. Chaque sous-dossier devient une collection, avec sa couverture et l'aperçu de chaque figurine.</p>
+      <div class="cta"><button class="btn primary large" id="libPick" type="button">Choisir le dossier</button></div>
+      <p class="foot" id="libEmptyFoot">Les fichiers restent sur cet ordinateur. Atelier 3D les lit sans jamais les modifier ni les envoyer en ligne.</p>
+    </div>
+  </div>
+  <div class="lib-grid" id="libGrid"></div>
+  <div class="lib-results" id="libResults" hidden><h2 id="libResultsTitle"></h2><div class="tiles" id="libResultsTiles"></div></div>
+  <div class="selbar" id="selBar" hidden>
+    <span id="selCount"></span>
+    <button class="btn plain" id="selClear" type="button">Tout désélectionner</button>
+    <button class="btn primary" id="selOpen" type="button">Ouvrir dans la visionneuse</button>
+  </div>
+</section>
 
 <div class="app">
   <nav class="sidebar" aria-label="Fichiers ouverts">
@@ -358,7 +477,7 @@ dd.warn{color:var(--warn)}
         <div class="cta" style="margin-top:14px">
           <span>ou glissez des fichiers ou un dossier ici</span>
         </div>
-        <p class="foot">Les fichiers sont lus sur cet ordinateur, rien n'est envoyé en ligne. Pour voir les modèles à leur vraie taille, <button type="button" id="calibOpen2">calibrez l'écran</button>.</p>
+        <p class="foot">Les fichiers sont lus sur cet ordinateur, rien n'est envoyé en ligne. Pour voir les modèles à leur vraie taille, <button type="button" id="calibOpen2">calibrez l'écran</button>. Pour ranger toute votre collection, <button type="button" id="goLib">créez votre bibliothèque</button>.</p>
       </div>
     </div>
 
@@ -718,7 +837,7 @@ new ResizeObserver(resize).observe(stage);
 resize();
 
 // Vignettes : petit rendu séparé, de face, sur fond transparent, toujours en résine grise
-const THUMB = 96;
+const THUMB = 256;
 const thumbRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
 thumbRenderer.setPixelRatio(1);
 thumbRenderer.setSize(THUMB, THUMB, false);
@@ -744,23 +863,26 @@ function makeGeometry(data) {
   return g;
 }
 
+// Dessine la vignette d'un modèle et renvoie le canevas (de face, fond transparent)
+function renderThumb(data) {
+  const g = makeGeometry(data);
+  const m = new THREE.Mesh(g, thumbMaterial);
+  thumbScene.add(m);
+  const s = g.boundingSphere;
+  const r = s.radius;
+  thumbCam.left = -r; thumbCam.right = r; thumbCam.top = r; thumbCam.bottom = -r;
+  thumbCam.position.copy(s.center).addScaledVector(new THREE.Vector3(0, 0.18, 1).normalize(), r * 4);
+  thumbCam.near = 0.1; thumbCam.far = r * 10;
+  thumbCam.lookAt(s.center);
+  thumbCam.updateProjectionMatrix();
+  thumbRenderer.render(thumbScene, thumbCam);
+  thumbScene.remove(m);
+  g.dispose();
+  return thumbRenderer.domElement;
+}
 function makeThumb(it) {
-  try {
-    const g = makeGeometry(it.data);
-    const m = new THREE.Mesh(g, thumbMaterial);
-    thumbScene.add(m);
-    const s = g.boundingSphere;
-    const r = s.radius;
-    thumbCam.left = -r; thumbCam.right = r; thumbCam.top = r; thumbCam.bottom = -r;
-    thumbCam.position.copy(s.center).addScaledVector(new THREE.Vector3(0, 0.18, 1).normalize(), r * 4);
-    thumbCam.near = 0.1; thumbCam.far = r * 10;
-    thumbCam.lookAt(s.center);
-    thumbCam.updateProjectionMatrix();
-    thumbRenderer.render(thumbScene, thumbCam);
-    it.thumb = thumbRenderer.domElement.toDataURL('image/png');
-    thumbScene.remove(m);
-    g.dispose();
-  } catch (e) { it.thumb = null; }
+  if (it.libThumb) { it.thumb = it.libThumb; return; }
+  try { it.thumb = renderThumb(it.data).toDataURL('image/png'); } catch (e) { it.thumb = null; }
 }
 
 // ---------- Ce qui est affiché (déclaré plus haut) ----------
@@ -1389,6 +1511,7 @@ function toast(html) {
 }
 
 function addFiles(list) {
+  if (view !== 'viewer') setView('viewer');
   const all = [...list];
   const ok = all.filter(f => /\.(3mf|stl)$/i.test(f.name));
   const wrongType = all.length - ok.length;
@@ -1821,12 +1944,17 @@ function step(delta) {
 
 document.addEventListener('keydown', (e) => {
   if (!calib.hidden) { if (e.key === 'Escape') closeCalib(); return; }
+  if (view === 'library' && e.key === 'Escape') {
+    if (lib.expanded) collapseAlbum(); else if (lib.sel.size) { lib.sel.clear(); refreshSelection(); }
+    return;
+  }
   if (e.key === 'Escape') {
     if (measuring && measPts.length) { clearMeasure(); return; }
     if (measuring) { setMeasuring(false); return; }
     closeHelp(); return;
   }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') { e.preventDefault(); if (e.shiftKey) pickFolder(); else pickFiles(); return; }
+  if (view === 'library') return;
   const tag = (e.target && e.target.tagName) || '';
   if (tag === 'INPUT' || tag === 'TEXTAREA' || e.altKey || e.ctrlKey || e.metaKey || recording) return;
   if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); step(1); }
@@ -1860,11 +1988,514 @@ if ('launchQueue' in window) {
   });
 }
 
+// ---------- Bibliothèque ----------
+// Un dossier relié et mémorisé ; chaque sous-dossier est une collection (un « album »).
+// Aperçus des figurines : image fournie dans le dossier, sinon rendu calculé une fois puis gardé dans le navigateur.
+let view = 'viewer';
+const IMG_RE = /\.(png|jpe?g|webp|gif|avif)$/i;
+const COVER_RE = /^(cover|couverture|folder|poster|front|album)\.(png|jpe?g|webp|gif|avif)$/i;
+const LIB_POOL = 2;
+const LIB_MAX_FILE = 500 * 1048576;
+const lib = { root: null, cols: [], expanded: null, sel: new Map(), urls: [], jobs: [], running: 0, panel: null, scanning: false };
+
+let dbp = null;
+function db() {
+  return dbp || (dbp = new Promise((res, rej) => {
+    const r = indexedDB.open('atelier3d', 1);
+    r.onupgradeneeded = () => { for (const st of ['meta', 'covers', 'thumbs']) if (!r.result.objectStoreNames.contains(st)) r.result.createObjectStore(st); };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  }));
+}
+async function idb(store, mode, fn) {
+  const d = await db();
+  return new Promise((res, rej) => {
+    const tx = d.transaction(store, mode);
+    const req = fn(tx.objectStore(store));
+    tx.oncomplete = () => res(req ? req.result : undefined);
+    tx.onerror = () => rej(tx.error);
+    tx.onabort = () => rej(tx.error);
+  });
+}
+const idbGet = (st, k) => idb(st, 'readonly', (o) => o.get(k)).catch(() => undefined);
+const idbPut = (st, k, v) => idb(st, 'readwrite', (o) => o.put(v, k)).catch(() => {});
+const idbDel = (st, k) => idb(st, 'readwrite', (o) => o.delete(k)).catch(() => {});
+
+function setView(v) {
+  view = v;
+  document.body.classList.toggle('view-library', v === 'library');
+  $('tabLib').setAttribute('aria-selected', String(v === 'library'));
+  $('tabView').setAttribute('aria-selected', String(v === 'viewer'));
+  $('library').hidden = v !== 'library';
+  document.querySelector('.app').hidden = v !== 'viewer';
+  if (v === 'viewer') requestAnimationFrame(resize);
+  if (v === 'library' && !lib.root) initLibrary();
+}
+$('tabLib').addEventListener('click', () => setView('library'));
+$('tabView').addEventListener('click', () => setView('viewer'));
+$('goLib').addEventListener('click', () => setView('library'));
+
+function libState(state, name) {
+  $('libEmpty').hidden = state === 'ready';
+  $('libHead').hidden = state !== 'ready';
+  $('libGrid').hidden = state !== 'ready';
+  const title = $('libEmptyTitle'), text = $('libEmptyText'), btn = $('libPick'), foot = $('libEmptyFoot');
+  if (state === 'unsupported') {
+    title.textContent = 'Bibliothèque indisponible ici.';
+    text.textContent = 'La bibliothèque relie un dossier de votre ordinateur : ouvrez Atelier 3D dans Chrome ou Edge sur ordinateur.';
+    btn.hidden = true;
+  } else if (state === 'reconnect') {
+    title.textContent = 'Votre bibliothèque vous attend.';
+    text.textContent = 'Autorisez de nouveau l\'accès au dossier « ' + name + ' » pour afficher vos collections.';
+    btn.textContent = 'Autoriser l\'accès'; btn.hidden = false;
+  } else if (state === 'empty') {
+    title.textContent = 'Votre bibliothèque de figurines.';
+    text.textContent = 'Reliez le dossier où vous rangez vos modèles. Chaque sous-dossier devient une collection, avec sa couverture et l\'aperçu de chaque figurine.';
+    btn.textContent = 'Choisir le dossier'; btn.hidden = false;
+  }
+  foot.hidden = state === 'unsupported';
+}
+
+let libInit = null;
+function initLibrary() {
+  return libInit || (libInit = (async () => {
+    if (!('showDirectoryPicker' in window)) { libState('unsupported'); return false; }
+    // Sécurité : si la dernière relecture du dossier mémorisé n'est pas allée au bout, on ne réessaie pas en boucle
+    const GUARD = 'atelier3d.restoring';
+    let guard = null;
+    try { guard = localStorage.getItem(GUARD); } catch (e) { /* stockage indisponible */ }
+    if (guard === '1') {
+      try { localStorage.removeItem(GUARD); } catch (e) { /* ignoré */ }
+      await idbDel('meta', 'root');
+      libState('empty');
+      toast('<strong>Bibliothèque à relier de nouveau.</strong> Le dossier mémorisé n\'a pas pu être rouvert.');
+      return false;
+    }
+    try { localStorage.setItem(GUARD, '1'); } catch (e) { /* ignoré */ }
+    const h = await idbGet('meta', 'root');
+    try { localStorage.removeItem(GUARD); } catch (e) { /* ignoré */ }
+    if (!h) { libState('empty'); return false; }
+    lib.root = h;
+    let perm = 'prompt';
+    try { perm = await h.queryPermission({ mode: 'read' }); } catch (e) { /* handle invalide */ }
+    if (perm === 'granted') { await scanAndRender(); return true; }
+    libState('reconnect', h.name);
+    return true;
+  })());
+}
+
+$('libPick').addEventListener('click', async () => {
+  if (lib.root && $('libPick').textContent.startsWith('Autoriser')) {
+    try { if (await lib.root.requestPermission({ mode: 'read' }) === 'granted') { await scanAndRender(); return; } } catch (e) { /* refusé */ }
+    toast('<strong>Accès refusé.</strong> Choisissez de nouveau le dossier de la bibliothèque.');
+    libState('empty');
+    return;
+  }
+  pickLibrary();
+});
+$('libChange').addEventListener('click', pickLibrary);
+$('libRefresh').addEventListener('click', () => scanAndRender());
+async function pickLibrary() {
+  try {
+    const h = await window.showDirectoryPicker({ id: 'atelier3d-lib', mode: 'read' });
+    await idbPut('meta', 'root', h);
+    lib.root = h;
+    await scanAndRender();
+  } catch (e) { if (!e || e.name !== 'AbortError') toast('<strong>Dossier inaccessible.</strong> Choisissez-en un autre.'); }
+}
+
+// Parcourt le dossier : sous-dossiers de premier niveau = collections ; modèles et images rangés par dossier
+async function scanLibrary(root, onCount) {
+  const cols = new Map();
+  const colOf = (key, name, handle) => {
+    if (!cols.has(key)) cols.set(key, { key, name, handle, models: [], images: [], custom: null, coverImg: null, el: null });
+    return cols.get(key);
+  };
+  let n = 0;
+  async function walk(dir, rel, col, depth) {
+    for await (const h of dir.values()) {
+      const path = rel ? rel + '/' + h.name : h.name;
+      if (h.kind === 'directory') {
+        if (h.name.startsWith('.')) continue;
+        if (depth === 0) await walk(h, path, colOf(h.name, h.name, h), 1);
+        else if (depth < 10) await walk(h, path, col, depth + 1);
+      } else {
+        const c = col || colOf('', 'À la racine', root);
+        if (isModel(h.name)) {
+          c.models.push({ name: h.name, base: baseName(h.name), ext: h.name.split('.').pop().toUpperCase(), path, dir: rel, handle: h, col: c, preview: null, thumbURL: null, stats: null, level: null, size: null, queued: false, el: null, failed: false });
+          if (++n % 25 === 0) onCount(n);
+        } else if (IMG_RE.test(h.name)) {
+          c.images.push({ name: h.name, base: h.name.replace(/\.[^.]+$/, ''), path, dir: rel, handle: h, url: null });
+        }
+      }
+    }
+  }
+  await walk(root, '', null, 0);
+  const list = [...cols.values()].filter(c => c.models.length);
+  for (const c of list) {
+    c.models.sort((a, b) => collator.compare(a.path, b.path));
+    c.images.sort((a, b) => collator.compare(a.path, b.path));
+    const top = c.key;
+    c.coverImg = c.images.find(i => COVER_RE.test(i.name) && i.dir === top) || c.images.find(i => COVER_RE.test(i.name)) || c.images.find(i => i.dir === top) || null;
+    const perDir = new Map();
+    for (const m of c.models) perDir.set(m.dir, (perDir.get(m.dir) || 0) + 1);
+    for (const m of c.models) {
+      const same = c.images.filter(i => i.dir === m.dir);
+      m.preview = same.find(i => norm(i.base) === norm(m.base)) || (perDir.get(m.dir) === 1 && same.length ? same[0] : null);
+      const sub = c.key ? m.dir.slice(c.key.length + 1) : m.dir;
+      m.sub = sub || '';
+    }
+  }
+  list.sort((a, b) => (a.key === '') - (b.key === '') || collator.compare(a.name, b.name));
+  return list;
+}
+
+async function scanAndRender() {
+  if (lib.scanning) return;
+  lib.scanning = true;
+  libState('ready');
+  $('libName').textContent = lib.root.name;
+  $('libMeta').textContent = 'Analyse du dossier…';
+  $('libGrid').textContent = '';
+  for (const u of lib.urls) URL.revokeObjectURL(u);
+  lib.urls = []; lib.jobs = []; lib.expanded = null; lib.panel = null; lib.sel.clear(); updateSelBar();
+  try {
+    lib.cols = await scanLibrary(lib.root, (n) => { $('libMeta').textContent = 'Analyse du dossier… ' + fmtInt(n) + ' modèles'; });
+  } catch (e) {
+    lib.scanning = false;
+    libState('reconnect', lib.root.name);
+    return;
+  }
+  for (const c of lib.cols) c.custom = (await idbGet('covers', coverKey(c))) || null;
+  const total = lib.cols.reduce((s, c) => s + c.models.length, 0);
+  $('libMeta').textContent = pl(lib.cols.length, 'collection', 'collections') + ', ' + pl(total, 'modèle', 'modèles');
+  lib.scanning = false;
+  renderLibrary();
+}
+const coverKey = (c) => lib.root.name + '/' + c.key;
+
+async function urlOfImage(img) {
+  if (!img.url) { const f = await img.handle.getFile(); img.url = URL.createObjectURL(f); lib.urls.push(img.url); }
+  return img.url;
+}
+function blobURL(blob) { const u = URL.createObjectURL(blob); lib.urls.push(u); return u; }
+function hueOf(name) { let h = 0; for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h % 360; }
+
+// Couverture : image choisie, image du dossier, mosaïque des aperçus déjà calculés, sinon un dégradé
+async function fillCover(c, box) {
+  box.textContent = '';
+  let url = null;
+  if (c.custom) url = blobURL(c.custom);
+  else if (c.coverImg) { try { url = await urlOfImage(c.coverImg); } catch (e) { url = null; } }
+  if (url) { const im = document.createElement('img'); im.alt = ''; im.src = url; box.append(im); return url; }
+  const thumbs = [];
+  for (const m of c.models.slice(0, 8)) {
+    if (thumbs.length >= 4) break;
+    if (m.preview) { try { thumbs.push(await urlOfImage(m.preview)); } catch (e) { /* ignoré */ } continue; }
+    await loadCachedThumb(m);
+    if (m.thumbURL) thumbs.push(m.thumbURL);
+  }
+  if (thumbs.length) {
+    const mo = document.createElement('div'); mo.className = 'mosaic';
+    for (let i = 0; i < 4; i++) { const im = document.createElement('img'); im.alt = ''; if (thumbs[i % thumbs.length]) im.src = thumbs[i % thumbs.length]; mo.append(im); }
+    box.append(mo);
+    return null;
+  }
+  const h = hueOf(c.name);
+  const ph = document.createElement('div'); ph.className = 'ph';
+  ph.style.background = `linear-gradient(145deg, hsl(${h} 38% 62%), hsl(${(h + 35) % 360} 42% 38%))`;
+  ph.innerHTML = '<svg aria-hidden="true"><use href="#i-folder"/></svg>';
+  box.append(ph);
+  return null;
+}
+
+// Couleur dominante d'une couverture, assombrie pour le panneau (texte blanc lisible)
+async function panelColor(c, url) {
+  const fallback = c.custom || c.coverImg ? '#2C2C2E' : `hsl(${hueOf(c.name)} 30% 24%)`;
+  if (!url) return fallback;
+  try {
+    const img = new Image(); img.src = url; await img.decode();
+    const cv = document.createElement('canvas'); cv.width = cv.height = 24;
+    const g = cv.getContext('2d'); g.drawImage(img, 0, 0, 24, 24);
+    const d = g.getImageData(0, 0, 24, 24).data;
+    let r = 0, gr = 0, b = 0, w = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 128) continue;
+      const mx = Math.max(d[i], d[i + 1], d[i + 2]), mn = Math.min(d[i], d[i + 1], d[i + 2]);
+      const wt = 0.15 + (mx ? (mx - mn) / mx : 0);
+      r += d[i] * wt; gr += d[i + 1] * wt; b += d[i + 2] * wt; w += wt;
+    }
+    if (!w) return fallback;
+    const col = new THREE.Color(); col.setRGB(r / w / 255, gr / w / 255, b / w / 255, THREE.SRGBColorSpace);
+    const hsl = {}; col.getHSL(hsl, THREE.SRGBColorSpace);
+    return `hsl(${Math.round(hsl.h * 360)} ${Math.round(Math.min(hsl.s, 0.55) * 100)}% 22%)`;
+  } catch (e) { return fallback; }
+}
+
+function renderLibrary() {
+  const grid = $('libGrid');
+  grid.textContent = '';
+  lib.cols.forEach((c, i) => {
+    const a = document.createElement('button');
+    a.type = 'button'; a.className = 'album'; a.setAttribute('aria-expanded', 'false');
+    a.style.setProperty('--d', Math.min(i * 30, 600) + 'ms');
+    const cover = document.createElement('div'); cover.className = 'cover';
+    const an = document.createElement('div'); an.className = 'an'; an.textContent = c.name;
+    const ac = document.createElement('div'); ac.className = 'ac'; ac.textContent = pl(c.models.length, 'modèle', 'modèles');
+    a.append(cover, an, ac);
+    a.addEventListener('click', () => toggleAlbum(c));
+    // glisser une image sur la couverture pour la remplacer
+    a.addEventListener('dragover', (e) => { if ([...e.dataTransfer.types].includes('Files')) { e.preventDefault(); e.stopPropagation(); a.classList.add('dropping'); } });
+    a.addEventListener('dragleave', () => a.classList.remove('dropping'));
+    a.addEventListener('drop', (e) => {
+      e.preventDefault(); e.stopPropagation(); a.classList.remove('dropping');
+      dragDepth = 0; stage.classList.remove('drag');
+      const f = [...e.dataTransfer.files].find(x => x.type.startsWith('image/') || IMG_RE.test(x.name));
+      if (f) setCustomCover(c, f); else toast('<strong>Image attendue.</strong> Glissez une image PNG, JPG ou WebP sur la couverture.');
+    });
+    c.el = a; c.coverBox = cover;
+    grid.append(a);
+    fillCover(c, cover);
+  });
+  applyLibSearch();
+}
+
+function collapseAlbum() {
+  if (lib.panel) { lib.panel.remove(); lib.panel = null; }
+  if (lib.expanded && lib.expanded.el) lib.expanded.el.setAttribute('aria-expanded', 'false');
+  if (lib.expanded) lib.jobs = lib.jobs.filter(m => { if (m.col === lib.expanded) { m.queued = false; return false; } return true; });
+  lib.expanded = null;
+}
+function placePanel() {
+  const c = lib.expanded, panel = lib.panel;
+  if (!c || !panel) return;
+  const cards = [...$('libGrid').querySelectorAll('.album')].filter(x => !x.hidden);
+  const top = c.el.offsetTop;
+  let last = c.el;
+  for (const x of cards) if (x.offsetTop === top) last = x;
+  if (last.nextElementSibling !== panel) last.after(panel);
+  panel.style.setProperty('--nx', (c.el.offsetLeft + c.el.offsetWidth / 2 - panel.offsetLeft) + 'px');
+}
+async function toggleAlbum(c) {
+  if (lib.expanded === c) { collapseAlbum(); return; }
+  collapseAlbum();
+  lib.expanded = c;
+  c.el.setAttribute('aria-expanded', 'true');
+  const panel = document.createElement('div'); panel.className = 'panel';
+  lib.panel = panel;
+  const side = document.createElement('div'); side.className = 'pside';
+  const pc = document.createElement('div'); pc.className = 'pcover';
+  lib.panelCover = pc;
+  const info = document.createElement('div');
+  const h2 = document.createElement('h2'); h2.textContent = c.name;
+  const meta = document.createElement('div'); meta.className = 'pmeta'; meta.textContent = pl(c.models.length, 'modèle', 'modèles') + (c.key ? '' : ', directement dans « ' + lib.root.name + ' »');
+  const acts = document.createElement('div'); acts.className = 'pactions';
+  const bOpen = document.createElement('button'); bOpen.type = 'button'; bOpen.className = 'btn primary';
+  bOpen.textContent = c.models.length > MAX_FILES ? `Ouvrir les ${MAX_FILES} premiers` : 'Ouvrir tout le dossier';
+  bOpen.addEventListener('click', () => openModels(c.models.slice(0, MAX_FILES)));
+  const bAll = document.createElement('button'); bAll.type = 'button'; bAll.className = 'btn'; bAll.textContent = 'Tout sélectionner';
+  bAll.addEventListener('click', () => { const all = c.models.every(m => lib.sel.has(m.path)); for (const m of c.models) { if (all) lib.sel.delete(m.path); else lib.sel.set(m.path, m); } refreshSelection(); });
+  const bCover = document.createElement('button'); bCover.type = 'button'; bCover.className = 'btn'; bCover.textContent = 'Changer l\'image…';
+  bCover.addEventListener('click', () => { coverTarget = c; $('coverInput').click(); });
+  acts.append(bOpen, bAll, bCover);
+  if (c.custom) {
+    const bRm = document.createElement('button'); bRm.type = 'button'; bRm.className = 'btn'; bRm.textContent = 'Retirer l\'image';
+    bRm.addEventListener('click', () => setCustomCover(c, null));
+    acts.append(bRm);
+  }
+  const foot = document.createElement('p'); foot.className = 'pfoot'; foot.textContent = 'Astuce : glissez une image sur la couverture pour la changer.';
+  info.append(h2, meta, acts, foot);
+  side.append(pc, info);
+  const tiles = document.createElement('div'); tiles.className = 'tiles';
+  c.models.forEach((m, i) => tiles.append(makeTile(m, i, false)));
+  panel.append(side, tiles);
+  placePanel();
+  const url = await fillCover(c, pc);
+  panel.style.setProperty('--pbg', await panelColor(c, url || (pc.querySelector('img') ? pc.querySelector('img').src : null)));
+  panel.scrollIntoView({ block: 'nearest', behavior: reduceMotion.matches ? 'auto' : 'smooth' });
+  for (const m of c.models) queueThumb(m);
+}
+window.addEventListener('resize', () => { if (view === 'library') placePanel(); });
+
+function makeTile(m, i, showCol) {
+  const t = document.createElement('button');
+  t.type = 'button'; t.className = 'tile'; t.title = m.path;
+  t.style.setProperty('--d', Math.min(i * 18, 500) + 'ms');
+  t.setAttribute('aria-pressed', String(lib.sel.has(m.path)));
+  const box = document.createElement('div'); box.className = 'timg';
+  const ck = document.createElement('span'); ck.className = 'tcheck'; ck.innerHTML = icon('i-check');
+  box.append(ck);
+  const tn = document.createElement('div'); tn.className = 'tn'; tn.textContent = m.base;
+  const tm = document.createElement('div'); tm.className = 'tm';
+  t.append(box, tn, tm);
+  t.addEventListener('click', () => { if (lib.sel.has(m.path)) lib.sel.delete(m.path); else lib.sel.set(m.path, m); refreshSelection(); });
+  t.addEventListener('dblclick', (e) => { e.preventDefault(); openModels([m]); });
+  m.el = m.el || new Set();
+  m.el.add(t);
+  t._showCol = showCol;
+  paintTile(m, t);
+  return t;
+}
+async function paintTile(m, t) {
+  const box = t.querySelector('.timg'), tm = t.querySelector('.tm');
+  let url = null;
+  if (m.preview) { try { url = await urlOfImage(m.preview); } catch (e) { /* ignoré */ } }
+  if (!url && m.thumbURL) url = m.thumbURL;
+  const old = box.querySelector('img, .ring, .tph');
+  if (url) {
+    if (!old || old.tagName !== 'IMG' || old.src !== url) { if (old) old.remove(); const im = document.createElement('img'); im.alt = ''; im.src = url; box.prepend(im); }
+  } else if (!old) {
+    if (m.failed) { const ph = document.createElement('div'); ph.className = 'tph'; ph.innerHTML = '<svg viewBox="0 0 64 64" aria-hidden="true" style="width:100%;height:100%"><use href="#i-cube"/></svg>'; box.prepend(ph); }
+    else { const r = document.createElement('span'); r.className = 'ring'; r.style.setProperty('--p', '0.25'); box.prepend(r); }
+  }
+  tm.textContent = '';
+  const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = m.ext;
+  tm.append(tag);
+  if (m.level) { const d = document.createElement('span'); d.className = 'dot ' + m.level; tm.append(d); }
+  const parts = [];
+  if (m.stats) parts.push(fmt(m.stats.h) + ' mm');
+  else if (m.size) parts.push(fmt(m.size / 1048576, m.size < 10485760 ? 1 : 0) + ' Mo');
+  if (t._showCol) parts.push(m.col.name);
+  else if (m.sub) parts.push(m.sub);
+  tm.append(document.createTextNode(parts.join(', ')));
+}
+function repaint(m) { if (m.el) for (const t of m.el) if (t.isConnected) paintTile(m, t); else m.el.delete(t); }
+
+// Aperçus : cache du navigateur, sinon lecture du modèle en arrière-plan
+async function loadCachedThumb(m) {
+  if (m.thumbURL || m.cacheChecked) return;
+  m.cacheChecked = true;
+  try {
+    const f = await m.handle.getFile();
+    m.size = f.size;
+    m.key = m.path + '|' + f.size + '|' + f.lastModified;
+    const hit = await idbGet('thumbs', m.key);
+    if (hit) { m.thumbURL = hit.blob ? blobURL(hit.blob) : null; m.stats = hit.stats || null; m.level = hit.level || null; m.failed = !!hit.failed; }
+  } catch (e) { /* fichier déplacé */ }
+}
+function queueThumb(m) {
+  if (m.queued || (m.thumbURL && m.stats) || m.failed) return;
+  m.queued = true;
+  lib.jobs.push(m);
+  libPump();
+}
+function libPump() {
+  while (lib.running < LIB_POOL && lib.jobs.length) {
+    const m = lib.jobs.shift();
+    lib.running++;
+    makeLibThumb(m).catch(() => {}).finally(() => { m.queued = false; lib.running--; repaint(m); libPump(); });
+  }
+}
+function parseInWorker(file) {
+  return new Promise((res, rej) => {
+    const w = new Worker('./parser.js', { type: 'module' });
+    w.onmessage = (e) => { const m = e.data; if (m.type === 'done') { w.terminate(); res(m); } else if (m.type === 'error') { w.terminate(); rej(new Error(m.message)); } };
+    w.onerror = (e) => { e.preventDefault(); w.terminate(); rej(new Error('lecteur')); };
+    w.postMessage({ name: file.name, file });
+  });
+}
+async function makeLibThumb(m) {
+  await loadCachedThumb(m);
+  repaint(m);
+  if ((m.thumbURL || m.preview) && m.stats) return;
+  if (m.failed) return;
+  const f = await m.handle.getFile();
+  m.size = f.size;
+  if (f.size > LIB_MAX_FILE) { m.failed = true; return; }
+  try {
+    const r = await parseInWorker(f);
+    m.stats = { h: r.stats.h, w: r.stats.w, d: r.stats.d, tris: r.stats.tris };
+    m.level = checkLevel(r.check);
+    let blob = null;
+    if (!m.preview) {
+      const cv = renderThumb({ pos: r.pos, idx: r.idx, nrm: r.nrm });
+      blob = await new Promise((res) => cv.toBlob(res, 'image/webp', 0.9));
+      if (blob) m.thumbURL = blobURL(blob);
+    }
+    await idbPut('thumbs', m.key, { blob, stats: m.stats, level: m.level });
+  } catch (e) {
+    m.failed = true;
+    await idbPut('thumbs', m.key, { blob: null, stats: null, level: null, failed: true });
+  }
+  // la mosaïque de couverture se complète au fil des aperçus calculés
+  if (!m.col.custom && !m.col.coverImg && m.col.models.indexOf(m) < 8) {
+    await fillCover(m.col, m.col.coverBox);
+    if (lib.expanded === m.col && lib.panelCover && lib.panel) {
+      await fillCover(m.col, lib.panelCover);
+      if (lib.panelCover.querySelector('.mosaic')) lib.panel.style.setProperty('--pbg', '#2C2C2E');
+    }
+  }
+}
+
+// Sélection et ouverture dans la visionneuse
+function refreshSelection() {
+  for (const c of lib.cols) for (const m of c.models) if (m.el) for (const t of m.el) t.setAttribute('aria-pressed', String(lib.sel.has(m.path)));
+  updateSelBar();
+}
+function updateSelBar() {
+  const n = lib.sel.size;
+  $('selBar').hidden = n === 0;
+  $('selCount').textContent = pl(n, 'modèle sélectionné', 'modèles sélectionnés');
+  $('selOpen').textContent = n > MAX_FILES ? `Ouvrir les ${MAX_FILES} premiers` : 'Ouvrir dans la visionneuse';
+}
+$('selClear').addEventListener('click', () => { lib.sel.clear(); refreshSelection(); });
+$('selOpen').addEventListener('click', () => openModels([...lib.sel.values()]));
+async function openModels(models) {
+  const files = [], thumbs = new Map();
+  for (const m of models.slice(0, MAX_FILES)) {
+    try {
+      const f = await m.handle.getFile();
+      files.push(f);
+      let u = m.thumbURL;
+      if (m.preview) { try { u = await urlOfImage(m.preview); } catch (e) { /* ignoré */ } }
+      if (u) thumbs.set(f, u);
+    } catch (e) { /* fichier déplacé depuis l'analyse */ }
+  }
+  if (!files.length) { toast('<strong>Fichiers introuvables.</strong> Actualisez la bibliothèque.'); return; }
+  lib.sel.clear(); refreshSelection();
+  addFiles(files);
+  for (const it of items) if (thumbs.has(it.file) && !it.libThumb) { it.libThumb = thumbs.get(it.file); it.thumb = it.libThumb; updateCard(it, true); }
+}
+
+// Image personnalisée d'une collection, gardée dans le navigateur
+let coverTarget = null;
+$('coverInput').addEventListener('change', () => {
+  const f = $('coverInput').files[0];
+  $('coverInput').value = '';
+  if (f && coverTarget) setCustomCover(coverTarget, f);
+});
+async function setCustomCover(c, file) {
+  if (file) { c.custom = file; await idbPut('covers', coverKey(c), file); }
+  else { c.custom = null; await idbDel('covers', coverKey(c)); }
+  const url = await fillCover(c, c.coverBox);
+  if (lib.expanded === c) { const keep = c; collapseAlbum(); toggleAlbum(keep); }
+  toast(file ? '<strong>Image mise à jour</strong> pour « ' + esc(c.name) + ' ».' : '<strong>Image retirée</strong> de « ' + esc(c.name) + ' ».');
+  return url;
+}
+
+// Recherche : liste à plat des modèles qui correspondent
+function applyLibSearch() {
+  const q = norm($('libSearch').value.trim());
+  const res = $('libResults'), grid = $('libGrid');
+  if (!q) { res.hidden = true; grid.hidden = false; return; }
+  collapseAlbum();
+  grid.hidden = true; res.hidden = false;
+  const tiles = $('libResultsTiles'); tiles.textContent = '';
+  const found = [];
+  for (const c of lib.cols) for (const m of c.models) if (norm(m.path).includes(q)) found.push(m);
+  $('libResultsTitle').textContent = found.length ? pl(found.length, 'résultat', 'résultats') + (found.length > 300 ? ', les 300 premiers affichés' : '') : 'Aucun modèle ne correspond.';
+  found.slice(0, 300).forEach((m, i) => { tiles.append(makeTile(m, i, true)); queueThumb(m); });
+}
+$('libSearch').addEventListener('input', applyLibSearch);
+
 calibRange.value = String(pxPerMm);
 updateCalibState();
+// Au démarrage : la bibliothèque s'affiche si elle est reliée et qu'aucun fichier n'est ouvert
+initLibrary().then((linked) => { if (linked && !items.length) setView('library'); });
 
 renderer.setAnimationLoop(() => {
   stepTweens(performance.now());
+  if (view === 'library') return;
   controls.update();
   renderer.render(scene, camera);
   if (lineup) positionLabels();
