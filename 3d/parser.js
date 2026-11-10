@@ -1,7 +1,7 @@
 // Atelier 3D : lecture des fichiers .3mf et .stl en arrière-plan (Web Worker).
 // Le fichier reste sur l'ordinateur : tout est lu ici, rien n'est envoyé en ligne.
 // Sortie : sommets (Y vers le haut, centrés, posés à y = 0), indices, normales et quelques mesures.
-import { Unzip, UnzipInflate } from './lib/fflate.module.js';
+import { Unzip, UnzipInflate, Inflate } from './lib/fflate.module.js';
 
 const UNIT = { micron: 0.001, millimeter: 1, centimeter: 10, inch: 25.4, foot: 304.8, meter: 1000 };
 
@@ -114,12 +114,95 @@ export function makeModelParser(path) {
   };
 }
 
+// Sommaire de l'archive (répertoire central), ZIP64 compris : la façon fiable de lire un ZIP,
+// y compris quand les tailles ne sont écrites qu'après les données (Bambu Studio, OrcaSlicer…)
+function zipEntries(bytes) {
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let eocd = -1;
+  for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 65557); i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) return null;
+  let count = dv.getUint16(eocd + 10, true);
+  let cdOff = dv.getUint32(eocd + 16, true);
+  const loc = eocd - 20;
+  if ((count === 0xffff || cdOff === 0xffffffff) && loc >= 0 && dv.getUint32(loc, true) === 0x07064b50) {
+    const z64 = Number(dv.getBigUint64(loc + 8, true));
+    if (dv.getUint32(z64, true) === 0x06064b50) {
+      count = Number(dv.getBigUint64(z64 + 32, true));
+      cdOff = Number(dv.getBigUint64(z64 + 48, true));
+    }
+  }
+  const dec = new TextDecoder();
+  const out = [];
+  let p = cdOff;
+  for (let i = 0; i < count && p + 46 <= bytes.length; i++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) break;
+    const method = dv.getUint16(p + 10, true);
+    let csize = dv.getUint32(p + 20, true);
+    let usize = dv.getUint32(p + 24, true);
+    const nlen = dv.getUint16(p + 28, true), elen = dv.getUint16(p + 30, true), clen = dv.getUint16(p + 32, true);
+    let lho = dv.getUint32(p + 42, true);
+    const name = dec.decode(bytes.subarray(p + 46, p + 46 + nlen));
+    for (let e = p + 46 + nlen, end = e + elen; e + 4 <= end;) {
+      const id = dv.getUint16(e, true), sz = dv.getUint16(e + 2, true);
+      if (id === 0x0001) {
+        let q = e + 4;
+        if (usize === 0xffffffff) { usize = Number(dv.getBigUint64(q, true)); q += 8; }
+        if (csize === 0xffffffff) { csize = Number(dv.getBigUint64(q, true)); q += 8; }
+        if (lho === 0xffffffff) { lho = Number(dv.getBigUint64(q, true)); }
+      }
+      e += 4 + sz;
+    }
+    if (dv.getUint32(lho, true) !== 0x04034b50) throw new Error('archive 3MF abîmée');
+    const start = lho + 30 + dv.getUint16(lho + 26, true) + dv.getUint16(lho + 28, true);
+    out.push({ name, method, data: bytes.subarray(start, start + csize) });
+    p += 46 + nlen + elen + clen;
+  }
+  return out;
+}
+
+// Décompresse une entrée par morceaux et les passe à onChunk(chunk, final)
+function inflateEntry(ent, onChunk, onProgress) {
+  const STEP = 1 << 20, d = ent.data;
+  if (ent.method === 0) {
+    for (let o = 0; o < d.length; o += STEP) { const e = Math.min(o + STEP, d.length); onChunk(d.subarray(o, e), e === d.length); onProgress(e); }
+    if (!d.length) onChunk(new Uint8Array(0), true);
+    return;
+  }
+  if (ent.method !== 8) throw new Error('compression non prise en charge dans l\'archive (' + ent.method + ')');
+  let done = false;
+  const inf = new Inflate((chunk, final) => { if (final) done = true; onChunk(chunk, final); });
+  for (let o = 0; o < d.length; o += STEP) { const e = Math.min(o + STEP, d.length); inf.push(d.subarray(o, e), e === d.length); onProgress(e); }
+  if (!done) onChunk(new Uint8Array(0), true);
+}
+
 export function read3MF(buf, progress = () => {}) {
   const bytes = new Uint8Array(buf);
   const files = new Map();
   let rels = '';
   let err = null;
   const relDec = new TextDecoder();
+
+  const entries = zipEntries(bytes);
+  if (entries && entries.length) {
+    const models = entries.filter((e) => /\.model$/i.test(e.name));
+    const relEnt = entries.find((e) => /^_rels\/\.rels$/i.test(e.name.replace(/^\/+/, '')));
+    if (relEnt) inflateEntry(relEnt, (c, final) => { rels += relDec.decode(c, { stream: !final }); }, () => {});
+    const total = models.reduce((s, e) => s + e.data.length, 0) || 1;
+    let before = 0;
+    for (const ent of models) {
+      const parser = makeModelParser(normPath(ent.name));
+      files.set(normPath(ent.name), parser.st);
+      inflateEntry(ent, (c, final) => parser.push(c, final), (n) => progress((before + n) / total));
+      before += ent.data.length;
+    }
+  } else {
+    readStreaming();
+  }
+
+  // Repli : lecture en flux depuis le début de l'archive
+  function readStreaming() {
   const uz = new Unzip((f) => {
     const name = f.name;
     if (/\.model$/i.test(name)) {
@@ -140,10 +223,12 @@ export function read3MF(buf, progress = () => {}) {
     if (err) throw err;
     progress(end / bytes.length);
   }
+  }
   if (!files.size) throw new Error("aucun modèle 3D trouvé dans le fichier");
 
   const relRoot = /Target="([^"]+\.model)"/i.exec(rels);
   const root = (relRoot && files.get(normPath(relRoot[1])))
+    || [...files.values()].find((f) => f.build.length)
     || [...files.values()].find((f) => f.hasBuild)
     || files.values().next().value;
 
