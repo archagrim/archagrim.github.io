@@ -1,14 +1,14 @@
 {
   "name": "Atelier 3D",
   "short_name": "Atelier 3D",
-  "description": "Visionneuse de fichiers 3MF et STL en taille réelle, pour préparer mes impressions.",
+  "description": "Visionneuse de fichiers 3MF et STL en taille réelle : jusqu'à 60 fichiers, dimensions, échelle par socle, volume de résine.",
   "lang": "fr",
   "id": "/3d/",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#010A13",
-  "theme_color": "#010A13",
+  "background_color": "#F5F5F7",
+  "theme_color": "#FBFBFD",
   "icons": [
     {
       "src": "icons/icon-192.png",
@@ -31,9 +31,15 @@
     {
       "action": "./",
       "accept": {
-        "model/3mf": [".3mf"],
-        "model/stl": [".stl"],
-        "application/vnd.ms-pki.stl": [".stl"]
+        "model/3mf": [
+          ".3mf"
+        ],
+        "model/stl": [
+          ".stl"
+        ],
+        "application/vnd.ms-pki.stl": [
+          ".stl"
+        ]
       }
     }
   ],

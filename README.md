@@ -29,7 +29,9 @@ Chaque nouveau site peut avoir son propre dossier ici et sera publié à `https:
 
 - **Installer sur le PC** : ouvre https://archagrim.github.io/3d/ dans Chrome ou Edge → bouton **Installer** en haut à droite (ou icône d'installation dans la barre d'adresse).
 - Une fois installée, sélectionne un ou plusieurs `.3mf`/`.stl` dans l'Explorateur → clic droit → **Ouvrir avec** → **Atelier 3D**. Glisser-déposer et **Ctrl + O** marchent aussi.
-- Jusqu'à **20 fichiers** ouverts à la fois, lus en parallèle, avec une barre de vignettes ; **← →** pour passer de l'un à l'autre. Chaque fichier garde sa propre échelle.
+- Jusqu'à **60 fichiers** ouverts à la fois, lus en parallèle, avec une liste de vignettes ; flèches du clavier pour passer de l'un à l'autre. Chaque fichier garde sa propre échelle. Les gros modèles les moins récemment vus sont mis en veille pour ne pas saturer la mémoire et relus à la demande.
+- Windows n'affiche **Ouvrir avec** que jusqu'à 15 fichiers sélectionnés : au-delà, glisser-déposer ou **Ouvrir des fichiers**.
+- Style : clair ou sombre selon le réglage du système ; police Inter embarquée (`3d/fonts/`, licence OFL).
 - `3d/parser.js` lit les fichiers en arrière-plan (3MF en flux, avec composants, transformations et unités ; STL binaire et texte).
 - `3d/lib/` contient three.js 0.160.0 et fflate, pour que l'app marche hors ligne.
 - Mode **Taille réelle 1:1** : calibrage avec une carte bancaire, mémorisé dans le navigateur.

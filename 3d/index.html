@@ -4,155 +4,208 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Atelier 3D</title>
-<meta name="description" content="Visionneuse de fichiers 3MF et STL en taille réelle : jusqu'à 20 fichiers ouverts, dimensions, échelle par socle, volume de résine.">
-<meta name="theme-color" content="#010A13">
-<meta name="color-scheme" content="dark">
+<meta name="description" content="Visionneuse de fichiers 3MF et STL en taille réelle : jusqu'à 60 fichiers ouverts, dimensions, échelle par socle, volume de résine.">
+<meta name="theme-color" content="#FBFBFD" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1C1C1E" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Atelier 3D">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="preload" href="fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
 <style>
-/* Layout : barre collante en tête ; à gauche la barre des fichiers ouverts puis la scène 3D, à droite la fiche d'impression ; empilé sur téléphone ; thème client LoL du site */
+/* Layout : barre d'outils translucide ; trois volets façon app de bureau : fichiers à gauche, studio 3D au centre, inspecteur à droite.
+   Sans fichier, le studio prend toute la largeur. Sous 1000 px, tout s'empile et la liste des fichiers défile en ligne. */
+@font-face{font-family:"Inter Atelier";src:url("fonts/inter.woff2") format("woff2");font-weight:100 900;font-style:normal;font-display:swap}
 :root{
-  --bg:#010A13; --card:#0A1520; --card2:#0E1C2A; --stage:#05101A; --sep:rgba(200,170,110,.15); --edge:rgba(200,170,110,.32);
-  --fg:#F0E6D2; --muted:#A09B8C; --faint:#5F6067;
-  --gold:#C8AA6E; --gold-grad:linear-gradient(180deg,#F7EEDB 0%,#C8AA6E 55%,#8A6A30 100%);
-  --hex:#0AC8B9; --hex-hi:#CDFAFA; --warn:#E8C670; --loss:#E84057;
-  --model:#CFC6B4; --grid:#16303B;
-  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter","Segoe UI",Roboto,sans-serif;
-  --display:"Cinzel","Trajan Pro",Georgia,serif;
-  --strip-h:0px;
-  color-scheme:dark;
+  --window:#F5F5F7; --bar:rgba(251,251,253,.82); --side:#FBFBFD; --panel:#FFFFFF;
+  --ink:#1D1D1F; --ink-2:#6E6E73; --ink-3:#86868B; --line:rgba(0,0,0,.09); --line-2:rgba(0,0,0,.14);
+  --fill:rgba(0,0,0,.045); --fill-hover:rgba(0,0,0,.075); --selected:#E8E8ED;
+  --accent:#0071E3; --accent-hover:#0077ED; --accent-tint:rgba(0,113,227,.1); --accent-ink:#FFFFFF;
+  --ok:#28A745; --warn:#E08600; --danger:#D70015;
+  --stage-a:#FBFBFD; --stage-b:#E9E9EE;
+  --glass:rgba(255,255,255,.74); --shadow:0 8px 30px rgba(0,0,0,.08),0 1px 3px rgba(0,0,0,.06);
+  --model:#B2B4BA; --grid:#DCDCE2; --shadow-alpha:.30;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter Atelier","Segoe UI Variable Text","Segoe UI",Roboto,sans-serif;
+  --font-display:-apple-system,BlinkMacSystemFont,"SF Pro Display","Inter Atelier","Segoe UI Variable Display","Segoe UI",Roboto,sans-serif;
+  color-scheme:light dark;
 }
-body.has-files{--strip-h:96px}
+@media (prefers-color-scheme:dark){:root{
+  --window:#000000; --bar:rgba(28,28,30,.8); --side:#161617; --panel:#1C1C1E;
+  --ink:#F5F5F7; --ink-2:#A1A1A6; --ink-3:#8E8E93; --line:rgba(255,255,255,.1); --line-2:rgba(255,255,255,.16);
+  --fill:rgba(255,255,255,.07); --fill-hover:rgba(255,255,255,.11); --selected:#2C2C2E;
+  --accent:#2997FF; --accent-hover:#47A6FF; --accent-tint:rgba(41,151,255,.16); --accent-ink:#FFFFFF;
+  --ok:#30D158; --warn:#FF9F0A; --danger:#FF453A;
+  --stage-a:#1E1E21; --stage-b:#0C0C0D;
+  --glass:rgba(44,44,46,.72); --shadow:0 8px 30px rgba(0,0,0,.45),0 1px 3px rgba(0,0,0,.4);
+  --model:#9B9DA3; --grid:#2A2A2E; --shadow-alpha:.6;
+}}
 *{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%;background:var(--bg)}
-body{margin:0;color:var(--fg);font:400 15px/1.45 var(--font);-webkit-font-smoothing:antialiased;
-  background:radial-gradient(1000px 480px at 50% -160px,rgba(10,200,185,.11),transparent 62%),var(--bg);
-  padding-bottom:env(safe-area-inset-bottom)}
-button{font:inherit;color:inherit;cursor:pointer}
-:focus-visible{outline:2px solid var(--hex);outline-offset:2px}
+html,body{height:100%}
+html{-webkit-text-size-adjust:100%;background:var(--window)}
+body{margin:0;color:var(--ink);background:var(--window);font:400 14px/1.45 var(--font);font-feature-settings:"cv11","ss01";-webkit-font-smoothing:antialiased;
+  display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden}
+button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:1px;border-radius:8px}
 [hidden]{display:none!important}
-.wrap{max-width:1400px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
 
-header.top{position:sticky;top:0;z-index:20;background:rgba(2,10,19,.82);-webkit-backdrop-filter:saturate(160%) blur(20px);backdrop-filter:saturate(160%) blur(20px);padding-top:env(safe-area-inset-top)}
-header.top::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:linear-gradient(90deg,transparent,rgba(200,170,110,.55) 30%,rgba(240,230,210,.7) 50%,rgba(200,170,110,.55) 70%,transparent)}
-.bar{display:flex;align-items:center;gap:12px;min-height:54px;padding-block:8px}
-.brand{display:flex;align-items:center;gap:10px;flex:none}
-.brand img{width:30px;height:30px;border-radius:8px}
-.brand b{font:700 17px/1 var(--display);letter-spacing:.14em;background:var(--gold-grad);-webkit-background-clip:text;background-clip:text;color:transparent;white-space:nowrap}
-.fname{min-width:0;flex:1;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fname b{color:var(--fg);font-weight:600}
-.actions{display:flex;gap:8px;flex:none}
-@media (max-width:560px){.fname{display:none}.actions{margin-left:auto}}
-@media (max-width:480px){.brand b{display:none}.actions .btn{padding:0 11px}}
+/* Barre d'outils */
+.toolbar{position:relative;z-index:30;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;min-height:52px;
+  padding:calc(8px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 8px max(16px,env(safe-area-inset-left));
+  background:var(--bar);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--line)}
+.app-name{display:flex;align-items:center;gap:9px;min-width:0;font-weight:600;font-size:15px;letter-spacing:-.01em;white-space:nowrap}
+.app-name img{width:24px;height:24px;border-radius:6px;flex:none}
+.title{min-width:0;max-width:44vw;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;font-weight:600}
+.title span{color:var(--ink-3);font-weight:400;margin-left:8px}
+.actions{display:flex;justify-content:flex-end;align-items:center;gap:8px}
+@media (max-width:700px){.title{display:none}.toolbar{grid-template-columns:1fr auto}}
 
-.btn{height:34px;padding:0 14px;border-radius:999px;border:1px solid var(--sep);background:rgba(1,10,19,.55);font-size:13px;font-weight:600;color:var(--fg);transition:border-color .15s,background .15s;white-space:nowrap}
-.btn:hover{border-color:var(--edge)}
-.btn.gold{border-color:rgba(200,170,110,.6);background:linear-gradient(180deg,rgba(200,170,110,.22),rgba(200,170,110,.08));color:var(--fg)}
-.btn.gold:hover{border-color:var(--gold)}
-.btn.small{height:28px;padding:0 10px;font-size:12px}
-.btn[aria-pressed="true"]{border-color:var(--hex);background:rgba(10,200,185,.14);color:var(--hex-hi)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:30px;padding:0 13px;border-radius:8px;border:0;background:var(--fill);font-size:13px;font-weight:500;color:var(--ink);white-space:nowrap;transition:background-color .15s}
+.btn:hover{background:var(--fill-hover)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-radius:980px;padding:0 16px}
+.btn.primary:hover{background:var(--accent-hover)}
+.btn.plain{background:transparent;color:var(--accent);padding:0 8px}
+.btn.plain:hover{background:var(--accent-tint)}
+.btn.large{height:44px;padding:0 24px;font-size:17px;font-weight:500}
 
-main{padding-block:16px 28px}
-.layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;align-items:start}
-@media (max-width:900px){.layout{grid-template-columns:minmax(0,1fr)}}
-.viewer{display:flex;flex-direction:column;gap:10px;min-width:0}
+/* Volets */
+.app{display:grid;grid-template-columns:minmax(0,1fr);min-height:0}
+body.has-files .app{grid-template-columns:252px minmax(0,1fr) 300px}
+.sidebar,.inspector{display:none;min-height:0;overflow:auto}
+body.has-files .sidebar,body.has-files .inspector{display:block}
+.sidebar{background:var(--side);border-right:1px solid var(--line);padding:14px 10px calc(14px + env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left))}
+.inspector{background:var(--panel);border-left:1px solid var(--line);padding:0 max(20px,env(safe-area-inset-right)) env(safe-area-inset-bottom) 20px}
 
-/* Barre des fichiers ouverts */
-.strip{display:flex;align-items:stretch;gap:10px;height:86px;min-width:0}
-.strip-meta{flex:none;display:flex;flex-direction:column;justify-content:center;gap:6px;padding-right:2px}
-.strip-meta .count{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
-.strip-meta .count b{color:var(--fg);font-weight:700}
-.files{flex:1;min-width:0;display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:rgba(200,170,110,.3) transparent;padding-bottom:4px}
-.fitem{position:relative;flex:none;width:204px}
-.fcard{width:100%;height:78px;display:flex;align-items:center;gap:10px;padding:8px 26px 8px 8px;text-align:left;border-radius:12px;border:1px solid var(--sep);background:linear-gradient(180deg,var(--card2),var(--card))}
-.fcard:hover{border-color:var(--edge)}
-.fcard[aria-selected="true"]{border-color:var(--hex);background:linear-gradient(180deg,rgba(10,200,185,.16),rgba(10,200,185,.05))}
-.thumb{flex:none;width:60px;height:60px;border-radius:9px;background:var(--stage);border:1px solid var(--sep);overflow:hidden;display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--hex);font-variant-numeric:tabular-nums}
-.thumb img{width:100%;height:100%;object-fit:cover;display:block}
-.thumb.err{color:var(--loss);font-size:20px}
-.ftxt{min-width:0;display:flex;flex-direction:column;gap:2px}
-.fn{font-size:12.5px;font-weight:600;line-height:1.25;color:var(--fg);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
-.fm{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fm.err{color:var(--loss)}
-.fclose{position:absolute;top:5px;right:5px;width:22px;height:22px;border-radius:50%;border:0;background:transparent;color:var(--muted);font-size:15px;line-height:22px;padding:0}
-.fclose:hover{background:rgba(232,64,87,.18);color:var(--fg)}
+/* Liste des fichiers */
+.side-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 4px 8px 8px}
+.side-head h2{margin:0;font-size:13px;font-weight:600}
+.side-head .count{font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums;margin-left:6px;font-weight:400}
+.side-head .btn{height:24px;font-size:12px}
+.files{display:flex;flex-direction:column;gap:2px;margin:0;padding:0;list-style:none}
+.fitem{position:relative}
+.frow{width:100%;display:flex;align-items:center;gap:10px;padding:6px 30px 6px 6px;border:0;border-radius:9px;background:transparent;text-align:left}
+.frow:hover{background:var(--fill)}
+.frow[aria-selected="true"]{background:var(--selected)}
+.thumb{flex:none;width:44px;height:44px;border-radius:8px;background:var(--fill);overflow:hidden;display:grid;place-items:center;font-size:11px;font-weight:600;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.thumb img{width:100%;height:100%;object-fit:contain;display:block}
+.thumb.err{color:var(--danger);font-size:17px}
+.ftxt{min-width:0;flex:1;display:flex;flex-direction:column;gap:1px}
+.fn{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fm{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden}
+.fm .tag{font-size:10px;font-weight:600;letter-spacing:.02em;color:var(--ink-3);border:1px solid var(--line-2);border-radius:4px;padding:0 4px;line-height:15px}
+.fm.err{color:var(--danger)}
+.fclose{position:absolute;top:50%;right:6px;transform:translateY(-50%);width:22px;height:22px;border-radius:50%;border:0;background:transparent;color:var(--ink-3);display:grid;place-items:center;padding:0;opacity:0;transition:opacity .12s}
+.fclose svg{width:10px;height:10px}
+.fitem:hover .fclose,.fclose:focus-visible,.frow[aria-selected="true"]+.fclose{opacity:1}
+.fclose:hover{background:var(--fill-hover);color:var(--ink)}
 
-.stage{position:relative;background:var(--stage);border:1px solid var(--sep);border-radius:16px;overflow:hidden;height:calc(100vh - 54px - env(safe-area-inset-top) - 46px - var(--strip-h));min-height:420px}
-@media (max-width:900px){.stage{height:62vh;min-height:360px}}
+/* Studio 3D */
+.stage{position:relative;min-height:0;overflow:hidden;background:radial-gradient(120% 90% at 50% 38%,var(--stage-a) 0%,var(--stage-b) 100%)}
 .stage canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
 .stage canvas:active{cursor:grabbing}
-.stage.drag{border-color:var(--hex);box-shadow:inset 0 0 0 2px rgba(10,200,185,.5)}
-.hint{position:absolute;top:12px;left:14px;right:14px;font-size:12px;color:var(--muted);pointer-events:none}
-.hint b{color:var(--hex);font-weight:700;letter-spacing:.04em}
-.hint .warn{color:var(--warn)}
+.stage.drag::after{content:"";position:absolute;inset:10px;border:2px solid var(--accent);border-radius:16px;background:var(--accent-tint);pointer-events:none}
+.hint{position:absolute;top:14px;left:18px;right:18px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;font-size:12px;color:var(--ink-3);pointer-events:none}
+.hint .badge{display:inline-flex;align-items:center;gap:6px;color:var(--ink-2);font-weight:500}
+.hint .badge i{width:7px;height:7px;border-radius:50%;background:var(--ok)}
+.hint .badge.warn i{background:var(--warn)}
 
-.empty,.status{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center}
-.empty-box{max-width:440px;display:flex;flex-direction:column;align-items:center;gap:12px}
-.empty-box img{width:84px;height:84px;border-radius:20px;opacity:.95}
-.empty-box h1{margin:4px 0 0;font:700 24px/1.15 var(--display);letter-spacing:.04em;background:var(--gold-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
-.empty-box p{margin:0;color:var(--muted)}
-.empty-box .small{font-size:12.5px;color:var(--faint);max-width:46ch}
-.drop{border:1.5px dashed var(--edge);border-radius:16px;padding:22px 26px;display:flex;flex-direction:column;align-items:center;gap:12px;background:rgba(1,10,19,.35)}
-.stage.drag .drop{border-color:var(--hex)}
+.empty{position:absolute;inset:0;display:grid;place-items:center;padding:32px max(24px,env(safe-area-inset-right)) 32px max(24px,env(safe-area-inset-left));overflow:auto}
+.hero{max-width:640px;display:flex;flex-direction:column;align-items:center;text-align:center}
+.hero svg{width:64px;height:64px;color:var(--ink-3);margin-bottom:22px}
+.hero h1{margin:0;font:700 clamp(32px,5vw,48px)/1.07 var(--font-display);letter-spacing:-.025em;text-wrap:balance}
+.hero p.lede{margin:14px 0 0;font-size:clamp(17px,2vw,21px);line-height:1.38;color:var(--ink-2);max-width:34ch;text-wrap:balance}
+.hero .cta{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:10px 16px;margin-top:30px}
+.hero .cta span{color:var(--ink-3);font-size:15px}
+.hero .foot{margin:40px 0 0;font-size:12.5px;color:var(--ink-3);max-width:46ch}
+.hero .foot button{border:0;background:none;padding:0;color:var(--accent);font-size:12.5px}
+.hero .foot button:hover{text-decoration:underline}
 
-.status{background:rgba(5,16,26,.72);font-size:13px;color:var(--muted)}
-.status .pbar{width:220px;height:3px;background:var(--sep);border-radius:2px;margin:10px auto 0;overflow:hidden}
-.status .pbar i{display:block;height:100%;width:0;background:var(--hex);transition:width .15s}
-.status .err{color:var(--fg);max-width:46ch}
-.status .err b{color:var(--loss)}
+.status{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;font-size:13px;color:var(--ink-2)}
+.status .pbar{width:180px;height:4px;background:var(--fill-hover);border-radius:2px;margin:12px auto 0;overflow:hidden}
+.status .pbar i{display:block;height:100%;width:0;background:var(--accent);border-radius:2px;transition:width .15s}
+.status .err{max-width:44ch;color:var(--ink-2);font-size:14px}
+.status .err strong{display:block;margin-bottom:6px;font-size:17px;font-weight:600;color:var(--ink)}
 
-.toolbar{position:absolute;left:12px;right:12px;bottom:12px;display:flex;flex-wrap:wrap;gap:6px;justify-content:space-between;pointer-events:none}
-.toolbar .group{display:flex;flex-wrap:wrap;gap:6px;pointer-events:auto}
-.toolbar .btn{height:32px;padding:0 12px;font-size:12.5px;background:rgba(2,10,19,.78)}
+/* Commandes flottantes du studio */
+.controls{position:absolute;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px;
+  width:max-content;max-width:calc(100% - 24px);padding:5px;border-radius:14px;background:var(--glass);border:1px solid var(--line);box-shadow:var(--shadow);
+  -webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px)}
+.seg{display:flex;padding:2px;border-radius:9px;background:var(--fill)}
+.seg button{height:28px;padding:0 12px;border:0;border-radius:7px;background:transparent;font-size:12.5px;font-weight:500;color:var(--ink)}
+.seg button:hover{background:var(--panel);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.sep{width:1px;height:20px;background:var(--line-2);margin:0 2px}
+.tog{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 11px;border:0;border-radius:9px;background:transparent;font-size:12.5px;font-weight:500;color:var(--ink-2)}
+.tog svg{width:16px;height:16px}
+.tog:hover{background:var(--fill)}
+.tog[aria-pressed="true"]{color:var(--accent);background:var(--accent-tint)}
 
-.ihelp{position:fixed;z-index:45;top:calc(62px + env(safe-area-inset-top));right:max(16px,env(safe-area-inset-right));width:min(380px,calc(100vw - 32px));padding:16px 18px;border-radius:14px;border:1px solid var(--edge);background:#0E1C2A;box-shadow:0 14px 40px rgba(0,0,0,.55);font-size:13.5px}
-.ihelp h2{margin:0 26px 8px 0;font:700 17px/1.2 var(--display);letter-spacing:.04em;background:var(--gold-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
-.ihelp ol{margin:0;padding-left:20px;display:grid;gap:6px}
-.ihelp p{margin:10px 0 0;color:var(--muted);font-size:12.5px}
-.ihelp b{color:var(--fg)}
-.ihelp .x{position:absolute;top:10px;right:10px;width:26px;height:26px;border-radius:50%;border:0;background:transparent;color:var(--muted);font-size:17px;line-height:26px;padding:0}
-.ihelp .x:hover{color:var(--fg);background:rgba(200,170,110,.12)}
-.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:40;max-width:min(560px,calc(100vw - 32px));padding:10px 16px;border-radius:12px;border:1px solid rgba(232,198,112,.45);background:#13202b;color:var(--fg);font-size:13.5px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
-.toast b{color:var(--warn)}
+/* Inspecteur */
+.group{padding:20px 0;border-bottom:1px solid var(--line)}
+.group:last-child{border-bottom:0}
+.group h2{margin:0 0 12px;font-size:13px;font-weight:600}
+dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:9px 14px}
+dt{color:var(--ink-2);font-size:13px}
+dd{margin:0;text-align:right;font-size:13px;font-weight:500;font-variant-numeric:tabular-nums}
+.foot{margin:12px 0 0;font-size:12px;color:var(--ink-3);line-height:1.45}
+.bases{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.chip{height:30px;border:0;border-radius:8px;background:var(--fill);font-size:12.5px;font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
+.chip:hover:not(:disabled){background:var(--fill-hover)}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.chip:disabled{opacity:.4;cursor:default}
+.field{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;font-size:13px;color:var(--ink-2)}
+.field .box{display:flex;align-items:center;height:30px;border-radius:8px;background:var(--fill);padding:0 10px 0 4px}
+.field input{width:64px;height:28px;border:0;background:transparent;text-align:right;font:500 13px var(--font);font-variant-numeric:tabular-nums;color:var(--ink);padding:0 4px}
+.field input:focus{outline:none}
+.field .box:focus-within{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 45%,transparent)}
+.field .box span{color:var(--ink-3)}
+.calib-state{display:flex;align-items:flex-start;gap:7px;margin:12px 0 0;font-size:12.5px;color:var(--ink-2)}
+.calib-state i{width:8px;height:8px;border-radius:50%;background:var(--warn);flex:none;margin-top:5px}
+.calib-state.ok i{background:var(--ok)}
 
-aside{display:flex;flex-direction:column;gap:12px;min-width:0}
-.card{background:linear-gradient(180deg,var(--card2),var(--card));border:1px solid var(--sep);border-radius:16px;padding:16px;min-width:0}
-.over{font:700 11.5px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--hex);margin:0 0 10px}
-dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:7px 14px}
-dt{color:var(--muted);font-size:13.5px}
-dd{margin:0;text-align:right;font-size:13.5px;font-weight:600;font-variant-numeric:tabular-nums}
-.note{font-size:12.5px;color:var(--muted);margin:10px 0 0}
-.chips{display:flex;flex-wrap:wrap;gap:6px}
-.chip{height:30px;padding:0 11px;border-radius:999px;border:1px solid var(--sep);background:rgba(1,10,19,.5);font-size:12.5px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
-.chip:hover{color:var(--fg);border-color:var(--edge)}
-.chip[aria-pressed="true"]{color:var(--hex-hi);border-color:var(--hex);background:rgba(10,200,185,.14)}
-.chip:disabled{opacity:.45;cursor:default}
-.scale-row{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13.5px;color:var(--muted)}
-.scale-row input{width:80px;height:32px;font:600 14px var(--font);font-variant-numeric:tabular-nums;padding:0 10px;border-radius:8px;border:1px solid var(--sep);background:rgba(1,10,19,.6);color:var(--fg)}
-.row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-top:12px}
-.state{font-size:12.5px;color:var(--muted)}
-.state.ok{color:var(--hex)}
+/* Écrans étroits : tout s'empile */
+@media (max-width:999px){
+  body{overflow:auto;display:block}
+  .toolbar{position:sticky;top:0}
+  body.has-files .app{grid-template-columns:minmax(0,1fr)}
+  .sidebar{order:1;border-right:0;border-bottom:1px solid var(--line);padding:10px max(12px,env(safe-area-inset-right)) 10px max(12px,env(safe-area-inset-left));overflow:visible}
+  .files{flex-direction:row;overflow-x:auto;gap:6px;padding-bottom:2px;scrollbar-width:none}
+  .files::-webkit-scrollbar{display:none}
+  .fitem{flex:none;width:210px}
+  .stage{order:2;height:64vh;min-height:380px}
+  body:not(.has-files) .stage{height:calc(100vh - 53px - env(safe-area-inset-top))}
+  .inspector{order:3;border-left:0;overflow:visible;padding-left:max(20px,env(safe-area-inset-left))}
+  .fclose{opacity:1}
+}
 
-/* Calibrage plein écran */
-.calib{position:fixed;inset:0;z-index:50;background:var(--bg);overflow:auto;display:flex;justify-content:center;
-  padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));
-  padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
-.calib-box{width:100%;max-width:560px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;padding-block:8px}
-.calib-box h2{margin:0;font:700 22px/1.15 var(--display);letter-spacing:.04em;background:var(--gold-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
-.calib-box p{margin:0;color:var(--muted);max-width:46ch}
-.cardshape{box-sizing:border-box;border:2px dashed var(--hex);display:grid;place-items:center;font-size:12px;color:var(--muted);flex:none}
-.calib-ctrl{display:flex;align-items:center;gap:8px;width:min(380px,100%)}
-.calib-ctrl input[type=range]{flex:1;min-width:0;accent-color:var(--hex)}
-.calib-val{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
-.calib-actions{display:flex;gap:8px}
+/* Notification, aide à l'installation, calibrage */
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:60;max-width:min(520px,calc(100vw - 32px));
+  padding:12px 18px;border-radius:14px;background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);font-size:13px;color:var(--ink-2)}
+.toast strong{color:var(--ink);font-weight:600}
+.ihelp{position:fixed;z-index:55;top:calc(58px + env(safe-area-inset-top));right:max(16px,env(safe-area-inset-right));width:min(360px,calc(100vw - 32px));
+  padding:18px 20px;border-radius:14px;background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);font-size:13px}
+.ihelp h2{margin:0 28px 10px 0;font-size:15px;font-weight:600}
+.ihelp ol{margin:0;padding-left:18px;display:grid;gap:6px;color:var(--ink-2)}
+.ihelp ol b{color:var(--ink);font-weight:600}
+.ihelp p{margin:10px 0 0;color:var(--ink-3);font-size:12.5px}
+.ihelp .x{position:absolute;top:12px;right:12px;width:24px;height:24px;border-radius:50%;border:0;background:var(--fill);color:var(--ink-2);display:grid;place-items:center;padding:0}
+.ihelp .x svg{width:10px;height:10px}
+.ihelp .x:hover{background:var(--fill-hover)}
+
+.calib{position:fixed;inset:0;z-index:70;display:flex;justify-content:center;align-items:flex-start;overflow:auto;background:rgba(0,0,0,.32);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  padding:max(24px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+.sheet{width:100%;max-width:560px;margin:auto 0;display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;padding:28px 24px;border-radius:20px;background:var(--panel);box-shadow:0 24px 80px rgba(0,0,0,.3)}
+.sheet h2{margin:0;font:700 24px/1.15 var(--font-display);letter-spacing:-.02em}
+.sheet p{margin:0;color:var(--ink-2);max-width:42ch}
+.cardshape{box-sizing:border-box;border:1.5px solid var(--accent);background:var(--accent-tint);display:grid;place-items:center;font-size:12px;font-weight:500;color:var(--accent);flex:none}
+.calib-ctrl{display:flex;align-items:center;gap:10px;width:min(380px,100%)}
+.calib-ctrl input[type=range]{flex:1;min-width:0;accent-color:var(--accent)}
+.calib-ctrl .btn{width:30px;padding:0;font-size:17px}
+.calib-val{font-size:13px;font-weight:500;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.sheet-actions{display:flex;gap:10px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 <script type="importmap">
@@ -160,141 +213,141 @@ dd{margin:0;text-align:right;font-size:13.5px;font-weight:600;font-variant-numer
 </script>
 </head>
 <body>
-<header class="top">
-  <div class="wrap bar">
-    <div class="brand"><img src="icons/icon-192.png" alt=""><b>ATELIER 3D</b></div>
-    <div class="fname" id="fname">Aucun fichier ouvert</div>
-    <div class="actions">
-      <button class="btn" id="install" type="button" aria-controls="ihelp" hidden>Installer</button>
-      <button class="btn gold" id="openBtn" type="button" title="Ctrl + O">Ouvrir des fichiers</button>
-    </div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-close" viewBox="0 0 10 10"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/></symbol>
+  <symbol id="i-ruler" viewBox="0 0 16 16"><rect x="1.5" y="5" width="13" height="6" rx="1.3" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M4.5 5v2.4M7 5v1.6M9.5 5v2.4M12 5v1.6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></symbol>
+  <symbol id="i-rotate" viewBox="0 0 16 16"><path d="M13.2 8a5.2 5.2 0 1 1-1.6-3.75" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M12 1.9v2.6H9.4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 16 16"><path d="M2 5.5h12M2 10.5h12M5.5 2v12M10.5 2v12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><rect x="2" y="2" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/></symbol>
+  <symbol id="i-cube" viewBox="0 0 64 64"><path d="M32 6 55 19v26L32 58 9 45V19z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 19l23 13 23-13M32 32v26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+</svg>
+
+<header class="toolbar">
+  <div class="app-name"><img src="icons/icon-192.png" alt="">Atelier 3D</div>
+  <div class="title" id="title"></div>
+  <div class="actions">
+    <button class="btn plain" id="install" type="button" aria-controls="ihelp" hidden>Installer</button>
+    <button class="btn primary" id="openBtn" type="button" title="Ctrl + O">Ouvrir des fichiers</button>
   </div>
 </header>
 
 <input id="fileInput" type="file" accept=".3mf,.stl,model/3mf,model/stl" multiple hidden>
 
-<main class="wrap">
-  <div class="layout">
-    <div class="viewer">
-      <div class="strip" id="strip" hidden>
-        <div class="strip-meta">
-          <span class="count" id="count"></span>
-          <button class="btn small" id="closeAll" type="button">Tout fermer</button>
-        </div>
-        <div class="files" id="files" role="tablist" aria-label="Fichiers ouverts"></div>
-      </div>
+<div class="app">
+  <nav class="sidebar" aria-label="Fichiers ouverts">
+    <div class="side-head">
+      <h2>Fichiers<span class="count" id="count"></span></h2>
+      <button class="btn plain" id="closeAll" type="button">Tout fermer</button>
+    </div>
+    <ul class="files" id="files" role="listbox" aria-label="Fichiers ouverts"></ul>
+  </nav>
 
-      <div class="stage" id="stage">
-        <div class="hint" id="hint" hidden></div>
+  <main class="stage" id="stage">
+    <div class="hint" id="hint" hidden></div>
 
-        <div class="empty" id="empty">
-          <div class="empty-box">
-            <img src="icons/icon-192.png" alt="">
-            <h1>Ouvre tes modèles 3D</h1>
-            <div class="drop">
-              <p>Glisse des fichiers <b>.3mf</b> ou <b>.stl</b> ici, jusqu'à 20 à la fois</p>
-              <button class="btn gold" id="openBtn2" type="button">Choisir des fichiers</button>
-            </div>
-            <p class="small">Les fichiers restent sur ton PC : ils sont lus ici, rien n'est envoyé en ligne. Une fois l'app installée, sélectionne des .3mf ou .stl dans l'Explorateur → clic droit → Ouvrir avec → Atelier 3D.</p>
-          </div>
+    <div class="empty" id="empty">
+      <div class="hero">
+        <svg aria-hidden="true"><use href="#i-cube"/></svg>
+        <h1>Vos modèles 3D, en taille réelle.</h1>
+        <p class="lede">Ouvrez jusqu'à 60 fichiers .3mf ou .stl. Dimensions, échelle par socle et volume de résine, d'un coup d'œil.</p>
+        <div class="cta">
+          <button class="btn primary large" id="openBtn2" type="button">Choisir des fichiers</button>
+          <span>ou glissez-les ici</span>
         </div>
-
-        <div class="status" id="status" hidden>
-          <div>
-            <div id="statusText">Lecture…</div>
-            <div class="pbar" id="pbar"><i id="pfill"></i></div>
-          </div>
-        </div>
-
-        <div class="toolbar" id="toolbar" hidden>
-          <div class="group" role="group" aria-label="Vues">
-            <button class="btn" id="v-front" type="button">Face</button>
-            <button class="btn" id="v-side" type="button">Côté</button>
-            <button class="btn" id="v-back" type="button">Dos</button>
-            <button class="btn" id="v-top" type="button">Dessus</button>
-          </div>
-          <div class="group">
-            <button class="btn" id="t-real" type="button" aria-pressed="true">Taille réelle 1:1</button>
-            <button class="btn" id="t-spin" type="button" aria-pressed="false">Rotation auto</button>
-            <button class="btn" id="t-grid" type="button" aria-pressed="true">Grille 10 mm</button>
-          </div>
-        </div>
+        <p class="foot">Les fichiers sont lus sur cet ordinateur, rien n'est envoyé en ligne. Pour voir les modèles à leur vraie taille, <button type="button" id="calibOpen2">calibrez l'écran</button>.</p>
       </div>
     </div>
 
-    <aside>
-      <section class="card">
-        <h2 class="over">Dimensions</h2>
-        <dl>
-          <dt>Hauteur</dt><dd id="d-h">—</dd>
-          <dt>Largeur</dt><dd id="d-w">—</dd>
-          <dt>Profondeur</dt><dd id="d-d">—</dd>
-          <dt>Socle (Ø au sol)</dt><dd id="d-b">—</dd>
-          <dt>Résine si plein</dt><dd id="d-v">—</dd>
-        </dl>
-        <p class="note">Le volume n'est juste que si le modèle est fermé. Évidé, il faut nettement moins de résine.</p>
-      </section>
+    <div class="status" id="status" hidden>
+      <div>
+        <div id="statusText">Lecture…</div>
+        <div class="pbar" id="pbar"><i id="pfill"></i></div>
+      </div>
+    </div>
 
-      <section class="card">
-        <h2 class="over">Échelle</h2>
-        <div class="chips" role="group" aria-label="Diamètre du socle">
-          <button class="chip" type="button" data-base="25" disabled>Ø 25</button>
-          <button class="chip" type="button" data-base="32" disabled>Ø 32</button>
-          <button class="chip" type="button" data-base="40" disabled>Ø 40</button>
-          <button class="chip" type="button" data-base="50" disabled>Ø 50</button>
-          <button class="chip" type="button" data-base="60" disabled>Ø 60</button>
-          <button class="chip" type="button" data-base="0" aria-pressed="true" disabled>Origine</button>
-        </div>
-        <label class="scale-row" for="scaleInput">Échelle <input id="scaleInput" type="number" min="5" max="400" step="1" value="100" disabled> %</label>
-        <p class="note">Choisis le diamètre du socle voulu : toutes les cotes suivent, et en 1:1 la figurine change de taille à l'écran. Chaque fichier garde sa propre échelle.</p>
-      </section>
+    <div class="controls" id="controls" hidden>
+      <div class="seg" role="group" aria-label="Vues">
+        <button id="v-front" type="button">Face</button>
+        <button id="v-side" type="button">Côté</button>
+        <button id="v-back" type="button">Dos</button>
+        <button id="v-top" type="button">Dessus</button>
+      </div>
+      <span class="sep" aria-hidden="true"></span>
+      <button class="tog" id="t-real" type="button" aria-pressed="true"><svg aria-hidden="true"><use href="#i-ruler"/></svg>Taille réelle</button>
+      <button class="tog" id="t-spin" type="button" aria-pressed="false"><svg aria-hidden="true"><use href="#i-rotate"/></svg>Rotation</button>
+      <button class="tog" id="t-grid" type="button" aria-pressed="true"><svg aria-hidden="true"><use href="#i-grid"/></svg>Grille</button>
+    </div>
+  </main>
 
-      <section class="card">
-        <h2 class="over">Taille réelle</h2>
-        <p class="note" style="margin-top:0">En 1:1, 1 mm du modèle fait 1 mm sur ton écran. Calibre une fois avec une carte bancaire. À refaire si tu changes d'écran ou de zoom.</p>
-        <div class="row">
-          <button class="btn" id="calibOpen" type="button">Calibrer l'écran</button>
-          <span class="state" id="calibState">non calibré</span>
-        </div>
-      </section>
+  <aside class="inspector" aria-label="Informations">
+    <section class="group">
+      <h2>Dimensions</h2>
+      <dl>
+        <dt>Hauteur</dt><dd id="d-h">—</dd>
+        <dt>Largeur</dt><dd id="d-w">—</dd>
+        <dt>Profondeur</dt><dd id="d-d">—</dd>
+        <dt>Socle, diamètre au sol</dt><dd id="d-b">—</dd>
+        <dt>Résine si plein</dt><dd id="d-v">—</dd>
+      </dl>
+      <p class="foot">Le volume n'est exact que pour un modèle fermé. Une fois évidé, il faut nettement moins de résine.</p>
+    </section>
 
-      <section class="card">
-        <h2 class="over">Fichier</h2>
-        <dl>
-          <dt>Triangles</dt><dd id="m-t">—</dd>
-          <dt>Sommets</dt><dd id="m-v">—</dd>
-          <dt>Objets</dt><dd id="m-o">—</dd>
-          <dt>Taille du fichier</dt><dd id="m-s">—</dd>
-          <dt>Lu en</dt><dd id="m-time">—</dd>
-        </dl>
-      </section>
-    </aside>
-  </div>
-</main>
+    <section class="group">
+      <h2>Échelle</h2>
+      <div class="bases" role="group" aria-label="Diamètre du socle">
+        <button class="chip" type="button" data-base="25" disabled>Ø 25 mm</button>
+        <button class="chip" type="button" data-base="32" disabled>Ø 32 mm</button>
+        <button class="chip" type="button" data-base="40" disabled>Ø 40 mm</button>
+        <button class="chip" type="button" data-base="50" disabled>Ø 50 mm</button>
+        <button class="chip" type="button" data-base="60" disabled>Ø 60 mm</button>
+        <button class="chip" type="button" data-base="0" aria-pressed="true" disabled>Origine</button>
+      </div>
+      <label class="field" for="scaleInput">Échelle <span class="box"><input id="scaleInput" type="number" min="5" max="400" step="1" value="100" disabled><span>%</span></span></label>
+      <p class="foot">Choisissez le diamètre de socle voulu : toutes les cotes suivent et, en taille réelle, le modèle change de taille à l'écran. Chaque fichier garde sa propre échelle.</p>
+    </section>
+
+    <section class="group">
+      <h2>Taille réelle</h2>
+      <p class="foot" style="margin-top:0">En taille réelle, 1 mm du modèle mesure 1 mm sur l'écran. Calibrez une fois avec une carte bancaire, puis de nouveau si vous changez d'écran ou de zoom.</p>
+      <p class="calib-state" id="calibState"><i></i><span></span></p>
+      <div style="margin-top:12px"><button class="btn" id="calibOpen" type="button">Calibrer l'écran…</button></div>
+    </section>
+
+    <section class="group">
+      <h2>Fichier</h2>
+      <dl>
+        <dt>Triangles</dt><dd id="m-t">—</dd>
+        <dt>Sommets</dt><dd id="m-v">—</dd>
+        <dt>Objets</dt><dd id="m-o">—</dd>
+        <dt>Taille</dt><dd id="m-s">—</dd>
+        <dt>Lu en</dt><dd id="m-time">—</dd>
+      </dl>
+    </section>
+  </aside>
+</div>
 
 <div class="toast" id="toast" role="status" hidden></div>
 
 <div class="ihelp" id="ihelp" role="dialog" aria-labelledby="ihelpTitle" hidden>
-  <button class="x" id="ihelpClose" type="button" aria-label="Fermer">×</button>
+  <button class="x" id="ihelpClose" type="button" aria-label="Fermer"><svg aria-hidden="true"><use href="#i-close"/></svg></button>
   <h2 id="ihelpTitle">Installer Atelier 3D</h2>
   <div id="ihelpBody"></div>
 </div>
 
 <div class="calib" id="calib" hidden role="dialog" aria-modal="true" aria-labelledby="calibTitle">
-  <div class="calib-box">
+  <div class="sheet">
     <h2 id="calibTitle">Calibrer la taille réelle</h2>
-    <p>Pose une carte bancaire contre l'écran, dans le rectangle. Ajuste le curseur jusqu'à ce que le rectangle ait exactement la taille de la carte.</p>
+    <p>Posez une carte bancaire contre l'écran, dans le rectangle bleu. Ajustez le curseur jusqu'à ce que le rectangle ait exactement la taille de la carte.</p>
     <div class="calib-ctrl">
       <button class="btn" id="calibMinus" type="button" aria-label="Plus petit">−</button>
       <input id="calibRange" type="range" min="2" max="10" step="0.01" aria-label="Pixels par millimètre">
       <button class="btn" id="calibPlus" type="button" aria-label="Plus grand">+</button>
     </div>
     <div class="calib-val" id="calibVal"></div>
-    <div class="calib-actions">
-      <button class="btn" id="calibReset" type="button">Réinitialiser</button>
-      <button class="btn gold" id="calibDone" type="button">Terminé</button>
-    </div>
     <div class="cardshape" id="calibCard">54 × 85,6 mm</div>
+    <div class="sheet-actions">
+      <button class="btn" id="calibReset" type="button">Réinitialiser</button>
+      <button class="btn primary" id="calibDone" type="button">Terminé</button>
+    </div>
   </div>
 </div>
 
@@ -302,9 +355,10 @@ dd{margin:0;text-align:right;font-size:13.5px;font-weight:600;font-variant-numer
 import * as THREE from 'three';
 import { OrbitControls } from './lib/OrbitControls.js';
 
-const MAX_FILES = 20;
+const MAX_FILES = 60;
 const POOL = Math.min(4, Math.max(1, (navigator.hardwareConcurrency || 4) - 1));   // lectures en parallèle
-const MEMORY_BUDGET = 1.2e9;                            // au-delà, les modèles non affichés sont mis en veille
+// Au-delà de ce volume, les modèles non affichés sont mis en veille (vignette et mesures gardées, relus à la demande)
+const MEMORY_BUDGET = Math.min(1.6e9, Math.max(0.8e9, (navigator.deviceMemory || 6) * 0.2e9));
 const CARD = { w: 53.98, h: 85.6, r: 3.18 };           // carte bancaire ISO ID-1, en portrait
 const NOMINAL = 96 / 25.4;                              // px CSS par mm selon la norme CSS
 const STORE_KEY = 'atelier3d.pxPerMm';
@@ -313,6 +367,7 @@ const $ = (id) => document.getElementById(id);
 const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const fmt = (v, dec = 1) => v.toLocaleString('fr-CH', { minimumFractionDigits: dec, maximumFractionDigits: dec });
 const fmtInt = (v) => v.toLocaleString('fr-CH');
+const icon = (id) => `<svg aria-hidden="true"><use href="#${id}"/></svg>`;
 
 const stage = $('stage');
 const hint = $('hint');
@@ -324,15 +379,14 @@ try {
   if (v > 1 && v < 20) { pxPerMm = v; calibrated = true; }
 } catch (e) { /* stockage indisponible */ }
 
-// ---------- Scène ----------
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+// ---------- Studio ----------
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.setClearColor(0x000000, 0);
 stage.prepend(renderer.domElement);
 
-const STAGE_COLOR = new THREE.Color(css('--stage'));
 const scene = new THREE.Scene();
-scene.background = STAGE_COLOR;
 const persp = new THREE.PerspectiveCamera(32, 1, 1, 5000);
 const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 5000);
 let realSize = true;
@@ -346,24 +400,51 @@ function makeControls(cam, prevTarget) {
   c.dampingFactor = 0.08;
   c.autoRotateSpeed = 1.6;
   c.autoRotate = spinOn;
-  c.enableZoom = !realSize;           // en 1:1 le zoom est fixé par le calibrage
+  c.enableZoom = !realSize;           // en taille réelle, le zoom est fixé par le calibrage
   if (prevTarget) c.target.copy(prevTarget);
   return c;
 }
 
+// Éclairage de studio neutre
 function addLights(sc) {
-  sc.add(new THREE.HemisphereLight(0xffffff, 0x2b3a44, 1.05));
-  const key = new THREE.DirectionalLight(0xfff4e2, 2.0); key.position.set(-120, 180, 160); sc.add(key);
-  const rim = new THREE.DirectionalLight(0x9fe8ff, 1.0); rim.position.set(140, 90, -160); sc.add(rim);
-  const fill = new THREE.DirectionalLight(0xffffff, 0.35); fill.position.set(80, 20, 120); sc.add(fill);
+  sc.add(new THREE.HemisphereLight(0xffffff, 0x8a8d94, 1.15));
+  const key = new THREE.DirectionalLight(0xffffff, 1.9); key.position.set(-130, 200, 170); sc.add(key);
+  const rim = new THREE.DirectionalLight(0xffffff, 0.9); rim.position.set(150, 110, -170); sc.add(rim);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.4); fill.position.set(90, 30, 140); sc.add(fill);
 }
 addLights(scene);
 
-const material = new THREE.MeshStandardMaterial({ color: new THREE.Color(css('--model')), roughness: 0.58, metalness: 0 });
-const gridColor = new THREE.Color(css('--grid'));
-const grid = new THREE.GridHelper(400, 40, gridColor, gridColor);
-grid.visible = false;
-scene.add(grid);
+const material = new THREE.MeshStandardMaterial({ roughness: 0.52, metalness: 0 });
+
+// Ombre de contact douce sous le modèle
+const shadowTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grad.addColorStop(0, 'rgba(0,0,0,1)'); grad.addColorStop(0.55, 'rgba(0,0,0,.45)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = grad; g.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
+})();
+const shadowMat = new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false, color: 0x000000 });
+const shadowGeo = new THREE.PlaneGeometry(1, 1);
+
+let grid = null;
+function applyTheme() {
+  material.color.set(css('--model') || '#A6A8AE');
+  shadowMat.opacity = parseFloat(css('--shadow-alpha')) || 0.3;
+  const visible = grid ? grid.visible : false;
+  if (grid) { scene.remove(grid); grid.geometry.dispose(); grid.material.dispose(); }
+  const gc = new THREE.Color(css('--grid') || '#DCDCE2');
+  grid = new THREE.GridHelper(400, 40, gc, gc);
+  grid.position.y = -0.01;
+  grid.visible = visible;
+  scene.add(grid);
+}
+applyTheme();
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  applyTheme();
+  for (const it of items) if (it.data && it.thumb) { it.thumb = null; makeThumb(it); updateCard(it, true); }
+});
 
 function viewSize() { return { w: Math.max(stage.clientWidth, 1), h: Math.max(stage.clientHeight, 1) }; }
 function updateOrtho() {
@@ -383,14 +464,14 @@ function resize() {
 new ResizeObserver(resize).observe(stage);
 resize();
 
-// Vignettes : petit rendu séparé, de face
-const THUMB = 120;
-const thumbRenderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+// Vignettes : petit rendu séparé, de face, sur fond transparent
+const THUMB = 96;
+const thumbRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
 thumbRenderer.setPixelRatio(1);
 thumbRenderer.setSize(THUMB, THUMB, false);
 thumbRenderer.outputColorSpace = THREE.SRGBColorSpace;
+thumbRenderer.setClearColor(0x000000, 0);
 const thumbScene = new THREE.Scene();
-thumbScene.background = STAGE_COLOR;
 addLights(thumbScene);
 const thumbCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 5000);
 
@@ -424,10 +505,15 @@ function makeThumb(it) {
 }
 
 function updateHint() {
-  const multi = items.length > 1 ? ' · ← → pour changer de fichier' : '';
-  hint.innerHTML = (realSize
-    ? '<b>1:1</b>' + (calibrated ? '' : ' <span class="warn">(écran non calibré)</span>') + ' · glisser pour tourner · clic droit pour déplacer'
-    : 'Glisser pour tourner · molette pour zoomer · clic droit pour déplacer') + multi;
+  const multi = items.length > 1 ? '<span>Flèches du clavier pour changer de fichier.</span>' : '';
+  if (realSize) {
+    const badge = calibrated
+      ? '<span class="badge"><i></i>Taille réelle</span>'
+      : '<span class="badge warn"><i></i>Taille réelle, écran non calibré</span>';
+    hint.innerHTML = badge + '<span>Faites glisser pour tourner, clic droit pour déplacer.</span>' + multi;
+  } else {
+    hint.innerHTML = '<span>Faites glisser pour tourner, molette pour zoomer, clic droit pour déplacer.</span>' + multi;
+  }
 }
 
 let mesh = null;
@@ -449,7 +535,8 @@ function currentDir() {
 
 function frame(dir) {
   if (!mesh) return;
-  const box = new THREE.Box3().setFromObject(mesh);
+  mesh.updateMatrixWorld(true);
+  const box = mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrixWorld);   // sans l'ombre
   const size = box.getSize(new THREE.Vector3());
   box.getCenter(target);
   const radius = Math.max(size.length() / 2, 1);
@@ -540,9 +627,10 @@ scaleInput.addEventListener('input', () => {
 const calib = $('calib');
 const calibCard = $('calibCard');
 const calibRange = $('calibRange');
+let calibOpener = null;
 function updateCalibState() {
   const el = $('calibState');
-  el.textContent = calibrated ? 'calibré · ' + fmt(pxPerMm, 2) + ' px/mm' : 'non calibré, taille approximative';
+  el.querySelector('span').textContent = calibrated ? 'Écran calibré, ' + fmt(pxPerMm, 2) + ' px par mm.' : 'Écran non calibré : la taille est approximative.';
   el.classList.toggle('ok', calibrated);
   updateHint();
 }
@@ -550,7 +638,7 @@ function renderCard() {
   calibCard.style.width = (CARD.w * pxPerMm) + 'px';
   calibCard.style.height = (CARD.h * pxPerMm) + 'px';
   calibCard.style.borderRadius = (CARD.r * pxPerMm) + 'px';
-  $('calibVal').textContent = fmt(pxPerMm, 2) + ' px/mm';
+  $('calibVal').textContent = fmt(pxPerMm, 2) + ' px par mm';
 }
 function setPx(v, save) {
   pxPerMm = Math.min(10, Math.max(2, v));
@@ -571,9 +659,12 @@ $('calibReset').addEventListener('click', () => {
   try { localStorage.removeItem(STORE_KEY); } catch (e) { /* ignoré */ }
   setPx(NOMINAL, false);
 });
-function closeCalib() { calib.hidden = true; $('calibOpen').focus(); }
-$('calibOpen').addEventListener('click', () => { setPx(pxPerMm, false); calib.hidden = false; calibRange.focus(); });
+function openCalib(e) { calibOpener = e.currentTarget; setPx(pxPerMm, false); calib.hidden = false; calibRange.focus(); }
+function closeCalib() { calib.hidden = true; if (calibOpener && calibOpener.isConnected) calibOpener.focus(); }
+$('calibOpen').addEventListener('click', openCalib);
+$('calibOpen2').addEventListener('click', openCalib);
 $('calibDone').addEventListener('click', closeCalib);
+calib.addEventListener('click', (e) => { if (e.target === calib) closeCalib(); });
 
 // ---------- Fichiers ouverts ----------
 const items = [];          // { id, file, name, size, status, progress, data, stats, thumb, scale, secs, error, lastUsed, el }
@@ -609,10 +700,10 @@ function addFiles(list) {
     firstNew = firstNew || it;
   }
   const msgs = [];
-  if (tooMany) msgs.push(`<b>${MAX_FILES} fichiers maximum.</b> ${tooMany} fichier${tooMany > 1 ? 's n\'ont' : ' n\'a'} pas été ouvert${tooMany > 1 ? 's' : ''} : ferme des fichiers pour en ouvrir d'autres.`);
-  if (wrongType) msgs.push(`<b>${wrongType} fichier${wrongType > 1 ? 's ignorés' : ' ignoré'} :</b> seuls les .3mf et .stl sont lus.`);
+  if (tooMany) msgs.push(`<strong>${MAX_FILES} fichiers au maximum.</strong> ${tooMany} fichier${tooMany > 1 ? 's n\'ont' : ' n\'a'} pas été ouvert${tooMany > 1 ? 's' : ''}. Fermez des fichiers pour en ouvrir d'autres.`);
+  if (wrongType) msgs.push(`<strong>${wrongType} fichier${wrongType > 1 ? 's ignorés' : ' ignoré'}.</strong> Seuls les fichiers .3mf et .stl sont lus.`);
   if (msgs.length) toast(msgs.join('<br>'));
-  renderStrip();
+  renderList();
   const pick = firstNew || firstExisting;
   if (pick) select(pick.id);
   pump();
@@ -687,9 +778,9 @@ function select(id) {
   if (!it) return;
   activeId = id;
   it.lastUsed = performance.now();
-  for (const x of items) if (x.el) x.el.card.setAttribute('aria-selected', String(x.id === id));
-  if (it.el) it.el.card.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-  setHeaderName(it.name);
+  for (const x of items) if (x.el) x.el.row.setAttribute('aria-selected', String(x.id === id));
+  if (it.el) it.el.row.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  setTitle(it.name);
   if (it.status === 'ready') { showItem(it); return; }
   if (it.status === 'sleeping') { it.status = 'queued'; updateCard(it); }
   hideMesh();
@@ -697,20 +788,32 @@ function select(id) {
   pump();
 }
 
-function setHeaderName(name) {
-  const fn = $('fname'); fn.textContent = '';
-  if (!name) { fn.textContent = 'Aucun fichier ouvert'; document.title = 'Atelier 3D'; return; }
-  const b = document.createElement('b'); b.textContent = name; fn.append(b);
-  if (items.length > 1) fn.append(document.createTextNode('  ·  ' + (items.findIndex(i => i.id === activeId) + 1) + ' / ' + items.length));
-  document.title = name.replace(/\.(3mf|stl)$/i, '') + ' · Atelier 3D';
+function setTitle(name) {
+  const t = $('title'); t.textContent = '';
+  if (!name) { document.title = 'Atelier 3D'; return; }
+  t.append(document.createTextNode(name));
+  if (items.length > 1) {
+    const s = document.createElement('span');
+    s.textContent = (items.findIndex(i => i.id === activeId) + 1) + ' sur ' + items.length;
+    t.append(s);
+  }
+  document.title = name.replace(/\.(3mf|stl)$/i, '') + ' – Atelier 3D';
+}
+
+function disposeMesh() {
+  if (!mesh) return;
+  scene.remove(mesh);
+  mesh.geometry.dispose();
+  mesh = null;
 }
 
 let savedDir = null;     // garde l'angle de vue d'un fichier à l'autre
 function hideMesh() {
-  if (mesh) { savedDir = currentDir(); scene.remove(mesh); mesh.geometry.dispose(); mesh = null; }
+  if (mesh) savedDir = currentDir();
+  disposeMesh();
   shownId = null; info = null;
   grid.visible = false;
-  $('toolbar').hidden = true;
+  $('controls').hidden = true;
   hint.hidden = true;
   clearPanel();
 }
@@ -723,8 +826,8 @@ function renderActiveStatus() {
     $('pbar').hidden = true;
     statusText.innerHTML = '';
     const d = document.createElement('div'); d.className = 'err';
-    const b = document.createElement('b'); b.textContent = 'Lecture impossible. ';
-    d.append(b, document.createTextNode(it.name + ' n\'a pas pu être lu (' + it.error + '). Vérifie qu\'il s\'agit bien d\'un .3mf ou d\'un .stl.'));
+    const b = document.createElement('strong'); b.textContent = 'Lecture impossible';
+    d.append(b, document.createTextNode(it.name + ' n\'a pas pu être lu (' + it.error + '). Vérifiez qu\'il s\'agit bien d\'un fichier .3mf ou .stl.'));
     statusText.append(d);
     return;
   }
@@ -732,13 +835,19 @@ function renderActiveStatus() {
   pfill.style.width = Math.round(it.progress * 100) + '%';
   statusText.textContent = it.status === 'queued'
     ? 'En attente : ' + it.name
-    : (it.progress >= 0.96 ? 'Calcul des mesures…' : 'Lecture de ' + it.name + '… ' + Math.round(it.progress * 100) + ' %');
+    : (it.progress >= 0.96 ? 'Calcul des mesures…' : 'Lecture de ' + it.name + ', ' + Math.round(it.progress * 100) + ' %');
 }
 
 function showItem(it) {
   const dir = mesh ? currentDir() : (savedDir || VIEWS.front);
-  if (mesh) { scene.remove(mesh); mesh.geometry.dispose(); mesh = null; }
+  disposeMesh();
   mesh = new THREE.Mesh(makeGeometry(it.data), material);
+  const sh = new THREE.Mesh(shadowGeo, shadowMat);
+  sh.rotation.x = -Math.PI / 2;
+  sh.position.y = 0.02;
+  sh.scale.set(it.stats.w * 1.35, it.stats.d * 1.35, 1);
+  sh.raycast = () => {};
+  mesh.add(sh);
   scene.add(mesh);
   shownId = it.id;
   info = it.stats;
@@ -750,7 +859,7 @@ function showItem(it) {
   $('m-time').textContent = fmt(it.secs, 1) + ' s';
   setControlsEnabled(true);
   grid.visible = $('t-grid').getAttribute('aria-pressed') === 'true';
-  $('toolbar').hidden = false;
+  $('controls').hidden = false;
   hint.hidden = false;
   updateHint();
   statusEl.hidden = true;
@@ -789,67 +898,72 @@ function closeAll() {
 
 function afterListChange() {
   const n = items.length;
-  $('strip').hidden = n === 0;
   document.body.classList.toggle('has-files', n > 0);
-  $('count').innerHTML = `<b>${n}</b> / ${MAX_FILES} fichiers`;
+  $('count').textContent = n ? n + ' sur ' + MAX_FILES : '';
   if (!n) {
     statusEl.hidden = true;
     $('empty').hidden = false;
-    setHeaderName(null);
+    setTitle(null);
   } else {
     $('empty').hidden = true;
     const a = items.find(x => x.id === activeId);
-    setHeaderName(a ? a.name : null);
+    setTitle(a ? a.name : null);
   }
   updateHint();
+  requestAnimationFrame(resize);
 }
 
-function renderStrip() {
+function renderList() {
   for (const it of items) {
     if (it.el) continue;
-    const root = document.createElement('div'); root.className = 'fitem';
-    const card = document.createElement('button');
-    card.type = 'button'; card.className = 'fcard'; card.setAttribute('role', 'tab');
-    card.setAttribute('aria-selected', 'false'); card.title = it.name;
+    const root = document.createElement('li'); root.className = 'fitem';
+    const row = document.createElement('button');
+    row.type = 'button'; row.className = 'frow'; row.setAttribute('role', 'option');
+    row.setAttribute('aria-selected', 'false'); row.title = it.name;
     const thumb = document.createElement('span'); thumb.className = 'thumb';
     const txt = document.createElement('span'); txt.className = 'ftxt';
     const fn = document.createElement('span'); fn.className = 'fn'; fn.textContent = it.name.replace(/\.(3mf|stl)$/i, '');
     const fm = document.createElement('span'); fm.className = 'fm';
     txt.append(fn, fm);
-    card.append(thumb, txt);
-    card.addEventListener('click', () => select(it.id));
+    row.append(thumb, txt);
+    row.addEventListener('click', () => select(it.id));
     const close = document.createElement('button');
-    close.type = 'button'; close.className = 'fclose'; close.textContent = '×';
+    close.type = 'button'; close.className = 'fclose'; close.innerHTML = icon('i-close');
     close.setAttribute('aria-label', 'Fermer ' + it.name);
     close.addEventListener('click', (e) => { e.stopPropagation(); closeItem(it.id); });
-    root.append(card, close);
+    root.append(row, close);
     filesEl.append(root);
-    it.el = { root, card, thumb, fm };
+    it.el = { root, row, thumb, fm };
     updateCard(it);
   }
   afterListChange();
 }
 
-function updateCard(it) {
+function updateCard(it, forceThumb) {
   if (!it.el) return;
   const { thumb, fm } = it.el;
   const ext = it.name.split('.').pop().toUpperCase();
   fm.classList.remove('err');
   thumb.classList.remove('err');
   if (it.thumb) {
-    if (!thumb.firstChild || thumb.firstChild.tagName !== 'IMG') {
+    const img = thumb.firstChild && thumb.firstChild.tagName === 'IMG' ? thumb.firstChild : null;
+    if (!img || forceThumb) {
       thumb.textContent = '';
-      const img = document.createElement('img'); img.alt = ''; img.src = it.thumb; thumb.append(img);
+      const im = document.createElement('img'); im.alt = ''; im.src = it.thumb; thumb.append(im);
     }
   } else if (it.status === 'error') {
     thumb.textContent = '!'; thumb.classList.add('err');
   } else {
-    thumb.textContent = it.status === 'loading' ? Math.round(it.progress * 100) + ' %' : '…';
+    thumb.textContent = it.status === 'loading' ? Math.round(it.progress * 100) + ' %' : '';
   }
-  if (it.status === 'error') { fm.textContent = 'Illisible'; fm.classList.add('err'); }
-  else if (it.status === 'queued' && !it.stats) fm.textContent = ext + ' · en attente';
-  else if (it.status === 'loading' && !it.stats) fm.textContent = ext + ' · lecture ' + Math.round(it.progress * 100) + ' %';
-  else if (it.stats) fm.textContent = ext + ' · ' + fmt(it.stats.h * it.scale) + ' mm' + (Math.abs(it.scale - 1) > 1e-6 ? ' (' + fmt(it.scale * 100, 0) + ' %)' : '');
+  fm.textContent = '';
+  const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = ext;
+  let text = '';
+  if (it.status === 'error') { text = 'Illisible'; fm.classList.add('err'); }
+  else if (it.status === 'queued' && !it.stats) text = 'En attente';
+  else if (it.status === 'loading' && !it.stats) text = 'Lecture, ' + Math.round(it.progress * 100) + ' %';
+  else if (it.stats) text = fmt(it.stats.h * it.scale) + ' mm' + (Math.abs(it.scale - 1) > 1e-6 ? ', ' + fmt(it.scale * 100, 0) + ' %' : '');
+  fm.append(tag, document.createTextNode(text));
 }
 
 // ---------- Ouverture ----------
@@ -868,11 +982,12 @@ function step(delta) {
 
 document.addEventListener('keydown', (e) => {
   if (!calib.hidden) { if (e.key === 'Escape') closeCalib(); return; }
+  if (e.key === 'Escape') { closeHelp(); return; }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') { e.preventDefault(); pickFiles(); return; }
   const tag = (e.target && e.target.tagName) || '';
   if (tag === 'INPUT' || tag === 'TEXTAREA' || e.altKey || e.ctrlKey || e.metaKey) return;
-  if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
-  else if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); step(1); }
+  else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); step(-1); }
 });
 
 let dragDepth = 0;
@@ -891,7 +1006,7 @@ if ('launchQueue' in window) {
     const files = [];
     for (const h of params.files) { try { files.push(await h.getFile()); } catch (e) { /* fichier inaccessible */ } }
     if (files.length) addFiles(files);
-    else toast('<b>Ouverture impossible :</b> les fichiers n\'ont pas pu être lus depuis l\'Explorateur.');
+    else toast('<strong>Ouverture impossible.</strong> Les fichiers n\'ont pas pu être lus depuis l\'Explorateur.');
   });
 }
 
@@ -903,10 +1018,10 @@ renderer.setAnimationLoop(() => {
   renderer.render(scene, camera);
 });
 
-// ---------- Installation (Chrome, Edge) ----------
+// ---------- Installation ----------
+// Le bouton reste visible dans un onglet : Chrome ne propose son installation directe
+// qu'après un clic et 30 s sur la page, sinon on explique la marche à suivre.
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
-// Le bouton est toujours là dans un onglet normal : Chrome ne propose son installation directe
-// qu'après un clic et 30 s sur la page, alors sinon on explique la marche à suivre.
 let deferredInstall = null;
 const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 $('install').hidden = standalone;
@@ -918,19 +1033,18 @@ function installSteps() {
   const firefox = /Firefox\//.test(ua);
   const safari = /Safari\//.test(ua) && !/Chrome|Chromium|Edg\//.test(ua);
   if (firefox || safari) {
-    return '<p style="margin-top:0;color:var(--fg)">' + (firefox ? 'Firefox' : 'Safari') + ' ne sait pas installer ce genre d\'app avec l\'ouverture des fichiers.</p>'
-      + '<ol style="margin-top:10px"><li>Ouvre <b>archagrim.github.io/3d</b> dans <b>Chrome</b> ou <b>Edge</b>.</li><li>Clique sur <b>Installer</b> en haut à droite.</li></ol>';
+    return '<p style="margin-top:0;color:var(--ink-2)">' + (firefox ? 'Firefox' : 'Safari') + ' ne permet pas d\'installer ce type d\'app avec l\'ouverture des fichiers.</p>'
+      + '<ol style="margin-top:10px"><li>Ouvrez <b>archagrim.github.io/3d</b> dans <b>Chrome</b> ou <b>Edge</b>.</li><li>Cliquez sur <b>Installer</b> en haut à droite.</li></ol>';
   }
   if (edge) {
-    return '<ol><li>Clique sur le menu <b>⋯</b> en haut à droite d\'Edge.</li><li><b>Applications</b> → <b>Installer ce site en tant qu\'application</b>.</li><li>Confirme avec <b>Installer</b>.</li></ol>'
-      + '<p>Ou clique sur l\'icône d\'installation à droite de la barre d\'adresse.</p>';
+    return '<ol><li>Ouvrez le menu <b>⋯</b> en haut à droite d\'Edge.</li><li><b>Applications</b>, puis <b>Installer ce site en tant qu\'application</b>.</li><li>Confirmez avec <b>Installer</b>.</li></ol>'
+      + '<p>Vous pouvez aussi cliquer sur l\'icône d\'installation, à droite de la barre d\'adresse.</p>';
   }
-  return '<ol><li>Clique sur le menu <b>⋮</b> en haut à droite de Chrome.</li><li><b>Caster, enregistrer et partager</b> → <b>Installer la page en tant qu\'application</b> (ou <b>Installer Atelier 3D</b> selon ta version).</li><li>Confirme avec <b>Installer</b>.</li></ol>'
-    + '<p>Ou clique sur l\'icône d\'installation (un écran avec une flèche) à droite de la barre d\'adresse.</p>';
+  return '<ol><li>Ouvrez le menu <b>⋮</b> en haut à droite de Chrome.</li><li><b>Caster, enregistrer et partager</b>, puis <b>Installer Atelier 3D</b> (ou <b>Installer la page en tant qu\'application</b> selon la version).</li><li>Confirmez avec <b>Installer</b>.</li></ol>'
+    + '<p>Vous pouvez aussi cliquer sur l\'icône d\'installation, à droite de la barre d\'adresse.</p>';
 }
 function closeHelp() { $('ihelp').hidden = true; }
 $('ihelpClose').addEventListener('click', closeHelp);
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeHelp(); });
 document.addEventListener('click', (e) => { if (!$('ihelp').hidden && !$('ihelp').contains(e.target) && e.target !== $('install')) closeHelp(); });
 
 $('install').addEventListener('click', async () => {

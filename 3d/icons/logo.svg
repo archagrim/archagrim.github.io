@@ -1,21 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0E1C2A"/><stop offset="1" stop-color="#010A13"/></linearGradient>
-    <radialGradient id="glow" cx="0.5" cy="0.62" r="0.5"><stop offset="0" stop-color="#0AC8B9" stop-opacity="0.32"/><stop offset="1" stop-color="#0AC8B9" stop-opacity="0"/></radialGradient>
-    <linearGradient id="top" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F7EEDB"/><stop offset="1" stop-color="#C8AA6E"/></linearGradient>
-    <linearGradient id="left" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C8AA6E"/><stop offset="1" stop-color="#785A28"/></linearGradient>
-    <linearGradient id="right" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#A6884C"/><stop offset="1" stop-color="#4A3818"/></linearGradient>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E6E6EB"/></linearGradient>
+    <linearGradient id="top" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#D9D9DE"/><stop offset="1" stop-color="#B4B4BA"/></linearGradient>
+    <linearGradient id="left" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6E6E73"/><stop offset="1" stop-color="#48484A"/></linearGradient>
+    <linearGradient id="right" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3A3A3C"/><stop offset="1" stop-color="#1D1D1F"/></linearGradient>
+    <radialGradient id="shadow" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#000" stop-opacity="0.22"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
   </defs>
-  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <rect width="512" height="512" rx="112" fill="url(#glow)"/>
-  <g transform="translate(256 262) scale(0.84) translate(-256 -262)">
-    <ellipse cx="256" cy="402" rx="168" ry="40" fill="none" stroke="#0AC8B9" stroke-width="10" opacity="0.9"/>
-    <ellipse cx="256" cy="402" rx="120" ry="27" fill="none" stroke="#0AC8B9" stroke-width="5" opacity="0.45"/>
-    <polygon points="256,96 392,174 256,252 120,174" fill="url(#top)"/>
-    <polygon points="120,174 256,252 256,408 120,330" fill="url(#left)"/>
-    <polygon points="256,252 392,174 392,330 256,408" fill="url(#right)"/>
-    <polygon points="256,96 392,174 392,330 256,408 120,330 120,174" fill="none" stroke="#F0E6D2" stroke-width="8" stroke-linejoin="round"/>
-    <polyline points="120,174 256,252 392,174" fill="none" stroke="#F0E6D2" stroke-width="6" stroke-linejoin="round" opacity="0.85"/>
-    <line x1="256" y1="252" x2="256" y2="408" stroke="#F0E6D2" stroke-width="6" opacity="0.85"/>
-  </g>
+  <rect width="512" height="512" rx="114" fill="url(#tile)"/>
+  <ellipse cx="256" cy="388" rx="150" ry="34" fill="url(#shadow)"/>
+  <ellipse cx="256" cy="386" rx="132" ry="28" fill="none" stroke="#0071E3" stroke-width="7"/>
+  <polygon points="256,120 372,187 256,254 140,187" fill="url(#top)"/>
+  <polygon points="140,187 256,254 256,388 140,321" fill="url(#left)"/>
+  <polygon points="256,254 372,187 372,321 256,388" fill="url(#right)"/>
 </svg>
