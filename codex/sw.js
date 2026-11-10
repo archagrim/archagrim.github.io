@@ -1,5 +1,5 @@
 // Garde le lanceur disponible hors ligne (la page d'accueil et les icônes).
-const CACHE = "codex-lanceur-v1";
+const CACHE = "codex-lanceur-v2";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icons/logo.svg", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-touch-icon.png", "./icons/favicon-32.png"];
 
 self.addEventListener("install", (e) => {

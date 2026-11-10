@@ -3,7 +3,7 @@
   "short_name": "Atelier 3D",
   "description": "Visionneuse de fichiers 3MF et STL en taille réelle, pour préparer mes impressions.",
   "lang": "fr",
-  "id": "./",
+  "id": "/3d/",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

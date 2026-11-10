@@ -15,6 +15,8 @@ Mes sites et applications, publiés avec GitHub Pages.
 
 Chaque nouveau site peut avoir son propre dossier ici et sera publié à `https://archagrim.github.io/nom-du-dossier/`.
 
+**Important pour les apps installables** : chaque manifeste doit avoir son propre `"id"` en chemin absolu (`"/adc/"`, `"/3d/"`, `"/codex/"`). Avec `"id": "./"`, Chrome résout l'identifiant à partir de la racine du site : toutes les apps reçoivent le même et Chrome les prend pour une seule app (installer l'une bloque les autres).
+
 ## ADC Lab
 
 - `tools/adc_lab/fetch.py` récupère les nouvelles parties classées via l'API Riot (match-v5 et timeline) et écrit `adc/data/`.

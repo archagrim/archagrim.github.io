@@ -3,7 +3,7 @@
   "short_name": "ADC Lab",
   "description": "Analyse automatique de mes parties classées en ADC.",
   "lang": "fr",
-  "id": "./",
+  "id": "/adc/",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

@@ -3,7 +3,7 @@
   "short_name": "Codex",
   "description": "Ta bible League of Legends : champions, notes, lanes, builds et suivi du rang.",
   "lang": "fr",
-  "id": "./",
+  "id": "/codex/",
   "start_url": "./?source=app",
   "scope": "./",
   "display": "standalone",
