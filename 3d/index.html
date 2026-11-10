@@ -492,12 +492,31 @@ const shadowTex = (() => {
 const shadowMat = new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false, color: 0x000000 });
 const shadowGeo = new THREE.PlaneGeometry(1, 1);
 
+// Nappe de lumière qui balaie la couche en cours pendant l'apparition, comme l'UV d'une imprimante résine
+const scanMat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, opacity: 0 });
+function paintScan() {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d');
+  const col = new THREE.Color(css('--accent') || '#0088FF');
+  const rgb = [col.r, col.g, col.b].map(v => Math.round(v * 255)).join(',');
+  const grad = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+  grad.addColorStop(0, `rgba(${rgb},.55)`); grad.addColorStop(0.55, `rgba(${rgb},.28)`); grad.addColorStop(0.85, `rgba(${rgb},.08)`); grad.addColorStop(1, `rgba(${rgb},0)`);
+  g.fillStyle = grad; g.fillRect(0, 0, 256, 256);
+  if (scanMat.map) scanMat.map.dispose();
+  scanMat.map = new THREE.CanvasTexture(c);
+  scanMat.map.colorSpace = THREE.SRGBColorSpace;
+  scanMat.blending = window.matchMedia('(prefers-color-scheme: dark)').matches ? THREE.AdditiveBlending : THREE.NormalBlending;
+  scanMat.needsUpdate = true;
+}
+let scanMesh = null;
+
 let grid = null;
 let shadowAlpha = 0.3;
 function applyTheme() {
   material.color.set(css('--model') || '#A6A8AE');
   shadowAlpha = parseFloat(css('--shadow-alpha')) || 0.3;
   shadowMat.opacity = shadowAlpha;
+  paintScan();
   const visible = grid ? grid.visible : false;
   if (grid) { scene.remove(grid); grid.geometry.dispose(); grid.material.dispose(); }
   const gc = new THREE.Color(css('--grid') || '#DCDCE2');
@@ -910,6 +929,7 @@ function disposeMesh() {
   mesh.geometry.dispose();
   mesh = null;
   tweens.delete('reveal'); tweens.delete('scale');
+  scanMesh = null; scanMat.opacity = 0;
   clipPlane.constant = 1e6;
   material.side = THREE.FrontSide;
   shadowMat.opacity = shadowAlpha;
@@ -957,6 +977,13 @@ function showItem(it) {
   sh.scale.set(it.stats.w * 1.35, it.stats.d * 1.35, 1);
   sh.raycast = () => {};
   mesh.add(sh);
+  scanMesh = new THREE.Mesh(shadowGeo, scanMat);
+  scanMesh.rotation.x = -Math.PI / 2;
+  scanMesh.scale.set(it.stats.w * 1.3, it.stats.d * 1.3, 1);
+  scanMesh.renderOrder = 2;
+  scanMesh.visible = false;
+  scanMesh.raycast = () => {};
+  mesh.add(scanMesh);
   scene.add(mesh);
   shownId = it.id;
   info = it.stats;
@@ -979,20 +1006,28 @@ function showItem(it) {
 }
 
 // Le modèle monte couche par couche pendant que la caméra se pose
+const easeInOutSine = (t) => -(Math.cos(Math.PI * t) - 1) / 2;
 function reveal(height, first, dir) {
-  const ms = first ? 1100 : 700;
+  const ms = 2200;                           // assez long pour voir le modèle se construire
   material.side = THREE.DoubleSide;          // l'intérieur reste plein pendant la coupe
+  if (scanMesh && !reduceMotion.matches) scanMesh.visible = true;
   tween('reveal', ms, (t) => {
-    clipPlane.constant = t >= 1 ? 1e6 : height * t + 0.01;
-    shadowMat.opacity = shadowAlpha * t;
-    if (first && grid) grid.material.opacity = t;
+    const y = height * t;
+    clipPlane.constant = t >= 1 ? 1e6 : y + 0.01;
+    shadowMat.opacity = shadowAlpha * Math.min(1, t * 1.6);
+    if (first && grid) grid.material.opacity = Math.min(1, t * 1.4);
+    if (scanMesh) {
+      scanMesh.position.y = y / (mesh ? mesh.scale.x : 1);
+      scanMat.opacity = t >= 1 ? 0 : Math.min(1, t * 8) * Math.min(1, (1 - t) * 6);
+      if (t >= 1) scanMesh.visible = false;
+    }
     if (t >= 1) material.side = THREE.FrontSide;
-  }, easeInOut);
+  }, easeInOutSine);
   if (first && !reduceMotion.matches) {
-    const start = dir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), -0.6);
-    start.y += 0.25;
+    const start = dir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), -0.75);
+    start.y += 0.3;
     frame(start);
-    frame(dir, 1300, null, easeOutQuart);
+    frame(dir, 2600, null, easeInOut);
   } else {
     frame(dir);
   }
