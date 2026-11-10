@@ -51,6 +51,9 @@ header.top::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1p
 .brand svg{width:28px;height:32px}
 .who{text-align:right;font-size:12px;color:var(--muted);line-height:1.3}
 .period{margin-left:auto;display:flex;align-items:center;gap:5px}
+.who select{appearance:none;-webkit-appearance:none;max-width:220px;text-overflow:ellipsis;background:rgba(1,10,19,.55) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23C8AA6E' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 8px center;border:1px solid var(--sep);border-radius:8px;color:var(--text);font:600 12.5px/1.2 Inter,system-ui,sans-serif;padding:4px 24px 4px 9px;cursor:pointer}
+.who select:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+.who option{background:#0A1428;color:#F0E6D2}
 .period>span{font-size:12px;color:var(--muted);margin-right:3px}
 .period .chip{height:28px;padding:0 11px}
 @media (max-width:620px){.bar{flex-wrap:wrap;row-gap:6px}.who{margin-left:auto}.period{order:3;width:100%;margin-left:0}}
@@ -316,9 +319,23 @@ const NAME = {Kaisa:"Kai'Sa",KogMaw:"Kog'Maw",MissFortune:"Miss Fortune",MonkeyK
 const nm = c => NAME[c] || c;
 function toast(t){const h=$("#toastHost");h.innerHTML=`<div class="toast">${esc(t)}</div>`;clearTimeout(toast.t);toast.t=setTimeout(()=>h.innerHTML="",2600);}
 
+let ACC = [], CUR = null;
+const EDIT_URL = "https://github.com/archagrim/archagrim.github.io/edit/main/adc/accounts.json";
 async function load(){
+  try {
+    const idx = await fetch("data/index.json", {cache:"no-store"}).then(r => r.ok ? r.json() : null);
+    ACC = (idx && Array.isArray(idx.accounts)) ? idx.accounts : [];
+    if (idx && idx.ddragon) VER = idx.ddragon;
+  } catch (e) { ACC = []; }
+  let want = new URLSearchParams(location.search).get("compte");
+  if (!want) { try { want = localStorage.getItem("adc.compte"); } catch (e) {} }
+  CUR = ACC.find(a => a.slug === want) || ACC[0] || null;
+  await loadAccount();
+}
+async function loadAccount(){
+  const base = CUR ? `data/${encodeURIComponent(CUR.slug)}/` : "data/";
   try{
-    const [s,g] = await Promise.all([fetch("data/summary.json",{cache:"no-store"}).then(r=>r.ok?r.json():null), fetch("data/games.json",{cache:"no-store"}).then(r=>r.ok?r.json():[]).catch(()=>[])]);
+    const [s,g] = await Promise.all([fetch(base+"summary.json",{cache:"no-store"}).then(r=>r.ok?r.json():null), fetch(base+"games.json",{cache:"no-store"}).then(r=>r.ok?r.json():[]).catch(()=>[])]);
     S = s || {}; G = Array.isArray(g) ? g : [];
     R = G.filter(x => !x.remake && x.dur >= 600).sort((a, b) => b.start - a.start);
   }catch(e){ S = {}; G = []; }
@@ -329,7 +346,11 @@ async function load(){
 function render(){
   const st = S.status || {};
   const upd = S.updated || st.checked;
-  $("#who").innerHTML = `<b>${esc(S.riotId || "ArchaGrim#game1")}</b><br>${upd ? "Mis à jour " + esc(ago(upd)) : "Pas encore de données"}`;
+  const optLabel = a => a.label && a.label !== a.riotId.split("#")[0] ? `${a.label} · ${a.riotId}` : a.riotId;
+  const acct = ACC.length
+    ? `<select id="acct" aria-label="Compte affiché">${ACC.map(a => `<option value="${esc(a.slug)}"${CUR && a.slug === CUR.slug ? " selected" : ""}>${esc(optLabel(a))}</option>`).join("")}<option value="__add">+ Ajouter un compte…</option></select>`
+    : `<b>${esc(S.riotId || "ArchaGrim#game1")}</b>`;
+  $("#who").innerHTML = `${acct}<br>${upd ? "Mis à jour " + esc(ago(upd)) : "Pas encore de données"}`;
   banner(st);
   periodUI();
   week(); trend(); mapInit(); games(); objectives(); lane(); sessions(); champs();
@@ -337,7 +358,9 @@ function render(){
 function ago(iso){const d=(Date.now()-new Date(iso).getTime())/60000;if(d<2)return "à l'instant";if(d<60)return `il y a ${Math.round(d)} min`;if(d<48*60)return `il y a ${Math.round(d/60)} h`;return `le ${new Date(iso).toLocaleDateString("fr-CH")}`;}
 function banner(st){
   const b = $("#banner");
-  if (st.code === "cle_absente" || (!S.status && !G.length)) {
+  if (CUR && !S.status && !G.length) {
+    b.innerHTML = `<div class="banner"><b>Import en cours pour ${esc(CUR.riotId)}.</b> Les parties de ce compte arrivent d'ici quelques minutes.</div>`;
+  } else if (st.code === "cle_absente" || (!S.status && !G.length)) {
     b.innerHTML = `<div class="banner"><b>En attente de ta clé Riot.</b> Dès qu'elle est enregistrée, tes parties classées arrivent ici automatiquement.
       <ol><li>Sur <a href="https://developer.riotgames.com" target="_blank" rel="noopener">developer.riotgames.com</a>, connecte-toi et copie ta clé.</li>
       <li>Dans le dépôt GitHub <b>archagrim.github.io</b> : Settings → Secrets and variables → Actions → New repository secret, nom <b>RIOT_API_KEY</b>.</li>
@@ -347,7 +370,9 @@ function banner(st){
     const riotMsg = st.riot ? ` Réponse de Riot : « ${esc(st.riot)} » (${st.http}).` : "";
     b.innerHTML = `<div class="banner"><b>Ta clé Riot a expiré ou a été refusée.</b>${riotMsg}${why} Les données affichées datent de la dernière mise à jour réussie. Remplace le secret <b>RIOT_API_KEY</b> dans le dépôt GitHub (une clé de développement expire après 24 h).</div>`;
   } else if (st.code === "compte_introuvable") {
-    b.innerHTML = `<div class="banner"><b>Compte Riot introuvable.</b> Vérifie le Riot ID dans le fichier du workflow.</div>`;
+    b.innerHTML = `<div class="banner"><b>Compte Riot introuvable : ${esc(S.riotId || (CUR && CUR.riotId) || "")}.</b> Vérifie l'orthographe (nom#tag) dans <a href="${EDIT_URL}" target="_blank" rel="noopener">la liste des comptes</a>.</div>`;
+  } else if (st.pending > 0) {
+    b.innerHTML = `<div class="banner"><b>Import en cours :</b> ${st.pending} partie${st.pending > 1 ? "s" : ""} de ce compte restent à analyser. Elles arrivent dans les prochaines minutes.</div>`;
   } else b.innerHTML = "";
 }
 
@@ -366,7 +391,7 @@ function week(){
   $("#wk-lead").textContent = "Les chiffres qui comptent pour ton programme" + (isWeek ? (prev ? ", comparés à la semaine dernière." : ".") : ob ? `, comparés aux ${N} parties d'avant.` : ".");
   if (!blk.games) { $("#wk-line").innerHTML = `<span>Aucune partie analysée pour l'instant.</span>`; $("#kpis").innerHTML = ""; return; }
   const refLine = isWeek ? (prev ? `<span>Semaine dernière : ${prev.games} parties, ${prev.wr} %</span>` : "") : ob ? `<span>Les ${N} d'avant : ${ob.wins} V – ${ob.games - ob.wins} D (${ob.wr} %)</span>` : "";
-  $("#wk-line").innerHTML = `<span><b class="num">${blk.games}</b> parties</span><span><b class="num">${blk.wins} V – ${blk.games-blk.wins} D</b> (${blk.wr} %)</span><span><b class="num">${blk.sessions||0}</b> sessions</span>${refLine}`;
+  $("#wk-line").innerHTML = `<span><b class="num">${blk.games}</b> partie${blk.games>1?"s":""}</span><span><b class="num">${blk.wins} V – ${blk.games-blk.wins} D</b> (${blk.wr} %)</span><span><b class="num">${blk.sessions||0}</b> session${(blk.sessions||0)>1?"s":""}</span>${refLine}`;
   const K = [
     {k:"free", l:"Morts sans contrepartie / partie", tag:"Ton focus", focus:true, better:-1, f:fr},
     {k:"deaths14", l:"Morts avant 14 min / partie", better:-1, f:fr},
@@ -578,6 +603,22 @@ function champs(){
 }
 
 load();
+
+/* ---------- Changement de compte ---------- */
+document.addEventListener("change", e => {
+  if (e.target.id !== "acct") return;
+  const v = e.target.value;
+  if (v === "__add") {
+    window.open(EDIT_URL, "_blank", "noopener");
+    e.target.value = CUR ? CUR.slug : "";
+    return;
+  }
+  CUR = ACC.find(a => a.slug === v) || CUR;
+  try { localStorage.setItem("adc.compte", CUR.slug); } catch (err) {}
+  try { history.replaceState(null, "", "?compte=" + encodeURIComponent(CUR.slug)); } catch (err) {}
+  wkMode = null; pickKey = null; gameSel = null;
+  loadAccount();
+});
 
 /* ---------- Installation (Android, Chrome, Edge) ---------- */
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});

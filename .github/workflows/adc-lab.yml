@@ -1,6 +1,7 @@
 name: ADC Lab
 
-# Vérifie toutes les 5 minutes s'il y a de nouvelles parties classées et met à jour adc/data/.
+# Vérifie toutes les 5 minutes s'il y a de nouvelles parties classées sur les comptes de adc/accounts.json
+# et met à jour adc/data/.
 # 5 minutes est l'intervalle minimum de GitHub ; les lancements programmés peuvent avoir quelques minutes de retard.
 on:
   schedule:
@@ -10,6 +11,7 @@ on:
     branches: [main]
     paths:
       - "tools/adc_lab/**"
+      - "adc/accounts.json"
       - ".github/workflows/adc-lab.yml"
 
 permissions:
@@ -22,7 +24,7 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
@@ -33,7 +35,6 @@ jobs:
       - name: Analyser les nouvelles parties
         env:
           RIOT_API_KEY: ${{ secrets.RIOT_API_KEY }}
-          RIOT_ID: "ArchaGrim#game1"
           QUEUES: "420"
         run: python tools/adc_lab/fetch.py
 
