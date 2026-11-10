@@ -51,6 +51,7 @@ header.top::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1p
 .fname b{color:var(--fg);font-weight:600}
 .actions{display:flex;gap:8px;flex:none}
 @media (max-width:560px){.fname{display:none}.actions{margin-left:auto}}
+@media (max-width:480px){.brand b{display:none}.actions .btn{padding:0 11px}}
 
 .btn{height:34px;padding:0 14px;border-radius:999px;border:1px solid var(--sep);background:rgba(1,10,19,.55);font-size:13px;font-weight:600;color:var(--fg);transition:border-color .15s,background .15s;white-space:nowrap}
 .btn:hover{border-color:var(--edge)}
@@ -112,6 +113,13 @@ main{padding-block:16px 28px}
 .toolbar .group{display:flex;flex-wrap:wrap;gap:6px;pointer-events:auto}
 .toolbar .btn{height:32px;padding:0 12px;font-size:12.5px;background:rgba(2,10,19,.78)}
 
+.ihelp{position:fixed;z-index:45;top:calc(62px + env(safe-area-inset-top));right:max(16px,env(safe-area-inset-right));width:min(380px,calc(100vw - 32px));padding:16px 18px;border-radius:14px;border:1px solid var(--edge);background:#0E1C2A;box-shadow:0 14px 40px rgba(0,0,0,.55);font-size:13.5px}
+.ihelp h2{margin:0 26px 8px 0;font:700 17px/1.2 var(--display);letter-spacing:.04em;background:var(--gold-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.ihelp ol{margin:0;padding-left:20px;display:grid;gap:6px}
+.ihelp p{margin:10px 0 0;color:var(--muted);font-size:12.5px}
+.ihelp b{color:var(--fg)}
+.ihelp .x{position:absolute;top:10px;right:10px;width:26px;height:26px;border-radius:50%;border:0;background:transparent;color:var(--muted);font-size:17px;line-height:26px;padding:0}
+.ihelp .x:hover{color:var(--fg);background:rgba(200,170,110,.12)}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:40;max-width:min(560px,calc(100vw - 32px));padding:10px 16px;border-radius:12px;border:1px solid rgba(232,198,112,.45);background:#13202b;color:var(--fg);font-size:13.5px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
 .toast b{color:var(--warn)}
 
@@ -157,7 +165,7 @@ dd{margin:0;text-align:right;font-size:13.5px;font-weight:600;font-variant-numer
     <div class="brand"><img src="icons/icon-192.png" alt=""><b>ATELIER 3D</b></div>
     <div class="fname" id="fname">Aucun fichier ouvert</div>
     <div class="actions">
-      <button class="btn" id="install" type="button" hidden>Installer</button>
+      <button class="btn" id="install" type="button" aria-controls="ihelp" hidden>Installer</button>
       <button class="btn gold" id="openBtn" type="button" title="Ctrl + O">Ouvrir des fichiers</button>
     </div>
   </div>
@@ -265,6 +273,12 @@ dd{margin:0;text-align:right;font-size:13.5px;font-weight:600;font-variant-numer
 </main>
 
 <div class="toast" id="toast" role="status" hidden></div>
+
+<div class="ihelp" id="ihelp" role="dialog" aria-labelledby="ihelpTitle" hidden>
+  <button class="x" id="ihelpClose" type="button" aria-label="Fermer">×</button>
+  <h2 id="ihelpTitle">Installer Atelier 3D</h2>
+  <div id="ihelpBody"></div>
+</div>
 
 <div class="calib" id="calib" hidden role="dialog" aria-modal="true" aria-labelledby="calibTitle">
   <div class="calib-box">
@@ -891,15 +905,46 @@ renderer.setAnimationLoop(() => {
 
 // ---------- Installation (Chrome, Edge) ----------
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+// Le bouton est toujours là dans un onglet normal : Chrome ne propose son installation directe
+// qu'après un clic et 30 s sur la page, alors sinon on explique la marche à suivre.
 let deferredInstall = null;
-window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredInstall = e; $('install').hidden = false; });
+const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+$('install').hidden = standalone;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredInstall = e; });
+
+function installSteps() {
+  const ua = navigator.userAgent;
+  const edge = /Edg\//.test(ua);
+  const firefox = /Firefox\//.test(ua);
+  const safari = /Safari\//.test(ua) && !/Chrome|Chromium|Edg\//.test(ua);
+  if (firefox || safari) {
+    return '<p style="margin-top:0;color:var(--fg)">' + (firefox ? 'Firefox' : 'Safari') + ' ne sait pas installer ce genre d\'app avec l\'ouverture des fichiers.</p>'
+      + '<ol style="margin-top:10px"><li>Ouvre <b>archagrim.github.io/3d</b> dans <b>Chrome</b> ou <b>Edge</b>.</li><li>Clique sur <b>Installer</b> en haut à droite.</li></ol>';
+  }
+  if (edge) {
+    return '<ol><li>Clique sur le menu <b>⋯</b> en haut à droite d\'Edge.</li><li><b>Applications</b> → <b>Installer ce site en tant qu\'application</b>.</li><li>Confirme avec <b>Installer</b>.</li></ol>'
+      + '<p>Ou clique sur l\'icône d\'installation à droite de la barre d\'adresse.</p>';
+  }
+  return '<ol><li>Clique sur le menu <b>⋮</b> en haut à droite de Chrome.</li><li><b>Caster, enregistrer et partager</b> → <b>Installer la page en tant qu\'application</b> (ou <b>Installer Atelier 3D</b> selon ta version).</li><li>Confirme avec <b>Installer</b>.</li></ol>'
+    + '<p>Ou clique sur l\'icône d\'installation (un écran avec une flèche) à droite de la barre d\'adresse.</p>';
+}
+function closeHelp() { $('ihelp').hidden = true; }
+$('ihelpClose').addEventListener('click', closeHelp);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeHelp(); });
+document.addEventListener('click', (e) => { if (!$('ihelp').hidden && !$('ihelp').contains(e.target) && e.target !== $('install')) closeHelp(); });
+
 $('install').addEventListener('click', async () => {
-  if (!deferredInstall) return;
-  deferredInstall.prompt();
-  await deferredInstall.userChoice.catch(() => null);
-  deferredInstall = null; $('install').hidden = true;
+  if (deferredInstall) {
+    deferredInstall.prompt();
+    const choice = await deferredInstall.userChoice.catch(() => null);
+    deferredInstall = null;
+    if (choice && choice.outcome === 'accepted') $('install').hidden = true;
+    return;
+  }
+  $('ihelpBody').innerHTML = installSteps();
+  $('ihelp').hidden = !$('ihelp').hidden;
 });
-window.addEventListener('appinstalled', () => { $('install').hidden = true; });
+window.addEventListener('appinstalled', () => { $('install').hidden = true; closeHelp(); });
 </script>
 </body>
 </html>
