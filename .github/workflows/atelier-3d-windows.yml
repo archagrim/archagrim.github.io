@@ -1,0 +1,83 @@
+name: Atelier 3D Windows
+
+# Fabrique le programme Windows d'Atelier 3D (dossier desktop/, qui emballe la page du dossier 3d/)
+# à chaque modification de 3d/ ou de desktop/, puis le publie dans les Releases du dépôt.
+# Lien de téléchargement fixe : https://github.com/archagrim/archagrim.github.io/releases/latest/download/Atelier3D-setup.exe
+on:
+  push:
+    branches: [main]
+    paths:
+      - "3d/**"
+      - "desktop/**"
+      - ".github/workflows/atelier-3d-windows.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: atelier-3d-windows
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+
+      - name: Outils de fabrication
+        working-directory: desktop
+        run: npm ci
+
+      - name: Fabrication de l'installateur
+        working-directory: desktop
+        shell: bash
+        run: |
+          VERSION="1.0.${{ github.run_number }}"
+          echo "{\"version\":\"$VERSION\"}" > ver.json
+          npx tauri build --config ver.json
+          cp src-tauri/target/release/bundle/nsis/*-setup.exe ../Atelier3D-setup.exe
+          ls -l ../Atelier3D-setup.exe
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Publication dans les Releases
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<'EOF'
+          Atelier 3D pour Windows : visionneuse 3MF et STL en taille réelle, avec la bibliothèque reliée à vos dossiers.
+
+          1. Téléchargez **Atelier3D-setup.exe** ci-dessous, puis ouvrez-le.
+          2. Au premier lancement, Windows peut afficher « Windows a protégé votre ordinateur » : cliquez sur **Informations complémentaires**, puis **Exécuter quand même**. Le programme n'est pas signé par un certificat payant.
+          3. Les fichiers .3mf et .stl s'ouvrent ensuite d'un double-clic.
+
+          Pour mettre à jour, installez simplement la nouvelle version par-dessus : vos réglages et votre bibliothèque sont gardés.
+          EOF
+          gh release create "atelier-3d-v$VERSION" Atelier3D-setup.exe \
+            --target "${{ github.sha }}" \
+            --title "Atelier 3D $VERSION pour Windows" \
+            --notes-file notes.md \
+            --latest
+
+      - name: Ménage des anciennes versions (les 5 dernières sont gardées)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release list --limit 100 --json tagName,createdAt \
+            --jq '[.[] | select(.tagName | startswith("atelier-3d-v"))] | sort_by(.createdAt) | reverse | .[5:] | .[].tagName' |
+          while read -r tag; do
+            [ -n "$tag" ] && gh release delete "$tag" --yes --cleanup-tag
+          done

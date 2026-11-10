@@ -239,6 +239,13 @@ dd.warn{color:var(--warn)}
 .lib-actions input{height:30px;width:min(240px,60vw);border:0;border-radius:8px;background:var(--fill);padding:0 10px;font:400 13px var(--font);color:var(--ink)}
 .lib-actions input:focus{outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 45%,transparent)}
 .lib-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:30px 22px;align-items:start}
+.lib-sec{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;padding-top:18px;border-top:1px solid var(--line)}
+.lib-sec:first-child{border-top:0;padding-top:0}
+.lib-sec h2{margin:0;font:700 20px/1.2 var(--font-display);letter-spacing:-.015em;overflow-wrap:anywhere}
+.lib-sec span{color:var(--ink-2);font-size:13px;font-variant-numeric:tabular-nums}
+.lib-sec span.warn{color:var(--warn)}
+.lib-sec .sec-actions{margin-left:auto;display:flex;gap:4px}
+.lib-sec + .lib-sec{margin-top:-14px}
 @media (max-width:520px){.library{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}.lib-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 14px}}
 .album{display:flex;flex-direction:column;gap:8px;border:0;background:none;padding:0;text-align:left;color:inherit;min-width:0}
 .cover{position:relative;width:100%;aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--fill);
@@ -296,6 +303,7 @@ dd.warn{color:var(--warn)}
 
 /* Notification, aide à l'installation, calibrage */
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:60;max-width:min(520px,calc(100vw - 32px));
+body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bottom))}
   padding:12px 18px;border-radius:14px;background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);font-size:13px;color:var(--ink-2)}
 .toast strong{color:var(--ink);font-weight:600}
 .ihelp{position:fixed;z-index:55;top:calc(58px + env(safe-area-inset-top));right:max(16px,env(safe-area-inset-right));width:min(360px,calc(100vw - 32px));
@@ -421,15 +429,15 @@ dd.warn{color:var(--warn)}
     <div class="lib-actions">
       <input id="libSearch" type="search" placeholder="Rechercher un modèle" aria-label="Rechercher dans la bibliothèque" autocomplete="off">
       <button class="btn" id="libRefresh" type="button">Actualiser</button>
-      <button class="btn" id="libChange" type="button">Changer de dossier…</button>
+      <button class="btn" id="libChange" type="button">Ajouter un dossier…</button>
     </div>
   </div>
   <div class="lib-hero" id="libEmpty" hidden>
     <div class="hero">
       <svg aria-hidden="true"><use href="#i-folder"/></svg>
       <h1 id="libEmptyTitle">Votre bibliothèque de figurines.</h1>
-      <p class="lede" id="libEmptyText">Reliez le dossier où vous rangez vos modèles. Chaque sous-dossier devient une collection, avec sa couverture et l'aperçu de chaque figurine.</p>
-      <div class="cta"><button class="btn primary large" id="libPick" type="button">Choisir le dossier</button></div>
+      <p class="lede" id="libEmptyText">Reliez les dossiers où vous rangez vos modèles. Chaque sous-dossier devient une collection, avec sa couverture et l'aperçu de chaque figurine.</p>
+      <div class="cta"><button class="btn primary large" id="libPick" type="button">Choisir un dossier</button><button class="btn plain" id="libForget" type="button" hidden>Oublier ces dossiers</button></div>
       <p class="foot" id="libEmptyFoot">Les fichiers restent sur cet ordinateur. Atelier 3D les lit sans jamais les modifier ni les envoyer en ligne.</p>
     </div>
   </div>
@@ -628,6 +636,66 @@ const pl = (n, one, many) => fmtInt(n) + ' ' + (n > 1 ? many : one);
 const icon = (id) => `<svg aria-hidden="true"><use href="#${id}"/></svg>`;
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const baseName = (n) => n.replace(/\.(3mf|stl)$/i, '');
+
+// ---------- Version programme Windows (dossier desktop/ du dépôt, emballée avec Tauri) ----------
+// Même page ; seuls l'accès au disque, l'enregistrement et l'ouverture par double-clic passent par le programme.
+const DESKTOP = window.__TAURI__ && window.__TAURI__.core ? window.__TAURI__ : null;
+const desktop = DESKTOP && (() => {
+  const invoke = DESKTOP.core.invoke;
+  const nameOf = (p) => p.split(/[\\/]/).filter(Boolean).pop() || p;
+  const key = (p) => p.replace(/\//g, '\\').replace(/\\+$/, '').toLowerCase();
+  // Imite les poignées de fichiers du navigateur, mais lit directement sur le disque, sans autorisation à redonner
+  class DiskFile {
+    constructor(e) { this.kind = 'file'; this.lazy = true; this.path = e.path; this.name = e.name; this.size = e.size; this.mtime = e.mtime; }
+    peek() { return { size: this.size, lastModified: this.mtime }; }
+    async getFile() {
+      const buf = await invoke('read_file', { path: this.path });
+      return new File([buf], this.name, { lastModified: this.mtime });
+    }
+  }
+  class DiskDir {
+    constructor(path, name) { this.kind = 'directory'; this.disk = true; this.path = path; this.name = name || nameOf(path); }
+    async *values() {
+      for (const e of await invoke('list_dir', { path: this.path })) yield e.dir ? new DiskDir(e.path, e.name) : new DiskFile(e);
+    }
+    async queryPermission() { return (await invoke('dir_exists', { path: this.path })) ? 'granted' : 'denied'; }
+    requestPermission() { return this.queryPermission(); }
+    async isSameEntry(o) { return !!(o && o.path) && key(o.path) === key(this.path); }
+    async resolve(o) {
+      if (!o || !o.path) return null;
+      const a = key(this.path) + '\\', b = key(o.path);
+      return b.startsWith(a) ? o.path.slice(a.length).split(/[\\/]/) : null;
+    }
+  }
+  window.showDirectoryPicker = async () => {
+    const p = await invoke('pick_folder');
+    if (!p) throw new DOMException('Choix annulé', 'AbortError');
+    return new DiskDir(p);
+  };
+  return {
+    invoke,
+    revive: (h) => (h && h.disk && h.path ? new DiskDir(h.path, h.name) : h),
+    async save(blob, name, desc, ext) {
+      const buf = new Uint8Array(await blob.arrayBuffer());
+      return invoke('save_file', buf, { headers: { 'x-name': encodeURIComponent(name), 'x-desc': encodeURIComponent(desc), 'x-ext': ext } });
+    },
+    async openPaths(paths) {
+      const files = [];
+      for (const p of paths) { try { files.push(await new DiskFile(await invoke('stat_file', { path: p })).getFile()); } catch (e) { /* fichier illisible */ } }
+      return files;
+    },
+    open: (url) => invoke('open_url', { url }).catch(() => {}),
+  };
+})();
+if (desktop) {
+  document.documentElement.classList.add('desktop');
+  // les liens s'ouvrent dans le navigateur ; pas de menu « Actualiser / Inspecter » du clic droit
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest && e.target.closest('a[href^="http"]');
+    if (a) { e.preventDefault(); desktop.open(a.href); }
+  });
+  document.addEventListener('contextmenu', (e) => { if (!e.target.closest('input, textarea')) e.preventDefault(); });
+}
 
 const stage = $('stage');
 const hint = $('hint');
@@ -1359,6 +1427,11 @@ $('t-line').addEventListener('click', () => lineup ? exitLineup() : enterLineup(
 
 // ---------- Capture et vidéo ----------
 async function saveBlob(blob, name, desc, mime, ext) {
+  if (desktop) {
+    try { const saved = await desktop.save(blob, name, desc, ext); if (saved) toast('<strong>Enregistré :</strong> ' + esc(saved)); }
+    catch (e) { toast('<strong>Enregistrement impossible.</strong> ' + esc(String(e))); }
+    return;
+  }
   if (window.showSaveFilePicker) {
     try {
       const h = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: desc, accept: { [mime]: ['.' + ext] } }] });
@@ -1860,7 +1933,7 @@ const MAX_SCAN = 10000;
 async function collectHandle(dir, out, depth) {
   for await (const h of dir.values()) {
     if (out.length >= MAX_SCAN) return;
-    if (h.kind === 'file') { if (isModel(h.name)) out.push(await h.getFile()); }
+    if (h.kind === 'file') { if (isModel(h.name)) out.push(h.lazy ? h : await h.getFile()); }
     else if (h.kind === 'directory' && depth < 10) await collectHandle(h, out, depth + 1);
   }
 }
@@ -1880,12 +1953,19 @@ async function collectEntry(entry, out, depth) {
     for (const e of await readEntries(entry)) await collectEntry(e, out, depth + 1);
   }
 }
-function openFolderFiles(files, folder) {
+async function openFolderFiles(files, folder) {
   files = files.filter(f => isModel(f.name)).sort((a, b) => collator.compare(a.webkitRelativePath || a.name, b.webkitRelativePath || b.name));
   if (!files.length) { toast('<strong>Aucun modèle trouvé.</strong> Le dossier « ' + esc(folder) + ' » ne contient pas de fichier .3mf ou .stl.'); return; }
   const room = MAX_FILES - items.length;
+  const total = files.length;
+  if (files.some(f => f.lazy)) {
+    // version programme : on ne lit sur le disque que les fichiers qui seront ouverts
+    const picked = [];
+    for (const f of files.slice(0, Math.max(0, room))) { try { picked.push(f.lazy ? await f.getFile() : f); } catch (e) { /* illisible */ } }
+    files = picked;
+  }
   addFiles(files);
-  if (files.length > room) toast(`<strong>Dossier « ${esc(folder)} » :</strong> ${fmtInt(files.length)} modèles trouvés, les ${Math.max(0, room)} premiers par ordre alphabétique sont ouverts (${MAX_FILES} fichiers au maximum).`);
+  if (total > room) toast(`<strong>Dossier « ${esc(folder)} » :</strong> ${fmtInt(total)} modèles trouvés, les ${Math.max(0, room)} premiers par ordre alphabétique sont ouverts (${MAX_FILES} fichiers au maximum).`);
   else toast(`<strong>Dossier « ${esc(folder)} » :</strong> ${pl(files.length, 'modèle ouvert', 'modèles ouverts')}.`);
 }
 async function pickFolder() {
@@ -1895,7 +1975,7 @@ async function pickFolder() {
       toast('Recherche des modèles dans « ' + esc(dir.name) + ' »…');
       const files = [];
       await collectHandle(dir, files, 0);
-      openFolderFiles(files, dir.name);
+      await openFolderFiles(files, dir.name);
     } catch (e) { if (!e || e.name !== 'AbortError') toast('<strong>Dossier inaccessible.</strong> Choisissez-en un autre ou ouvrez les fichiers directement.'); }
     return;
   }
@@ -1996,7 +2076,9 @@ const IMG_RE = /\.(png|jpe?g|webp|gif|avif)$/i;
 const COVER_RE = /^(cover|couverture|folder|poster|front|album)\.(png|jpe?g|webp|gif|avif)$/i;
 const LIB_POOL = 2;
 const LIB_MAX_FILE = 500 * 1048576;
-const lib = { root: null, cols: [], expanded: null, sel: new Map(), urls: [], jobs: [], running: 0, panel: null, scanning: false };
+// Plusieurs dossiers peuvent être reliés ; chacun garde son autorisation et ses collections.
+// state : 'ok' (lisible), 'prompt' (autorisation à redonner), 'missing' (introuvable)
+const lib = { roots: [], cols: [], expanded: null, sel: new Map(), urls: [], jobs: [], running: 0, panel: null, scanning: false };
 
 let dbp = null;
 function db() {
@@ -2029,108 +2111,175 @@ function setView(v) {
   $('library').hidden = v !== 'library';
   document.querySelector('.app').hidden = v !== 'viewer';
   if (v === 'viewer') requestAnimationFrame(resize);
-  if (v === 'library' && !lib.root) initLibrary();
+  if (v === 'library') initLibrary();
 }
 $('tabLib').addEventListener('click', () => setView('library'));
 $('tabView').addEventListener('click', () => setView('viewer'));
 $('goLib').addEventListener('click', () => setView('library'));
 
-function libState(state, name) {
+const quoteList = (names) => names.map(n => '« ' + n + ' »').join(', ');
+function libState(state) {
   $('libEmpty').hidden = state === 'ready';
   $('libHead').hidden = state !== 'ready';
   $('libGrid').hidden = state !== 'ready';
+  if (state === 'ready') return;
+  $('libResults').hidden = true;
   const title = $('libEmptyTitle'), text = $('libEmptyText'), btn = $('libPick'), foot = $('libEmptyFoot');
+  $('libForget').hidden = state !== 'reconnect';
   if (state === 'unsupported') {
     title.textContent = 'Bibliothèque indisponible ici.';
-    text.textContent = 'La bibliothèque relie un dossier de votre ordinateur : ouvrez Atelier 3D dans Chrome ou Edge sur ordinateur.';
+    text.textContent = 'La bibliothèque relie des dossiers de votre ordinateur : ouvrez Atelier 3D dans Chrome ou Edge sur ordinateur.';
     btn.hidden = true;
   } else if (state === 'reconnect') {
+    const names = lib.roots.map(r => r.h.name);
+    const missing = lib.roots.every(r => r.state === 'missing');
     title.textContent = 'Votre bibliothèque vous attend.';
-    text.textContent = 'Autorisez de nouveau l\'accès au dossier « ' + name + ' » pour afficher vos collections.';
-    btn.textContent = 'Autoriser l\'accès'; btn.hidden = false;
+    text.textContent = missing
+      ? (names.length > 1 ? 'Les dossiers ' + quoteList(names) + ' sont introuvables. Branchez le disque qui les contient, ou reliez d\'autres dossiers.' : 'Le dossier ' + quoteList(names) + ' est introuvable. Branchez le disque qui le contient, ou reliez un autre dossier.')
+      : (names.length > 1 ? 'Autorisez de nouveau l\'accès à vos dossiers ' + quoteList(names) + ' pour afficher vos collections.' : 'Autorisez de nouveau l\'accès au dossier ' + quoteList(names) + ' pour afficher vos collections.');
+    btn.textContent = missing ? 'Réessayer' : 'Autoriser l\'accès'; btn.dataset.mode = 'access'; btn.hidden = false;
   } else if (state === 'empty') {
     title.textContent = 'Votre bibliothèque de figurines.';
-    text.textContent = 'Reliez le dossier où vous rangez vos modèles. Chaque sous-dossier devient une collection, avec sa couverture et l\'aperçu de chaque figurine.';
-    btn.textContent = 'Choisir le dossier'; btn.hidden = false;
+    text.textContent = 'Reliez les dossiers où vous rangez vos modèles. Chaque sous-dossier devient une collection, avec sa couverture et l\'aperçu de chaque figurine.';
+    btn.textContent = 'Choisir un dossier'; btn.dataset.mode = 'add'; btn.hidden = false;
   }
   foot.hidden = state === 'unsupported';
+}
+
+const saveRoots = () => idbPut('meta', 'roots', lib.roots.map(r => r.h));
+async function checkRoot(r) {
+  let p = 'prompt';
+  try { p = await r.h.queryPermission({ mode: 'read' }); } catch (e) { p = 'missing'; }
+  r.state = p === 'granted' ? 'ok' : (p === 'missing' || (desktop && p === 'denied')) ? 'missing' : 'prompt';
 }
 
 let libInit = null;
 function initLibrary() {
   return libInit || (libInit = (async () => {
     if (!('showDirectoryPicker' in window)) { libState('unsupported'); return false; }
-    // Sécurité : si la dernière relecture du dossier mémorisé n'est pas allée au bout, on ne réessaie pas en boucle
+    // Sécurité : si la dernière relecture des dossiers mémorisés n'est pas allée au bout, on ne réessaie pas en boucle
     const GUARD = 'atelier3d.restoring';
     let guard = null;
     try { guard = localStorage.getItem(GUARD); } catch (e) { /* stockage indisponible */ }
     if (guard === '1') {
       try { localStorage.removeItem(GUARD); } catch (e) { /* ignoré */ }
-      await idbDel('meta', 'root');
+      await idbDel('meta', 'roots'); await idbDel('meta', 'root');
       libState('empty');
-      toast('<strong>Bibliothèque à relier de nouveau.</strong> Le dossier mémorisé n\'a pas pu être rouvert.');
+      toast('<strong>Bibliothèque à relier de nouveau.</strong> Les dossiers mémorisés n\'ont pas pu être rouverts.');
       return false;
     }
     try { localStorage.setItem(GUARD, '1'); } catch (e) { /* ignoré */ }
-    const h = await idbGet('meta', 'root');
+    let saved = await idbGet('meta', 'roots');
+    if (!Array.isArray(saved)) {
+      // ancienne version : un seul dossier
+      const old = await idbGet('meta', 'root');
+      saved = old ? [old] : [];
+      if (old) { await idbPut('meta', 'roots', saved); await idbDel('meta', 'root'); }
+    }
     try { localStorage.removeItem(GUARD); } catch (e) { /* ignoré */ }
-    if (!h) { libState('empty'); return false; }
-    lib.root = h;
-    let perm = 'prompt';
-    try { perm = await h.queryPermission({ mode: 'read' }); } catch (e) { /* handle invalide */ }
-    if (perm === 'granted') { await scanAndRender(); return true; }
-    libState('reconnect', h.name);
+    if (desktop) saved = saved.map(desktop.revive);
+    lib.roots = saved.filter(Boolean).map(h => ({ h, state: 'prompt', models: 0, cols: 0 }));
+    if (!lib.roots.length) { libState('empty'); return false; }
+    for (const r of lib.roots) await checkRoot(r);
+    if (lib.roots.some(r => r.state === 'ok')) { await scanAndRender(); return true; }
+    libState('reconnect');
     return true;
   })());
 }
 
-$('libPick').addEventListener('click', async () => {
-  if (lib.root && $('libPick').textContent.startsWith('Autoriser')) {
-    try { if (await lib.root.requestPermission({ mode: 'read' }) === 'granted') { await scanAndRender(); return; } } catch (e) { /* refusé */ }
-    toast('<strong>Accès refusé.</strong> Choisissez de nouveau le dossier de la bibliothèque.');
-    libState('empty');
-    return;
+// Redemande l'accès aux dossiers en attente (un clic peut ouvrir plusieurs demandes)
+async function askAccess(only) {
+  for (const r of only ? [only] : lib.roots) {
+    if (r.state === 'ok') continue;
+    try { if (await r.h.requestPermission({ mode: 'read' }) === 'granted') r.state = 'ok'; else await checkRoot(r); } catch (e) { await checkRoot(r); }
   }
-  pickLibrary();
-});
-$('libChange').addEventListener('click', pickLibrary);
-$('libRefresh').addEventListener('click', () => scanAndRender());
-async function pickLibrary() {
-  try {
-    const h = await window.showDirectoryPicker({ id: 'atelier3d-lib', mode: 'read' });
-    await idbPut('meta', 'root', h);
-    lib.root = h;
-    await scanAndRender();
-  } catch (e) { if (!e || e.name !== 'AbortError') toast('<strong>Dossier inaccessible.</strong> Choisissez-en un autre.'); }
+  if (lib.roots.some(r => r.state === 'ok')) { await scanAndRender(); }
+  else { libState('reconnect'); toast('<strong>Accès refusé.</strong> Autorisez l\'accès, ou reliez d\'autres dossiers.'); }
 }
 
-// Parcourt le dossier : sous-dossiers de premier niveau = collections ; modèles et images rangés par dossier
-async function scanLibrary(root, onCount) {
+$('libPick').addEventListener('click', () => { if ($('libPick').dataset.mode === 'access') askAccess(); else addLibraryFolder(); });
+$('libForget').addEventListener('click', async () => {
+  lib.roots = []; lib.cols = [];
+  await saveRoots();
+  libState('empty');
+});
+$('libChange').addEventListener('click', addLibraryFolder);
+$('libRefresh').addEventListener('click', async () => { for (const r of lib.roots) await checkRoot(r); scanAndRender(); });
+
+async function addLibraryFolder() {
+  let h;
+  try { h = await window.showDirectoryPicker({ id: 'atelier3d-lib', mode: 'read' }); }
+  catch (e) { if (!e || e.name !== 'AbortError') toast('<strong>Dossier inaccessible.</strong> Choisissez-en un autre.'); return; }
+  const contained = [];
+  for (const r of lib.roots) {
+    let same = false, inside = null, holds = null;
+    try { same = await r.h.isSameEntry(h); } catch (e) { /* ignoré */ }
+    if (same) {
+      r.h = h; r.state = 'ok';
+      await saveRoots(); await scanAndRender();
+      toast('<strong>« ' + esc(h.name) + ' »</strong> est déjà dans la bibliothèque.');
+      return;
+    }
+    try { inside = await r.h.resolve(h); } catch (e) { /* ignoré */ }
+    if (inside) { toast('<strong>« ' + esc(h.name) + ' »</strong> fait déjà partie du dossier « ' + esc(r.h.name) + ' », déjà relié.'); return; }
+    try { holds = await h.resolve(r.h); } catch (e) { /* ignoré */ }
+    if (holds) contained.push(r);
+  }
+  // un dossier qui contient des dossiers déjà reliés les remplace (sinon les modèles apparaîtraient deux fois)
+  lib.roots = lib.roots.filter(r => !contained.includes(r));
+  lib.roots.push({ h, state: 'ok', models: 0, cols: 0 });
+  await saveRoots();
+  await scanAndRender();
+  toast('<strong>Dossier « ' + esc(h.name) + ' » ajouté</strong> à la bibliothèque.' + (contained.length ? ' Il remplace ' + esc(quoteList(contained.map(r => r.h.name))) + ', qu\'il contient.' : ''));
+}
+async function removeRoot(r) {
+  lib.roots = lib.roots.filter(x => x !== r);
+  await saveRoots();
+  toast('<strong>« ' + esc(r.h.name) + ' » retiré</strong> de la bibliothèque. Les fichiers ne sont pas touchés.');
+  if (!lib.roots.length) { collapseAlbum(); lib.cols = []; $('libGrid').textContent = ''; libState('empty'); return; }
+  await scanAndRender();
+}
+
+// Parcourt les dossiers : sous-dossiers de premier niveau = collections ; modèles et images rangés par dossier
+async function scanLibrary(onCount) {
   const cols = new Map();
-  const colOf = (key, name, handle) => {
-    if (!cols.has(key)) cols.set(key, { key, name, handle, models: [], images: [], custom: null, coverImg: null, el: null });
-    return cols.get(key);
-  };
+  const multi = lib.roots.length > 1;
   let n = 0;
-  async function walk(dir, rel, col, depth) {
-    for await (const h of dir.values()) {
-      const path = rel ? rel + '/' + h.name : h.name;
-      if (h.kind === 'directory') {
-        if (h.name.startsWith('.')) continue;
-        if (depth === 0) await walk(h, path, colOf(h.name, h.name, h), 1);
-        else if (depth < 10) await walk(h, path, col, depth + 1);
-      } else {
-        const c = col || colOf('', 'À la racine', root);
-        if (isModel(h.name)) {
-          c.models.push({ name: h.name, base: baseName(h.name), ext: h.name.split('.').pop().toUpperCase(), path, dir: rel, handle: h, col: c, preview: null, thumbURL: null, stats: null, level: null, size: null, queued: false, el: null, failed: false });
-          if (++n % 25 === 0) onCount(n);
-        } else if (IMG_RE.test(h.name)) {
-          c.images.push({ name: h.name, base: h.name.replace(/\.[^.]+$/, ''), path, dir: rel, handle: h, url: null });
+  for (const [ri, r] of lib.roots.entries()) {
+    r.models = 0; r.cols = 0;
+    if (r.state !== 'ok') continue;
+    const root = r.h;
+    const colOf = (key, name, handle) => {
+      const id = ri + '|' + key;
+      if (!cols.has(id)) cols.set(id, { id, key, name, handle, root: r, rootName: root.name, models: [], images: [], custom: null, coverImg: null, el: null });
+      return cols.get(id);
+    };
+    const walk = async (dir, rel, col, depth) => {
+      for await (const h of dir.values()) {
+        const path = rel ? rel + '/' + h.name : h.name;
+        if (h.kind === 'directory') {
+          if (h.name.startsWith('.')) continue;
+          if (depth === 0) await walk(h, path, colOf(h.name, h.name, h), 1);
+          else if (depth < 10) await walk(h, path, col, depth + 1);
+        } else {
+          const c = col || colOf('', multi ? root.name : 'À la racine', root);
+          if (isModel(h.name)) {
+            c.models.push({ name: h.name, base: baseName(h.name), ext: h.name.split('.').pop().toUpperCase(), path, uid: ri + ':' + path, dir: rel, handle: h, col: c, preview: null, thumbURL: null, stats: null, level: null, size: null, queued: false, el: null, failed: false });
+            if (++n % 25 === 0) onCount(n);
+          } else if (IMG_RE.test(h.name)) {
+            c.images.push({ name: h.name, base: h.name.replace(/\.[^.]+$/, ''), path, dir: rel, handle: h, url: null });
+          }
         }
       }
+    };
+    try { await walk(root, '', null, 0); }
+    catch (e) {
+      // dossier déplacé, débranché ou autorisation retirée pendant la lecture
+      await checkRoot(r);
+      if (r.state === 'ok') r.state = desktop ? 'missing' : 'prompt';
+      for (const [id, c] of cols) if (c.root === r) cols.delete(id);
     }
   }
-  await walk(root, '', null, 0);
   const list = [...cols.values()].filter(c => c.models.length);
   for (const c of list) {
     c.models.sort((a, b) => collator.compare(a.path, b.path));
@@ -2145,8 +2294,11 @@ async function scanLibrary(root, onCount) {
       const sub = c.key ? m.dir.slice(c.key.length + 1) : m.dir;
       m.sub = sub || '';
     }
+    c.root.models += c.models.length;
+    c.root.cols++;
   }
-  list.sort((a, b) => (a.key === '') - (b.key === '') || collator.compare(a.name, b.name));
+  const order = (c) => lib.roots.indexOf(c.root);
+  list.sort((a, b) => order(a) - order(b) || (a.key === '') - (b.key === '') || collator.compare(a.name, b.name));
   return list;
 }
 
@@ -2154,25 +2306,21 @@ async function scanAndRender() {
   if (lib.scanning) return;
   lib.scanning = true;
   libState('ready');
-  $('libName').textContent = lib.root.name;
-  $('libMeta').textContent = 'Analyse du dossier…';
+  $('libName').textContent = 'Bibliothèque';
+  $('libMeta').textContent = 'Analyse des dossiers…';
+  collapseAlbum();
   $('libGrid').textContent = '';
   for (const u of lib.urls) URL.revokeObjectURL(u);
   lib.urls = []; lib.jobs = []; lib.expanded = null; lib.panel = null; lib.sel.clear(); updateSelBar();
-  try {
-    lib.cols = await scanLibrary(lib.root, (n) => { $('libMeta').textContent = 'Analyse du dossier… ' + fmtInt(n) + ' modèles'; });
-  } catch (e) {
-    lib.scanning = false;
-    libState('reconnect', lib.root.name);
-    return;
-  }
+  lib.cols = await scanLibrary((n) => { $('libMeta').textContent = 'Analyse des dossiers… ' + fmtInt(n) + ' modèles'; });
   for (const c of lib.cols) c.custom = (await idbGet('covers', coverKey(c))) || null;
-  const total = lib.cols.reduce((s, c) => s + c.models.length, 0);
-  $('libMeta').textContent = pl(lib.cols.length, 'collection', 'collections') + ', ' + pl(total, 'modèle', 'modèles');
   lib.scanning = false;
+  if (!lib.roots.some(r => r.state === 'ok')) { libState('reconnect'); return; }
+  const total = lib.cols.reduce((s, c) => s + c.models.length, 0);
+  $('libMeta').textContent = pl(lib.roots.length, 'dossier', 'dossiers') + ', ' + pl(lib.cols.length, 'collection', 'collections') + ', ' + pl(total, 'modèle', 'modèles');
   renderLibrary();
 }
-const coverKey = (c) => lib.root.name + '/' + c.key;
+const coverKey = (c) => c.rootName + '/' + c.key;
 
 async function urlOfImage(img) {
   if (!img.url) { const f = await img.handle.getFile(); img.url = URL.createObjectURL(f); lib.urls.push(img.url); }
@@ -2232,10 +2380,37 @@ async function panelColor(c, url) {
   } catch (e) { return fallback; }
 }
 
+// En-tête de chaque dossier relié : nom, contenu, et de quoi le retirer ou le réautoriser
+function rootHeader(r) {
+  const sec = document.createElement('div'); sec.className = 'lib-sec';
+  const h = document.createElement('h2'); h.textContent = r.h.name;
+  const info = document.createElement('span');
+  if (r.state === 'ok') info.textContent = r.models ? pl(r.cols, 'collection', 'collections') + ', ' + pl(r.models, 'modèle', 'modèles') : 'Aucun fichier .3mf ou .stl dans ce dossier';
+  else { info.className = 'warn'; info.textContent = r.state === 'missing' ? 'Dossier introuvable' : 'Accès à autoriser'; }
+  const acts = document.createElement('div'); acts.className = 'sec-actions';
+  if (r.state === 'prompt') {
+    const bA = document.createElement('button'); bA.type = 'button'; bA.className = 'btn plain'; bA.textContent = 'Autoriser l\'accès';
+    bA.addEventListener('click', () => askAccess(r));
+    acts.append(bA);
+  }
+  const bR = document.createElement('button'); bR.type = 'button'; bR.className = 'btn plain'; bR.textContent = 'Retirer';
+  bR.title = 'Retirer ce dossier de la bibliothèque (les fichiers ne sont pas touchés)';
+  bR.addEventListener('click', () => removeRoot(r));
+  acts.append(bR);
+  sec.append(h, info, acts);
+  return sec;
+}
+
 function renderLibrary() {
   const grid = $('libGrid');
   grid.textContent = '';
-  lib.cols.forEach((c, i) => {
+  // les collections sont rangées par dossier relié, chacun sous son en-tête
+  const ordered = [];
+  for (const r of lib.roots) { ordered.push(r); for (const c of lib.cols) if (c.root === r) ordered.push(c); }
+  let i = -1;
+  for (const c of ordered) {
+    if (c.h) { grid.append(rootHeader(c)); continue; }   // un dossier relié, pas une collection
+    i++;
     const a = document.createElement('button');
     a.type = 'button'; a.className = 'album'; a.setAttribute('aria-expanded', 'false');
     a.style.setProperty('--d', Math.min(i * 30, 600) + 'ms');
@@ -2256,7 +2431,7 @@ function renderLibrary() {
     c.el = a; c.coverBox = cover;
     grid.append(a);
     fillCover(c, cover);
-  });
+  }
   applyLibSearch();
 }
 
@@ -2288,13 +2463,13 @@ async function toggleAlbum(c) {
   lib.panelCover = pc;
   const info = document.createElement('div');
   const h2 = document.createElement('h2'); h2.textContent = c.name;
-  const meta = document.createElement('div'); meta.className = 'pmeta'; meta.textContent = pl(c.models.length, 'modèle', 'modèles') + (c.key ? '' : ', directement dans « ' + lib.root.name + ' »');
+  const meta = document.createElement('div'); meta.className = 'pmeta'; meta.textContent = pl(c.models.length, 'modèle', 'modèles') + (c.key ? (lib.roots.length > 1 ? ', dans « ' + c.rootName + ' »' : '') : ', directement dans « ' + c.rootName + ' »');
   const acts = document.createElement('div'); acts.className = 'pactions';
   const bOpen = document.createElement('button'); bOpen.type = 'button'; bOpen.className = 'btn primary';
   bOpen.textContent = c.models.length > MAX_FILES ? `Ouvrir les ${MAX_FILES} premiers` : 'Ouvrir tout le dossier';
   bOpen.addEventListener('click', () => openModels(c.models.slice(0, MAX_FILES)));
   const bAll = document.createElement('button'); bAll.type = 'button'; bAll.className = 'btn'; bAll.textContent = 'Tout sélectionner';
-  bAll.addEventListener('click', () => { const all = c.models.every(m => lib.sel.has(m.path)); for (const m of c.models) { if (all) lib.sel.delete(m.path); else lib.sel.set(m.path, m); } refreshSelection(); });
+  bAll.addEventListener('click', () => { const all = c.models.every(m => lib.sel.has(m.uid)); for (const m of c.models) { if (all) lib.sel.delete(m.uid); else lib.sel.set(m.uid, m); } refreshSelection(); });
   const bCover = document.createElement('button'); bCover.type = 'button'; bCover.className = 'btn'; bCover.textContent = 'Changer l\'image…';
   bCover.addEventListener('click', () => { coverTarget = c; $('coverInput').click(); });
   acts.append(bOpen, bAll, bCover);
@@ -2319,16 +2494,16 @@ window.addEventListener('resize', () => { if (view === 'library') placePanel(); 
 
 function makeTile(m, i, showCol) {
   const t = document.createElement('button');
-  t.type = 'button'; t.className = 'tile'; t.title = m.path;
+  t.type = 'button'; t.className = 'tile'; t.title = lib.roots.length > 1 ? m.col.rootName + '/' + m.path : m.path;
   t.style.setProperty('--d', Math.min(i * 18, 500) + 'ms');
-  t.setAttribute('aria-pressed', String(lib.sel.has(m.path)));
+  t.setAttribute('aria-pressed', String(lib.sel.has(m.uid)));
   const box = document.createElement('div'); box.className = 'timg';
   const ck = document.createElement('span'); ck.className = 'tcheck'; ck.innerHTML = icon('i-check');
   box.append(ck);
   const tn = document.createElement('div'); tn.className = 'tn'; tn.textContent = m.base;
   const tm = document.createElement('div'); tm.className = 'tm';
   t.append(box, tn, tm);
-  t.addEventListener('click', () => { if (lib.sel.has(m.path)) lib.sel.delete(m.path); else lib.sel.set(m.path, m); refreshSelection(); });
+  t.addEventListener('click', () => { if (lib.sel.has(m.uid)) lib.sel.delete(m.uid); else lib.sel.set(m.uid, m); refreshSelection(); });
   t.addEventListener('dblclick', (e) => { e.preventDefault(); openModels([m]); });
   m.el = m.el || new Set();
   m.el.add(t);
@@ -2366,7 +2541,7 @@ async function loadCachedThumb(m) {
   if (m.thumbURL || m.cacheChecked) return;
   m.cacheChecked = true;
   try {
-    const f = await m.handle.getFile();
+    const f = m.handle.peek ? m.handle.peek() : await m.handle.getFile();
     m.size = f.size;
     m.key = m.path + '|' + f.size + '|' + f.lastModified;
     const hit = await idbGet('thumbs', m.key);
@@ -2429,7 +2604,7 @@ async function makeLibThumb(m) {
 
 // Sélection et ouverture dans la visionneuse
 function refreshSelection() {
-  for (const c of lib.cols) for (const m of c.models) if (m.el) for (const t of m.el) t.setAttribute('aria-pressed', String(lib.sel.has(m.path)));
+  for (const c of lib.cols) for (const m of c.models) if (m.el) for (const t of m.el) t.setAttribute('aria-pressed', String(lib.sel.has(m.uid)));
   updateSelBar();
 }
 function updateSelBar() {
@@ -2505,10 +2680,10 @@ renderer.setAnimationLoop(() => {
 // ---------- Installation ----------
 // Le bouton reste visible dans un onglet : Chrome ne propose son installation directe
 // qu'après un clic et 30 s sur la page, sinon on explique la marche à suivre.
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+if (!desktop && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 let deferredInstall = null;
 const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-$('install').hidden = standalone;
+$('install').hidden = standalone || !!desktop;
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredInstall = e; });
 
 function installSteps() {
@@ -2532,6 +2707,7 @@ $('ihelpClose').addEventListener('click', closeHelp);
 document.addEventListener('click', (e) => { if (!$('ihelp').hidden && !$('ihelp').contains(e.target) && e.target !== $('install')) closeHelp(); });
 
 $('install').addEventListener('click', async () => {
+  if (desktop) { if (updateURL) desktop.open(updateURL); return; }
   if (deferredInstall) {
     deferredInstall.prompt();
     const choice = await deferredInstall.userChoice.catch(() => null);
@@ -2543,6 +2719,44 @@ $('install').addEventListener('click', async () => {
   $('ihelp').hidden = !$('ihelp').hidden;
 });
 window.addEventListener('appinstalled', () => { $('install').hidden = true; closeHelp(); });
+
+// ---------- Version programme : fichiers ouverts par double-clic, et mises à jour ----------
+let updateURL = null;
+const DOWNLOAD_WIN = 'https://github.com/archagrim/archagrim.github.io/releases/latest/download/Atelier3D-setup.exe';
+if (desktop) {
+  const openPaths = async (paths) => {
+    if (!paths || !paths.length) return;
+    const files = await desktop.openPaths(paths);
+    if (files.length) addFiles(files);
+    else toast('<strong>Ouverture impossible.</strong> Le fichier n\'a pas pu être lu.');
+  };
+  desktop.invoke('take_launch_files').then(openPaths).catch(() => {});
+  DESKTOP.event.listen('open-files', (e) => openPaths(e.payload)).catch(() => {});
+  // une version plus récente publiée sur GitHub ? le bouton du haut devient « Mise à jour »
+  setTimeout(async () => {
+    try {
+      const info = await desktop.invoke('app_info');
+      const r = await fetch('https://api.github.com/repos/archagrim/archagrim.github.io/releases/latest', { headers: { Accept: 'application/vnd.github+json' } });
+      if (!r.ok) return;
+      const rel = await r.json();
+      const latest = String(rel.tag_name || '').replace(/^atelier-3d-v/, '');
+      const num = (v) => v.split('.').map(n => parseInt(n, 10) || 0);
+      const [a, b] = [num(latest), num(info.version)];
+      let newer = false;
+      for (let i = 0; i < 3; i++) { if ((a[i] || 0) !== (b[i] || 0)) { newer = (a[i] || 0) > (b[i] || 0); break; } }
+      if (!newer) return;
+      updateURL = DOWNLOAD_WIN;
+      const btn = $('install');
+      btn.textContent = 'Mise à jour';
+      btn.title = 'Télécharger la version ' + latest + ' (vous avez la ' + info.version + ')';
+      btn.hidden = false;
+    } catch (e) { /* hors ligne */ }
+  }, 2500);
+} else if (/Windows/.test(navigator.userAgent)) {
+  // site ouvert sur Windows : proposer aussi le programme dans l'aide à l'installation
+  const steps = installSteps;
+  installSteps = () => steps() + '<p>Ou téléchargez <a href="' + DOWNLOAD_WIN + '"><b>Atelier 3D pour Windows</b></a>, le programme complet : accès direct à vos dossiers, sans navigateur.</p>';
+}
 </script>
 </body>
 </html>

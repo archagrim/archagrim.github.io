@@ -1,0 +1,13 @@
+{
+  "name": "atelier-3d-windows",
+  "private": true,
+  "description": "Atelier 3D en programme Windows : le dossier 3d/ du site, emballé avec Tauri.",
+  "scripts": {
+    "tauri": "tauri",
+    "build": "tauri build",
+    "dev": "tauri dev"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.12.4"
+  }
+}

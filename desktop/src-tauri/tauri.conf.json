@@ -1,0 +1,71 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Atelier 3D",
+  "version": "1.0.0",
+  "identifier": "io.github.archagrim.atelier3d",
+  "build": {
+    "frontendDist": "../../3d"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Atelier 3D",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 880,
+        "minHeight": 560,
+        "center": true,
+        "dragDropEnabled": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis"
+    ],
+    "publisher": "archagrim",
+    "shortDescription": "Visionneuse 3MF et STL en taille réelle",
+    "longDescription": "Atelier 3D affiche vos fichiers 3MF et STL en taille réelle, avec une bibliothèque reliée à vos dossiers.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "fileAssociations": [
+      {
+        "ext": [
+          "3mf"
+        ],
+        "name": "Atelier3D.3mf",
+        "description": "Modèle 3D (3MF)",
+        "mimeType": "model/3mf",
+        "role": "Viewer"
+      },
+      {
+        "ext": [
+          "stl"
+        ],
+        "name": "Atelier3D.stl",
+        "description": "Modèle 3D (STL)",
+        "mimeType": "model/stl",
+        "role": "Viewer"
+      }
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": [
+          "French"
+        ],
+        "displayLanguageSelector": false
+      }
+    }
+  }
+}

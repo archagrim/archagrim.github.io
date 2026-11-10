@@ -7,6 +7,7 @@ Mes sites et applications, publiés avec GitHub Pages.
 | `codex/` | https://archagrim.github.io/codex/ | Lanceur installable du Codex (bible League of Legends) : logo, icônes, ouverture directe du Codex sur claude.ai. |
 | `adc/` | https://archagrim.github.io/adc/ | ADC Lab : analyse automatique de mes parties classées (morts, lane, objectifs, sessions). |
 | `3d/` | https://archagrim.github.io/3d/ | Atelier 3D : visionneuse de fichiers 3MF et STL en taille réelle (dimensions, échelle par socle, volume de résine). Les fichiers sont lus sur l'ordinateur, rien n'est envoyé en ligne. |
+| `desktop/` | [Atelier3D-setup.exe](https://github.com/archagrim/archagrim.github.io/releases/latest/download/Atelier3D-setup.exe) | Atelier 3D en programme Windows : la même page que `3d/`, emballée avec Tauri. |
 
 ## Installer le Codex sur le téléphone
 
@@ -37,9 +38,18 @@ Chaque nouveau site peut avoir son propre dossier ici et sera publié à `https:
 - **Mesurer** : deux clics sur le modèle donnent la distance en mm, à l'échelle choisie (point trouvé par la carte graphique, instantané même sur des millions de triangles).
 - **Contrôle du maillage** (modèles jusqu'à 8 millions de triangles) : trous, faces inversées, arêtes non conformes, fragments isolés, modèle retourné ; problèmes affichés en rouge et orange.
 - **Partager** : image PNG sur fond transparent, vidéo d'un tour complet en 6 s (MP4 ou WebM).
-- **Bibliothèque** (onglet en haut, Chrome ou Edge) : un dossier relié et mémorisé ; chaque sous-dossier devient une collection avec sa couverture (image choisie ou glissée sur la couverture, sinon `cover.jpg`/`folder.jpg`/première image du dossier, sinon mosaïque des aperçus). Un clic ouvre le panneau de la collection, à la couleur de sa couverture ; sélection puis « Ouvrir dans la visionneuse », double-clic pour ouvrir une figurine. Aperçus : image fournie avec le modèle (même nom), sinon rendu calculé une fois et gardé dans le navigateur (IndexedDB), avec hauteur et état du maillage. Rien n'est jamais écrit dans le dossier.
+- **Bibliothèque** (onglet en haut, Chrome ou Edge) : un ou plusieurs dossiers reliés et mémorisés (**Ajouter un dossier…**, **Retirer** sur l'en-tête de chaque dossier) ; chaque sous-dossier devient une collection avec sa couverture (image choisie ou glissée sur la couverture, sinon `cover.jpg`/`folder.jpg`/première image du dossier, sinon mosaïque des aperçus). Un clic ouvre le panneau de la collection, à la couleur de sa couverture ; sélection puis « Ouvrir dans la visionneuse », double-clic pour ouvrir une figurine. Aperçus : image fournie avec le modèle (même nom), sinon rendu calculé une fois et gardé dans le navigateur (IndexedDB), avec hauteur et état du maillage. Rien n'est jamais écrit dans le dossier.
 - Style : thème « Apple moderne » du kit (fond `#F2F2F7`, accent `#0088FF`), clair ou sombre selon le système ; police Inter embarquée (`3d/fonts/`, licence OFL).
 - Mouvement : le modèle apparaît couche par couche (plan de coupe three.js) pendant que la caméra se pose ; vues, échelle et chiffres animés ; entrées et sorties de la liste. Tout est natif (aucune bibliothèque) et coupé si le système demande moins d'animations.
 - `3d/parser.js` lit les fichiers en arrière-plan (3MF en flux, avec composants, transformations et unités ; STL binaire et texte).
 - `3d/lib/` contient three.js 0.160.0 et fflate, pour que l'app marche hors ligne.
 - Mode **Taille réelle 1:1** : calibrage avec une carte bancaire, mémorisé dans le navigateur.
+
+## Atelier 3D pour Windows (`desktop/`)
+
+- **Télécharger** : https://github.com/archagrim/archagrim.github.io/releases/latest/download/Atelier3D-setup.exe, puis l'ouvrir. Installation pour l'utilisateur seul, sans droits d'administrateur. Au premier lancement, Windows peut afficher « Windows a protégé votre ordinateur » (programme non signé) : **Informations complémentaires** → **Exécuter quand même**.
+- Même page que `3d/` (le programme embarque ce dossier) ; en plus : les `.3mf` et `.stl` s'ouvrent d'un double-clic (un seul Atelier 3D ouvert, les fichiers suivants s'y ajoutent), la bibliothèque lit les dossiers directement sans autorisation à redonner, **Enregistrer** passe par la fenêtre Windows, la taille et la place de la fenêtre sont gardées. Le programme ne fait que lire les dossiers choisis et écrire les images ou vidéos enregistrées.
+- Mises à jour : le bouton **Mise à jour** apparaît en haut quand une version plus récente est publiée ; installer la nouvelle version par-dessus garde réglages et bibliothèque.
+- Fabrication : `.github/workflows/atelier-3d-windows.yml` compile le programme sur une machine Windows de GitHub à chaque modification de `3d/` ou `desktop/` (et à la demande depuis l'onglet **Actions**), puis publie `Atelier3D-setup.exe` dans les **Releases** sous le nom `atelier-3d-v1.0.N` ; les 5 dernières versions sont gardées.
+- `desktop/src-tauri/src/main.rs` : commandes du programme (lire un dossier ou un fichier, choisir un dossier, enregistrer, ouvrir un lien, fichiers reçus au lancement). Dans la page, `desktop` (en tête du script de `3d/index.html`) remplace l'accès aux fichiers du navigateur par ces commandes.
+- Fabriquer sur un PC : `cd desktop`, `npm ci`, `npx tauri build` (Rust et Node requis).
