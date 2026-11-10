@@ -1,5 +1,5 @@
 // Atelier 3D pour Windows : la page du dossier 3d/ dans une fenêtre, plus un accès direct au disque.
-// Le programme ne fait que lire les dossiers choisis et écrire les images ou vidéos que l'on enregistre.
+// Le programme ne fait que lire les dossiers choisis, écrire les images ou vidéos que l'on enregistre, et le fichier des tailles gardées (atelier-3d-tailles.json) des dossiers reliés.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::path::{Path, PathBuf};
@@ -173,6 +173,34 @@ async fn save_file(window: WebviewWindow, request: Request<'_>) -> Result<Option
     ))
 }
 
+/// Seul fichier que le programme écrit dans un dossier relié : les tailles gardées des figurines.
+const SIZES_FILE: &str = "atelier-3d-tailles.json";
+
+#[tauri::command]
+async fn read_sizes(dir: String) -> Result<Option<String>, String> {
+    match std::fs::read_to_string(Path::new(&dir).join(SIZES_FILE)) {
+        Ok(t) => Ok(Some(t)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// Écrit d'abord un fichier temporaire puis le renomme : une clé retirée en pleine écriture ne laisse pas de fichier abîmé.
+#[tauri::command]
+async fn write_sizes(dir: String, text: String) -> Result<(), String> {
+    let folder = Path::new(&dir);
+    if !folder.is_dir() {
+        return Err("dossier introuvable".into());
+    }
+    let target = folder.join(SIZES_FILE);
+    let tmp = folder.join(format!("{SIZES_FILE}.tmp"));
+    std::fs::write(&tmp, text.as_bytes()).map_err(|e| e.to_string())?;
+    std::fs::rename(&tmp, &target).map_err(|e| {
+        let _ = std::fs::remove_file(&tmp);
+        e.to_string()
+    })
+}
+
 #[tauri::command]
 fn open_url(app: AppHandle, url: String) -> Result<(), String> {
     if !url.starts_with("https://") {
@@ -211,6 +239,8 @@ fn main() {
             read_file,
             pick_folder,
             save_file,
+            read_sizes,
+            write_sizes,
             open_url
         ])
         .run(tauri::generate_context!())

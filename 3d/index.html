@@ -441,7 +441,7 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
       <h1 id="libEmptyTitle">Votre bibliothèque de figurines.</h1>
       <p class="lede" id="libEmptyText">Reliez les dossiers où vous rangez vos modèles. Chaque sous-dossier devient une collection, avec sa couverture et l'aperçu de chaque figurine.</p>
       <div class="cta"><button class="btn primary large" id="libPick" type="button">Choisir un dossier</button><button class="btn plain" id="libForget" type="button" hidden>Oublier ces dossiers</button></div>
-      <p class="foot" id="libEmptyFoot">Les fichiers restent sur cet ordinateur. Atelier 3D les lit sans jamais les modifier ni les envoyer en ligne.</p>
+      <p class="foot" id="libEmptyFoot">Les fichiers restent sur cet ordinateur. Atelier 3D lit vos modèles sans jamais les modifier ni les envoyer en ligne ; il range seulement les tailles gardées dans un petit fichier, atelier-3d-tailles.json, à la racine de chaque dossier relié.</p>
     </div>
   </div>
   <div class="lib-grid" id="libGrid"></div>
@@ -541,7 +541,7 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
       </div>
       <label class="field" for="scaleInput">Échelle <span class="box"><input id="scaleInput" type="number" min="5" max="400" step="1" value="100" disabled><span>%</span></span></label>
       <div class="keep"><span id="keepInfo"></span><button class="btn plain" id="keepForget" type="button" hidden>Oublier</button><button class="btn" id="keepBtn" type="button" disabled>Garder cette taille</button></div>
-      <p class="foot">Choisissez le diamètre de socle voulu : toutes les cotes suivent et, en taille réelle, le modèle change de taille à l'écran. « Garder cette taille » la mémorise : la figurine se rouvrira toujours à cette taille.</p>
+      <p class="foot">Choisissez le diamètre de socle voulu : toutes les cotes suivent et, en taille réelle, le modèle change de taille à l'écran. « Garder cette taille » la mémorise : la figurine se rouvrira toujours à cette taille, aussi sur un autre ordinateur si son dossier y est relié à la bibliothèque.</p>
     </section>
 
     <section class="group">
@@ -1216,7 +1216,9 @@ $('keepBtn').addEventListener('click', () => {
   kept[sizeKey(it.name, it.size)] = { s: it.scale, n: it.name, t: Date.now() };
   if (!saveKept()) return;
   updateKeep(); refreshKeptTiles(it);
-  toast('<strong>' + esc(baseName(it.name)) + '</strong> se rouvrira à ' + pctText(it.scale) + ' (' + fmt(info.h * it.scale) + ' mm de haut).');
+  const msg = '<strong>' + esc(baseName(it.name)) + '</strong> se rouvrira à ' + pctText(it.scale) + ' (' + fmt(info.h * it.scale) + ' mm de haut).';
+  toast(msg);
+  syncSizes(true).then((res) => { if (res.roots) toast(msg + sizesNote(res)); }).catch(() => {});
 });
 $('keepForget').addEventListener('click', () => {
   const it = items.find(i => i.id === shownId);
@@ -1225,7 +1227,74 @@ $('keepForget').addEventListener('click', () => {
   if (!saveKept()) return;
   updateKeep(); refreshKeptTiles(it);
   toast('<strong>Taille oubliée</strong> pour ' + esc(baseName(it.name)) + ' : retour à la taille d\'origine à la prochaine ouverture.');
+  syncSizes(true).catch(() => {});
 });
+
+// ---------- Tailles partagées : un petit fichier dans chaque dossier relié à la bibliothèque ----------
+// atelier-3d-tailles.json voyage avec les figurines (clé USB, disque externe) : chaque appareil le lit en reliant
+// le dossier, fusionne entrée par entrée (la plus récente l'emporte) et y réécrit ce qu'il a de plus récent.
+const SIZES_FILE = 'atelier-3d-tailles.json';
+async function readSizesFile(h) {
+  try {
+    let text;
+    if (h.disk) text = await desktop.invoke('read_sizes', { dir: h.path });
+    else text = await (await (await h.getFileHandle(SIZES_FILE)).getFile()).text();
+    const j = text ? JSON.parse(text) : null;
+    return j && j.sizes && typeof j.sizes === 'object' ? j.sizes : null;
+  } catch (e) { return null; }   // pas encore de fichier, ou fichier illisible
+}
+async function writeSizesFile(h, sizes) {
+  const text = JSON.stringify({ app: 'Atelier 3D', contenu: 'Tailles gardées des figurines : nom|poids du fichier en octets → échelle (s), date (t). Écrit par Atelier 3D, ne modifie aucun modèle.', version: 1, sizes }, null, 1);
+  if (h.disk) { await desktop.invoke('write_sizes', { dir: h.path, text }); return; }
+  const w = await (await h.getFileHandle(SIZES_FILE, { create: true })).createWritable();
+  await w.write(text); await w.close();
+}
+function mergeSizes(into, from) {
+  let changed = false;
+  for (const [k, v] of Object.entries(from || {})) {
+    if (!v || typeof v.t !== 'number') continue;
+    if (!into[k] || !(into[k].t >= v.t)) { into[k] = { s: typeof v.s === 'number' && v.s > 0 ? v.s : null, n: String(v.n || ''), t: v.t }; changed = true; }
+  }
+  return changed;
+}
+function sameSizes(a, b) {
+  const ka = Object.keys(a || {});
+  return ka.length === Object.keys(b || {}).length && ka.every(k => b[k] && b[k].t === a[k].t && b[k].s === a[k].s);
+}
+async function mayWrite(r, ask) {
+  if (r.h.disk) return true;
+  try {
+    if (await r.h.queryPermission({ mode: 'readwrite' }) === 'granted') return true;
+    return ask ? (await r.h.requestPermission({ mode: 'readwrite' })) === 'granted' : false;
+  } catch (e) { return false; }
+}
+let sizesChain = Promise.resolve();
+function syncSizes(ask = false) {
+  const run = sizesChain.then(async () => {
+    const roots = lib.roots.filter(r => r.state === 'ok');
+    const res = { roots: roots.length, changed: false, wrote: 0, blocked: [] };
+    const remote = new Map();
+    for (const r of roots) { const s = await readSizesFile(r.h); remote.set(r, s); if (mergeSizes(kept, s)) res.changed = true; }
+    if (res.changed) {
+      saveKept();
+      updateKeep();
+      for (const c of lib.cols) for (const m of c.models) if (m.el) repaint(m);
+    }
+    for (const r of roots) {
+      if (sameSizes(kept, remote.get(r) || {})) continue;
+      if (!(await mayWrite(r, ask))) { res.blocked.push(r.h.name); continue; }
+      try { await writeSizesFile(r.h, kept); res.wrote++; } catch (e) { res.blocked.push(r.h.name); }
+    }
+    return res;
+  });
+  sizesChain = run.catch(() => {});
+  return run;
+}
+function sizesNote(res) {
+  if (!res || !res.roots) return '';
+  if (res.blocked.length) return '<br>Pas rangée dans ' + esc(quoteList(res.blocked)) + ' : modification du dossier non autorisée.';
+  return '<br>Rangée aussi dans ' + (res.roots > 1 ? 'tes ' + res.roots + ' dossiers reliés' : 'le dossier relié') + ', pour l\'emporter avec tes figurines.';
+}
 
 // ---------- Contrôle du maillage ----------
 let showMarks = false;
@@ -2242,7 +2311,10 @@ function initLibrary() {
 async function askAccess(only) {
   for (const r of only ? [only] : lib.roots) {
     if (r.state === 'ok') continue;
-    try { if (await r.h.requestPermission({ mode: 'read' }) === 'granted') r.state = 'ok'; else await checkRoot(r); } catch (e) { await checkRoot(r); }
+    try {
+      if (await r.h.requestPermission({ mode: 'readwrite' }) === 'granted' || await r.h.requestPermission({ mode: 'read' }) === 'granted') r.state = 'ok';
+      else await checkRoot(r);
+    } catch (e) { await checkRoot(r); }
   }
   if (lib.roots.some(r => r.state === 'ok')) { await scanAndRender(); }
   else { libState('reconnect'); toast('<strong>Accès refusé.</strong> Autorisez l\'accès, ou reliez d\'autres dossiers.'); }
@@ -2259,7 +2331,7 @@ $('libRefresh').addEventListener('click', async () => { for (const r of lib.root
 
 async function addLibraryFolder() {
   let h;
-  try { h = await window.showDirectoryPicker({ id: 'atelier3d-lib', mode: 'read' }); }
+  try { h = await window.showDirectoryPicker({ id: 'atelier3d-lib', mode: 'readwrite' }); }
   catch (e) { if (!e || e.name !== 'AbortError') toast('<strong>Dossier inaccessible.</strong> Choisissez-en un autre.'); return; }
   const contained = [];
   for (const r of lib.roots) {
@@ -2370,6 +2442,7 @@ async function scanAndRender() {
   const total = lib.cols.reduce((s, c) => s + c.models.length, 0);
   $('libMeta').textContent = pl(lib.roots.length, 'dossier', 'dossiers') + ', ' + pl(lib.cols.length, 'collection', 'collections') + ', ' + pl(total, 'modèle', 'modèles');
   renderLibrary();
+  syncSizes(false).catch(() => {});
 }
 const coverKey = (c) => c.rootName + '/' + c.key;
 
