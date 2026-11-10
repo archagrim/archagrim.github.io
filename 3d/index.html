@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Atelier 3D</title>
-<meta name="description" content="Visionneuse de fichiers 3MF et STL en taille réelle : jusqu'à 60 fichiers ouverts, dimensions, échelle par socle, volume de résine.">
+<meta name="description" content="Visionneuse de fichiers 3MF et STL en taille réelle : jusqu'à 60 fichiers, côte à côte, sous-couche, mesure, contrôle du maillage, capture et vidéo.">
 <meta name="theme-color" content="#FBFBFD" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1C1C1E" media="(prefers-color-scheme: dark)">
 <meta name="color-scheme" content="light dark">
@@ -49,6 +49,7 @@ html{-webkit-text-size-adjust:100%;background:var(--window)}
 body{margin:0;color:var(--ink);background:var(--window);font:400 14px/1.45 var(--font);font-feature-settings:"cv11","ss01";-webkit-font-smoothing:antialiased;
   display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden}
 button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:disabled{cursor:default}
 :focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:1px;border-radius:8px}
 [hidden]{display:none!important}
 
@@ -62,14 +63,19 @@ button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:tra
 .title span{color:var(--ink-3);font-weight:400;margin-left:8px}
 .actions{display:flex;justify-content:flex-end;align-items:center;gap:8px}
 @media (max-width:700px){.title{display:none}.toolbar{grid-template-columns:1fr auto}}
+@media (max-width:520px){#openDirBtn{display:none}}
 
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:30px;padding:0 13px;border-radius:8px;border:0;background:var(--fill);font-size:13px;font-weight:500;color:var(--ink);white-space:nowrap;transition:background-color .15s}
-.btn:hover{background:var(--fill-hover)}
+.btn:hover:not(:disabled){background:var(--fill-hover)}
+.btn:disabled{opacity:.45}
+.btn svg{width:16px;height:16px;flex:none}
 .btn.primary{background:var(--accent);color:var(--accent-ink);border-radius:980px;padding:0 16px}
 .btn.primary:hover{background:var(--accent-hover)}
 .btn.plain{background:transparent;color:var(--accent);padding:0 8px}
 .btn.plain:hover{background:var(--accent-tint)}
 .btn.large{height:44px;padding:0 24px;font-size:17px;font-weight:500}
+.btn.wide{width:100%;justify-content:flex-start}
+.btn[aria-pressed="true"]{background:var(--accent-tint);color:var(--accent)}
 
 /* Volets */
 .app{display:grid;grid-template-columns:minmax(0,1fr);min-height:0}
@@ -84,9 +90,16 @@ body.has-files .sidebar,body.has-files .inspector{display:block}
 .side-head h2{margin:0;font-size:13px;font-weight:600}
 .side-head .count{font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums;margin-left:6px;font-weight:400}
 .side-head .btn{height:24px;font-size:12px}
+.side-tools{display:flex;gap:6px;padding:0 4px 10px}
+.side-tools input,.side-tools select{height:28px;border:0;border-radius:8px;background:var(--fill);font:400 12.5px var(--font);color:var(--ink);padding:0 9px;min-width:0}
+.side-tools input{flex:1}
+.side-tools input::placeholder{color:var(--ink-3)}
+.side-tools select{flex:none;padding-right:6px}
+.side-tools input:focus,.side-tools select:focus{outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 45%,transparent)}
 .files{display:flex;flex-direction:column;gap:2px;margin:0;padding:0;list-style:none}
+.noresult{padding:8px 10px;font-size:12.5px;color:var(--ink-3)}
 .fitem{position:relative}
-.frow{width:100%;display:flex;align-items:center;gap:10px;padding:6px 30px 6px 6px;border:0;border-radius:9px;background:transparent;text-align:left}
+.frow{width:100%;display:flex;align-items:center;gap:10px;padding:6px 30px 6px 6px;border:0;border-radius:9px;background:transparent;text-align:left;transition:background-color .2s}
 .frow:hover{background:var(--fill)}
 .frow[aria-selected="true"]{background:var(--selected)}
 .thumb{flex:none;width:44px;height:44px;border-radius:8px;background:var(--fill);overflow:hidden;display:grid;place-items:center;font-size:11px;font-weight:600;color:var(--ink-3);font-variant-numeric:tabular-nums}
@@ -96,6 +109,10 @@ body.has-files .sidebar,body.has-files .inspector{display:block}
 .fn{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fm{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden}
 .fm .tag{font-size:10px;font-weight:600;letter-spacing:.02em;color:var(--ink-3);border:1px solid var(--line-2);border-radius:4px;padding:0 4px;line-height:15px}
+.fm .dot{width:6px;height:6px;border-radius:50%;flex:none}
+.fm .dot.ok{background:var(--ok)}
+.fm .dot.warn{background:var(--warn)}
+.fm .dot.bad{background:var(--danger)}
 .fm.err{color:var(--danger)}
 .fclose{position:absolute;top:50%;right:6px;transform:translateY(-50%);width:22px;height:22px;border-radius:50%;border:0;background:transparent;color:var(--ink-3);display:grid;place-items:center;padding:0;opacity:0;transition:opacity .12s}
 .fclose svg{width:10px;height:10px}
@@ -106,11 +123,23 @@ body.has-files .sidebar,body.has-files .inspector{display:block}
 .stage{position:relative;min-height:0;overflow:hidden;background:radial-gradient(120% 90% at 50% 38%,var(--stage-a) 0%,var(--stage-b) 100%)}
 .stage canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
 .stage canvas:active{cursor:grabbing}
+.stage.measuring canvas,.stage.measuring canvas:active{cursor:crosshair}
 .stage.drag::after{content:"";position:absolute;inset:10px;border:2px solid var(--accent);border-radius:16px;background:var(--accent-tint);pointer-events:none}
-.hint{position:absolute;top:14px;left:18px;right:18px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;font-size:12px;color:var(--ink-3);pointer-events:none}
+.hint{position:absolute;top:14px;left:18px;right:18px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;font-size:12px;color:var(--ink-3);pointer-events:none;z-index:2}
 .hint .badge{display:inline-flex;align-items:center;gap:6px;color:var(--ink-2);font-weight:500}
 .hint .badge i{width:7px;height:7px;border-radius:50%;background:var(--ok)}
 .hint .badge.warn i{background:var(--warn)}
+.hint .badge.accent{color:var(--accent)}
+.hint .badge.accent i{background:var(--accent)}
+
+.labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.flabel{position:absolute;left:0;top:0;pointer-events:auto;display:flex;flex-direction:column;align-items:center;gap:0;padding:4px 9px;border-radius:8px;border:1px solid var(--line);
+  background:var(--glass);-webkit-backdrop-filter:saturate(180%) blur(16px);backdrop-filter:saturate(180%) blur(16px);font-size:11.5px;line-height:1.3;color:var(--ink-2);white-space:nowrap;max-width:180px;will-change:transform}
+.flabel b{font-weight:600;color:var(--ink);max-width:160px;overflow:hidden;text-overflow:ellipsis}
+.flabel span{font-variant-numeric:tabular-nums}
+.flabel.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.flabel.active b{color:var(--accent)}
+.mlabel{position:absolute;left:0;top:0;z-index:3;pointer-events:none;padding:4px 10px;border-radius:980px;background:var(--accent);color:var(--accent-ink);font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;box-shadow:var(--shadow);will-change:transform}
 
 .empty{position:absolute;inset:0;display:grid;place-items:center;padding:32px max(24px,env(safe-area-inset-right)) 32px max(24px,env(safe-area-inset-left));overflow:auto}
 .hero{max-width:640px;display:flex;flex-direction:column;align-items:center;text-align:center}
@@ -130,17 +159,18 @@ body.has-files .sidebar,body.has-files .inspector{display:block}
 .status .err strong{display:block;margin-bottom:6px;font-size:17px;font-weight:600;color:var(--ink)}
 
 /* Commandes flottantes du studio */
-.controls{position:absolute;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px;
+.controls{position:absolute;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:4;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:4px;
   width:max-content;max-width:calc(100% - 24px);padding:5px;border-radius:14px;background:var(--glass);border:1px solid var(--line);box-shadow:var(--shadow);
   -webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px)}
 .seg{display:flex;padding:2px;border-radius:9px;background:var(--fill)}
-.seg button{height:28px;padding:0 12px;border:0;border-radius:7px;background:transparent;font-size:12.5px;font-weight:500;color:var(--ink)}
+.seg button{height:28px;padding:0 11px;border:0;border-radius:7px;background:transparent;font-size:12.5px;font-weight:500;color:var(--ink)}
 .seg button:hover{background:var(--panel);box-shadow:0 1px 2px rgba(0,0,0,.08)}
-.sep{width:1px;height:20px;background:var(--line-2);margin:0 2px}
-.tog{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 11px;border:0;border-radius:9px;background:transparent;font-size:12.5px;font-weight:500;color:var(--ink-2)}
+.sep{width:1px;height:20px;background:var(--line-2);margin:0 3px}
+.tog{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;border:0;border-radius:9px;background:transparent;font-size:12.5px;font-weight:500;color:var(--ink-2)}
 .tog svg{width:16px;height:16px}
 .tog:hover{background:var(--fill)}
 .tog[aria-pressed="true"]{color:var(--accent);background:var(--accent-tint)}
+body.recording .controls,body.recording .labels{pointer-events:none;opacity:.5}
 
 /* Inspecteur */
 .group{padding:20px 0;border-bottom:1px solid var(--line)}
@@ -149,21 +179,32 @@ body.has-files .sidebar,body.has-files .inspector{display:block}
 dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:9px 14px}
 dt{color:var(--ink-2);font-size:13px}
 dd{margin:0;text-align:right;font-size:13px;font-weight:500;font-variant-numeric:tabular-nums}
+dd.bad{color:var(--danger)}
+dd.warn{color:var(--warn)}
 .foot{margin:12px 0 0;font-size:12px;color:var(--ink-3);line-height:1.45}
 .bases{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
 .chip{height:30px;border:0;border-radius:8px;background:var(--fill);font-size:12.5px;font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
 .chip:hover:not(:disabled){background:var(--fill-hover)}
 .chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
-.chip:disabled{opacity:.4;cursor:default}
+.chip:disabled{opacity:.4}
 .field{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;font-size:13px;color:var(--ink-2)}
 .field .box{display:flex;align-items:center;height:30px;border-radius:8px;background:var(--fill);padding:0 10px 0 4px}
 .field input{width:64px;height:28px;border:0;background:transparent;text-align:right;font:500 13px var(--font);font-variant-numeric:tabular-nums;color:var(--ink);padding:0 4px}
 .field input:focus{outline:none}
 .field .box:focus-within{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 45%,transparent)}
 .field .box span{color:var(--ink-3)}
-.calib-state{display:flex;align-items:flex-start;gap:7px;margin:12px 0 0;font-size:12.5px;color:var(--ink-2)}
-.calib-state i{width:8px;height:8px;border-radius:50%;background:var(--warn);flex:none;margin-top:5px}
-.calib-state.ok i{background:var(--ok)}
+.segfull{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding:2px;border-radius:9px;background:var(--fill)}
+.segfull button{height:28px;border:0;border-radius:7px;background:transparent;font-size:12px;font-weight:500;color:var(--ink);padding:0 4px;white-space:nowrap;transition:background-color .15s}
+.segfull button[aria-pressed="true"]{background:var(--panel);box-shadow:0 1px 3px rgba(0,0,0,.12),0 0 0 .5px rgba(0,0,0,.04)}
+.segfull button:disabled{opacity:.45}
+.state{display:flex;align-items:flex-start;gap:7px;margin:12px 0 0;font-size:12.5px;color:var(--ink-2)}
+.state i{width:8px;height:8px;border-radius:50%;background:var(--warn);flex:none;margin-top:5px}
+.state.ok i{background:var(--ok)}
+.state.bad i{background:var(--danger)}
+.state.muted i{background:var(--ink-3)}
+.state strong{font-weight:600;color:var(--ink)}
+.group > .state:first-of-type{margin-top:0}
+.stack{display:flex;flex-direction:column;gap:6px;margin-top:12px}
 
 /* Écrans étroits : tout s'empile */
 @media (max-width:999px){
@@ -206,11 +247,11 @@ dd{margin:0;text-align:right;font-size:13px;font-weight:500;font-variant-numeric
 .calib-ctrl .btn{width:30px;padding:0;font-size:17px}
 .calib-val{font-size:13px;font-weight:500;color:var(--ink-2);font-variant-numeric:tabular-nums}
 .sheet-actions{display:flex;gap:10px}
+
 /* Progression dans la vignette */
 @property --p{syntax:"<number>";inherits:false;initial-value:0}
 .ring{width:22px;height:22px;border-radius:50%;--p:0;background:conic-gradient(var(--accent) calc(var(--p) * 360deg),var(--fill-hover) 0);
   -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2.5px));mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2.5px));transition:--p .25s ease-out}
-.frow{transition:background-color .2s}
 
 /* Mouvement : une entrée orchestrée sur l'accueil, des transitions qui répondent aux actions ailleurs */
 @media (prefers-reduced-motion:no-preference){
@@ -225,6 +266,8 @@ dd{margin:0;text-align:right;font-size:13px;font-weight:500;font-variant-numeric
   body.has-files .inspector{animation:fromRight .55s .05s cubic-bezier(.2,.7,.2,1) both}
   .controls:not([hidden]){animation:barIn .55s .2s cubic-bezier(.2,.7,.2,1) both}
   .hint:not([hidden]){animation:fade .5s .3s both}
+  .flabel{animation:fade .5s .4s both}
+  .mlabel:not([hidden]){animation:pop .2s cubic-bezier(.2,.8,.2,1) both}
   .fitem.enter{animation:rowIn .5s cubic-bezier(.2,.7,.2,1) both;animation-delay:var(--d,0ms)}
   .fitem.leave{animation:rowOut .22s ease-in forwards;pointer-events:none}
   .thumb img{animation:thumbIn .55s cubic-bezier(.2,.7,.2,1) both}
@@ -260,7 +303,11 @@ dd{margin:0;text-align:right;font-size:13px;font-weight:500;font-variant-numeric
   <symbol id="i-ruler" viewBox="0 0 16 16"><rect x="1.5" y="5" width="13" height="6" rx="1.3" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M4.5 5v2.4M7 5v1.6M9.5 5v2.4M12 5v1.6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></symbol>
   <symbol id="i-rotate" viewBox="0 0 16 16"><path d="M13.2 8a5.2 5.2 0 1 1-1.6-3.75" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M12 1.9v2.6H9.4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="i-grid" viewBox="0 0 16 16"><path d="M2 5.5h12M2 10.5h12M5.5 2v12M10.5 2v12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><rect x="2" y="2" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/></symbol>
-  <symbol id="i-cube" viewBox="0 0 64 64"><path d="M32 6 55 19v26L32 58 9 45V19z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 19l23 13 23-13M32 32v26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+  <symbol id="i-lineup" viewBox="0 0 16 16"><rect x="1.5" y="6" width="3.4" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="6.3" y="2" width="3.4" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="11.1" y="8" width="3.4" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/></symbol>
+  <symbol id="i-measure" viewBox="0 0 16 16"><circle cx="3" cy="13" r="1.7" fill="currentColor"/><circle cx="13" cy="3" r="1.7" fill="currentColor"/><path d="M4.3 11.7l7.4-7.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-dasharray="2 2"/></symbol>
+  <symbol id="i-image" viewBox="0 0 16 16"><rect x="1.5" y="2.5" width="13" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="5.5" cy="6.2" r="1.3" fill="currentColor"/><path d="M2 12l3.8-3.6 2.6 2.4 2.4-2.2L14 11.4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></symbol>
+  <symbol id="i-video" viewBox="0 0 16 16"><rect x="1.5" y="3.5" width="9.5" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M11 7l3.5-2v6L11 9" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 16 16"><path d="M8 2.2l6.2 11H1.8z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 6.5v3.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="11.4" r=".8" fill="currentColor"/></symbol>
 </svg>
 
 <header class="toolbar">
@@ -268,11 +315,13 @@ dd{margin:0;text-align:right;font-size:13px;font-weight:500;font-variant-numeric
   <div class="title" id="title"></div>
   <div class="actions">
     <button class="btn plain" id="install" type="button" aria-controls="ihelp" hidden>Installer</button>
+    <button class="btn" id="openDirBtn" type="button" title="Ctrl + Maj + O">Ouvrir un dossier</button>
     <button class="btn primary" id="openBtn" type="button" title="Ctrl + O">Ouvrir des fichiers</button>
   </div>
 </header>
 
 <input id="fileInput" type="file" accept=".3mf,.stl,model/3mf,model/stl" multiple hidden>
+<input id="dirInput" type="file" webkitdirectory multiple hidden>
 
 <div class="app">
   <nav class="sidebar" aria-label="Fichiers ouverts">
@@ -280,20 +329,34 @@ dd{margin:0;text-align:right;font-size:13px;font-weight:500;font-variant-numeric
       <h2>Fichiers<span class="count" id="count"></span></h2>
       <button class="btn plain" id="closeAll" type="button">Tout fermer</button>
     </div>
+    <div class="side-tools" id="sideTools" hidden>
+      <input id="search" type="search" placeholder="Rechercher" aria-label="Rechercher un fichier" autocomplete="off">
+      <select id="sort" aria-label="Trier les fichiers">
+        <option value="open">Ordre</option>
+        <option value="name">Nom</option>
+        <option value="height">Hauteur</option>
+      </select>
+    </div>
     <ul class="files" id="files" role="listbox" aria-label="Fichiers ouverts"></ul>
+    <p class="noresult" id="noResult" hidden>Aucun fichier ne correspond.</p>
   </nav>
 
   <main class="stage" id="stage">
+    <div class="labels" id="labels"></div>
+    <div class="mlabel" id="mlabel" hidden></div>
     <div class="hint" id="hint" hidden></div>
 
     <div class="empty" id="empty">
       <div class="hero">
         <svg class="cube" viewBox="0 0 64 64" aria-hidden="true"><path pathLength="1" d="M32 6 55 19v26L32 58 9 45V19z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path pathLength="1" d="M9 19l23 13 23-13M32 32v26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
         <h1>Vos modèles 3D, en taille réelle.</h1>
-        <p class="lede">Ouvrez jusqu'à 60 fichiers .3mf ou .stl. Dimensions, échelle par socle et volume de résine, d'un coup d'œil.</p>
+        <p class="lede">Ouvrez jusqu'à 60 fichiers .3mf ou .stl, ou tout un dossier. Dimensions, échelle par socle et volume de résine, d'un coup d'œil.</p>
         <div class="cta">
           <button class="btn primary large" id="openBtn2" type="button">Choisir des fichiers</button>
-          <span>ou glissez-les ici</span>
+          <button class="btn large" id="openDirBtn2" type="button">Ouvrir un dossier</button>
+        </div>
+        <div class="cta" style="margin-top:14px">
+          <span>ou glissez des fichiers ou un dossier ici</span>
         </div>
         <p class="foot">Les fichiers sont lus sur cet ordinateur, rien n'est envoyé en ligne. Pour voir les modèles à leur vraie taille, <button type="button" id="calibOpen2">calibrez l'écran</button>.</p>
       </div>
@@ -314,9 +377,12 @@ dd{margin:0;text-align:right;font-size:13px;font-weight:500;font-variant-numeric
         <button id="v-top" type="button">Dessus</button>
       </div>
       <span class="sep" aria-hidden="true"></span>
-      <button class="tog" id="t-real" type="button" aria-pressed="true"><svg aria-hidden="true"><use href="#i-ruler"/></svg>Taille réelle</button>
-      <button class="tog" id="t-spin" type="button" aria-pressed="false"><svg aria-hidden="true"><use href="#i-rotate"/></svg>Rotation</button>
-      <button class="tog" id="t-grid" type="button" aria-pressed="true"><svg aria-hidden="true"><use href="#i-grid"/></svg>Grille</button>
+      <button class="tog" id="t-real" type="button" aria-pressed="true" title="Taille réelle"><svg aria-hidden="true"><use href="#i-ruler"/></svg>Taille réelle</button>
+      <button class="tog" id="t-spin" type="button" aria-pressed="false" title="Rotation"><svg aria-hidden="true"><use href="#i-rotate"/></svg>Rotation</button>
+      <button class="tog" id="t-grid" type="button" aria-pressed="true" title="Grille de 10 mm"><svg aria-hidden="true"><use href="#i-grid"/></svg>Grille</button>
+      <span class="sep" aria-hidden="true"></span>
+      <button class="tog" id="t-line" type="button" aria-pressed="false" title="Tous les modèles côte à côte, en taille réelle"><svg aria-hidden="true"><use href="#i-lineup"/></svg>Côte à côte</button>
+      <button class="tog" id="t-meas" type="button" aria-pressed="false" title="Mesurer entre deux points"><svg aria-hidden="true"><use href="#i-measure"/></svg>Mesurer</button>
     </div>
   </main>
 
@@ -348,9 +414,37 @@ dd{margin:0;text-align:right;font-size:13px;font-weight:500;font-variant-numeric
     </section>
 
     <section class="group">
+      <h2>Sous-couche</h2>
+      <div class="segfull" role="group" aria-label="Aperçu de sous-couche">
+        <button type="button" data-primer="resin" aria-pressed="true">Résine</button>
+        <button type="button" data-primer="black" aria-pressed="false">Noire</button>
+        <button type="button" data-primer="white" aria-pressed="false">Blanche</button>
+        <button type="button" data-primer="zenithal" aria-pressed="false">Zénithale</button>
+      </div>
+      <p class="foot" id="primerNote">Aperçu de la figurine imprimée, en résine grise.</p>
+    </section>
+
+    <section class="group">
+      <h2>Contrôle du maillage</h2>
+      <p class="state muted" id="checkState"><i></i><span>Ouvrez un fichier pour le contrôler.</span></p>
+      <dl id="checkRows" style="margin-top:12px" hidden></dl>
+      <p class="foot" id="checkNote" hidden></p>
+      <div class="stack"><button class="btn" id="marksBtn" type="button" aria-pressed="false" disabled><svg aria-hidden="true"><use href="#i-warn"/></svg>Montrer les problèmes</button></div>
+    </section>
+
+    <section class="group">
+      <h2>Partager</h2>
+      <div class="stack">
+        <button class="btn wide" id="shotBtn" type="button" disabled><svg aria-hidden="true"><use href="#i-image"/></svg>Enregistrer une image</button>
+        <button class="btn wide" id="videoBtn" type="button" disabled><svg aria-hidden="true"><use href="#i-video"/></svg><span>Enregistrer une vidéo qui tourne</span></button>
+      </div>
+      <p class="foot">L'image est en PNG sur fond transparent. La vidéo fait un tour complet en 6 secondes, prête pour Discord.</p>
+    </section>
+
+    <section class="group">
       <h2>Taille réelle</h2>
       <p class="foot" style="margin-top:0">En taille réelle, 1 mm du modèle mesure 1 mm sur l'écran. Calibrez une fois avec une carte bancaire, puis de nouveau si vous changez d'écran ou de zoom.</p>
-      <p class="calib-state" id="calibState"><i></i><span></span></p>
+      <p class="state" id="calibState"><i></i><span></span></p>
       <div style="margin-top:12px"><button class="btn" id="calibOpen" type="button">Calibrer l'écran…</button></div>
     </section>
 
@@ -398,6 +492,8 @@ import * as THREE from 'three';
 import { OrbitControls } from './lib/OrbitControls.js';
 
 const MAX_FILES = 60;
+const MAX_LINEUP = 16;                                  // modèles affichés côte à côte
+const LINEUP_TRIS = 30e6;                               // et pas plus de 30 millions de triangles ensemble
 const POOL = Math.min(4, Math.max(1, (navigator.hardwareConcurrency || 4) - 1));   // lectures en parallèle
 // Au-delà de ce volume, les modèles non affichés sont mis en veille (vignette et mesures gardées, relus à la demande)
 const MEMORY_BUDGET = Math.min(1.6e9, Math.max(0.8e9, (navigator.deviceMemory || 6) * 0.2e9));
@@ -409,17 +505,21 @@ const $ = (id) => document.getElementById(id);
 const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const fmt = (v, dec = 1) => v.toLocaleString('fr-CH', { minimumFractionDigits: dec, maximumFractionDigits: dec });
 const fmtInt = (v) => v.toLocaleString('fr-CH');
+const pl = (n, one, many) => fmtInt(n) + ' ' + (n > 1 ? many : one);
 const icon = (id) => `<svg aria-hidden="true"><use href="#${id}"/></svg>`;
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const baseName = (n) => n.replace(/\.(3mf|stl)$/i, '');
 
 const stage = $('stage');
 const hint = $('hint');
 
-// Petites animations pilotées par la boucle de rendu ; coupées si le système demande moins de mouvement
+// ---------- Animations pilotées par la boucle de rendu ; coupées si le système demande moins de mouvement ----------
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const tweens = new Map();
 const easeOut = (t) => 1 - Math.pow(1 - t, 3);
 const easeInOut = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-const easeOutQuart = (t) => 1 - Math.pow(1 - t, 4);
+const easeInOutSine = (t) => -(Math.cos(Math.PI * t) - 1) / 2;
+const linear = (t) => t;
 function tween(key, ms, fn, ease = easeOut) {
   if (reduceMotion.matches || ms <= 0) { tweens.delete(key); fn(1); return; }
   tweens.set(key, { t0: performance.now(), ms, fn, ease });
@@ -452,6 +552,7 @@ const persp = new THREE.PerspectiveCamera(32, 1, 1, 5000);
 const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 5000);
 let realSize = true;
 let spinOn = false;
+let recording = false;
 let camera = ortho;
 let controls = makeControls(camera);
 
@@ -479,6 +580,51 @@ addLights(scene);
 // Plan de coupe : fait apparaître le modèle couche par couche, comme une impression
 const clipPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 1e6);
 const material = new THREE.MeshStandardMaterial({ roughness: 0.52, metalness: 0, clippingPlanes: [clipPlane] });
+
+// ---------- Ce qui est affiché : un modèle seul, ou plusieurs côte à côte ----------
+let single = null;           // { it, mesh, tx, ts }
+let lineup = false;
+const lineModels = [];       // [{ it, mesh, tx, ts, label }]
+const lineGroup = new THREE.Group();
+scene.add(lineGroup);
+const entries = () => lineup ? lineModels : (single ? [single] : []);
+const activeEntry = () => entries().find(e => e.it.id === activeId) || null;
+
+// ---------- Sous-couche ----------
+let primer = 'resin';
+const PRIMERS = {
+  resin: { note: 'Aperçu de la figurine imprimée, en résine grise.' },
+  black: { color: '#2A2A2D', rough: 0.86, note: 'Sous-couche noire : les ombres restent profondes, idéal pour les couleurs sombres et le métal.' },
+  white: { color: '#ECECEE', rough: 0.86, note: 'Sous-couche blanche : couleurs vives et lumineuses, mais les creux ressortent moins.' },
+  zenithal: { color: '#FFFFFF', rough: 0.9, note: 'Zénithale : noir partout, puis blanc vaporisé depuis le dessus. Les zones claires recevront la lumière.' },
+};
+function zenithColors(it) {
+  if (it.zen) return it.zen;
+  const n = it.data.nrm, out = new Uint8Array(n.length);
+  for (let i = 0; i < n.length; i += 3) {
+    let s = (n[i + 1] / 32767 + 0.35) / 1.15;
+    s = s < 0 ? 0 : s > 1 ? 1 : s;
+    s = s * s * (3 - 2 * s);
+    const v = Math.round(255 * Math.pow(0.05 + 0.92 * s, 2.2));   // couleurs de sommets en linéaire
+    out[i] = out[i + 1] = out[i + 2] = v;
+  }
+  it.zen = out;
+  return out;
+}
+function prepareGeometry(geo, it) {
+  if (primer === 'zenithal' && !geo.getAttribute('color')) geo.setAttribute('color', new THREE.BufferAttribute(zenithColors(it), 3, true));
+}
+function applyPrimer() {
+  const p = PRIMERS[primer];
+  material.color.set(p.color || css('--model') || '#B2B4BA');
+  material.roughness = p.rough || 0.52;
+  material.vertexColors = primer === 'zenithal';
+  material.needsUpdate = true;
+  for (const e of entries()) prepareGeometry(e.mesh.geometry, e.it);
+  $('primerNote').textContent = p.note;
+  document.querySelectorAll('[data-primer]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.primer === primer)));
+}
+document.querySelectorAll('[data-primer]').forEach(b => b.addEventListener('click', () => { primer = b.dataset.primer; applyPrimer(); }));
 
 // Ombre de contact douce sous le modèle
 const shadowTex = (() => {
@@ -508,15 +654,40 @@ function paintScan() {
   scanMat.blending = window.matchMedia('(prefers-color-scheme: dark)').matches ? THREE.AdditiveBlending : THREE.NormalBlending;
   scanMat.needsUpdate = true;
 }
-let scanMesh = null;
+const scanMesh = new THREE.Mesh(shadowGeo, scanMat);
+scanMesh.rotation.x = -Math.PI / 2;
+scanMesh.renderOrder = 2;
+scanMesh.visible = false;
+scanMesh.raycast = () => {};
+scene.add(scanMesh);
+
+// Points ronds pour les mesures et les problèmes de maillage
+const dotTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(32, 32, 28, 0, Math.PI * 2); g.fill();
+  return new THREE.CanvasTexture(c);
+})();
+
+// Mesure
+const measGeo = new THREE.BufferGeometry();
+measGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+const measPtsMat = new THREE.PointsMaterial({ size: 11, sizeAttenuation: false, map: dotTex, transparent: true, alphaTest: 0.4, depthTest: false });
+const measPoints = new THREE.Points(measGeo, measPtsMat);
+const measLineMat = new THREE.LineBasicMaterial({ depthTest: false, transparent: true });
+const measLine = new THREE.Line(measGeo, measLineMat);
+for (const o of [measPoints, measLine]) { o.renderOrder = 10; o.frustumCulled = false; o.visible = false; o.raycast = () => {}; scene.add(o); }
 
 let grid = null;
 let shadowAlpha = 0.3;
 function applyTheme() {
-  material.color.set(css('--model') || '#A6A8AE');
+  applyPrimer();
+  thumbMaterial.color.set(css('--model') || '#B2B4BA');
   shadowAlpha = parseFloat(css('--shadow-alpha')) || 0.3;
   shadowMat.opacity = shadowAlpha;
   paintScan();
+  const acc = new THREE.Color(css('--accent') || '#0088FF');
+  measPtsMat.color.copy(acc); measLineMat.color.copy(acc);
   const visible = grid ? grid.visible : false;
   if (grid) { scene.remove(grid); grid.geometry.dispose(); grid.material.dispose(); }
   const gc = new THREE.Color(css('--grid') || '#DCDCE2');
@@ -524,13 +695,9 @@ function applyTheme() {
   grid.position.y = -0.01;
   grid.material.transparent = true;
   grid.visible = visible;
+  grid.raycast = () => {};
   scene.add(grid);
 }
-applyTheme();
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-  applyTheme();
-  for (const it of items) if (it.data && it.thumb) { it.thumb = null; makeThumb(it); updateCard(it, true); }
-});
 
 function viewSize() { return { w: Math.max(stage.clientWidth, 1), h: Math.max(stage.clientHeight, 1) }; }
 function updateOrtho() {
@@ -550,7 +717,7 @@ function resize() {
 new ResizeObserver(resize).observe(stage);
 resize();
 
-// Vignettes : petit rendu séparé, de face, sur fond transparent
+// Vignettes : petit rendu séparé, de face, sur fond transparent, toujours en résine grise
 const THUMB = 96;
 const thumbRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
 thumbRenderer.setPixelRatio(1);
@@ -560,6 +727,12 @@ thumbRenderer.setClearColor(0x000000, 0);
 const thumbScene = new THREE.Scene();
 addLights(thumbScene);
 const thumbCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 5000);
+const thumbMaterial = new THREE.MeshStandardMaterial({ roughness: 0.52, metalness: 0 });
+applyTheme();
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  applyTheme();
+  for (const it of items) if (it.data && it.thumb) { it.thumb = null; makeThumb(it); updateCard(it, true); }
+});
 
 function makeGeometry(data) {
   const g = new THREE.BufferGeometry();
@@ -574,7 +747,7 @@ function makeGeometry(data) {
 function makeThumb(it) {
   try {
     const g = makeGeometry(it.data);
-    const m = new THREE.Mesh(g, material);
+    const m = new THREE.Mesh(g, thumbMaterial);
     thumbScene.add(m);
     const s = g.boundingSphere;
     const r = s.radius;
@@ -590,22 +763,12 @@ function makeThumb(it) {
   } catch (e) { it.thumb = null; }
 }
 
-function updateHint() {
-  const multi = items.length > 1 ? '<span>Flèches du clavier pour changer de fichier.</span>' : '';
-  if (realSize) {
-    const badge = calibrated
-      ? '<span class="badge"><i></i>Taille réelle</span>'
-      : '<span class="badge warn"><i></i>Taille réelle, écran non calibré</span>';
-    hint.innerHTML = badge + '<span>Faites glisser pour tourner, clic droit pour déplacer.</span>' + multi;
-  } else {
-    hint.innerHTML = '<span>Faites glisser pour tourner, molette pour zoomer, clic droit pour déplacer.</span>' + multi;
-  }
-}
+// ---------- Ce qui est affiché (déclaré plus haut) ----------
 
-let mesh = null;
 let shownId = null;
-let info = null;       // mesures d'origine du modèle affiché
+let info = null;       // mesures d'origine du modèle affiché dans l'inspecteur
 let scale = 1;
+let savedDir = null;   // garde l'angle de vue d'un fichier à l'autre
 const target = new THREE.Vector3();
 const VIEWS = {
   front: new THREE.Vector3(0, 0.18, 1),
@@ -614,17 +777,46 @@ const VIEWS = {
   top: new THREE.Vector3(0, 1, 0.001),
 };
 
+function buildModelMesh(it) {
+  const g = makeGeometry(it.data);
+  prepareGeometry(g, it);
+  const m = new THREE.Mesh(g, material);
+  const sh = new THREE.Mesh(shadowGeo, shadowMat);
+  sh.rotation.x = -Math.PI / 2;
+  sh.position.y = 0.02;
+  sh.scale.set(it.stats.w * 1.35, it.stats.d * 1.35, 1);
+  sh.raycast = () => {};
+  m.add(sh);
+  m.scale.setScalar(it.scale);
+  return m;
+}
+function disposeModelMesh(m) {
+  m.traverse((o) => { if (o.userData.marks) o.geometry.dispose(); });
+  if (m.parent) m.parent.remove(m);
+  m.geometry.dispose();
+}
+
+// Boîte englobante de ce qui sera affiché, à l'échelle et à la place visées (sans les ombres)
+function contentBox() {
+  const box = new THREE.Box3();
+  for (const e of entries()) {
+    const bb = e.mesh.geometry.boundingBox;
+    const b = new THREE.Box3(bb.min.clone().multiplyScalar(e.ts), bb.max.clone().multiplyScalar(e.ts));
+    b.min.x += e.tx; b.max.x += e.tx;
+    box.union(b);
+  }
+  return box;
+}
+
 function currentDir() {
   const d = camera.position.clone().sub(controls.target);
   return d.lengthSq() > 1e-9 ? d.normalize() : VIEWS.front.clone();
 }
 
-// Cadre la caméra sur le modèle ; ms > 0 : déplacement en douceur autour du modèle
-function frame(dir, ms = 0, sc = null, ease = easeInOut) {
-  if (!mesh) return;
-  const k = sc == null ? mesh.scale.x : sc;
-  const bb = mesh.geometry.boundingBox;                                  // sans l'ombre
-  const box = new THREE.Box3(bb.min.clone().multiplyScalar(k), bb.max.clone().multiplyScalar(k));
+// Cadre la caméra ; ms > 0 : déplacement en douceur autour du modèle
+function frame(dir, ms = 0, ease = easeInOut) {
+  if (!entries().length) return;
+  const box = contentBox();
   const size = box.getSize(new THREE.Vector3());
   const newTarget = box.getCenter(new THREE.Vector3());
   const radius = Math.max(size.length() / 2, 1);
@@ -689,16 +881,49 @@ $('t-spin').addEventListener('click', () => {
 $('t-grid').addEventListener('click', () => {
   const on = $('t-grid').getAttribute('aria-pressed') !== 'true';
   $('t-grid').setAttribute('aria-pressed', String(on));
-  grid.visible = on && !!mesh;
+  grid.visible = on && entries().length > 0;
 });
+
+// Apparition : les modèles montent couche par couche pendant que la caméra se pose
+function resetReveal() {
+  tweens.delete('reveal');
+  clipPlane.constant = 1e6;
+  material.side = THREE.FrontSide;
+  shadowMat.opacity = shadowAlpha;
+  scanMesh.visible = false;
+  scanMat.opacity = 0;
+}
+function reveal(first, dir) {
+  const ms = 2200;
+  const box = contentBox();
+  const height = box.max.y;
+  const c = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
+  scanMesh.position.set(c.x, 0, c.z);
+  scanMesh.scale.set(sz.x * 1.3 + 4, sz.z * 1.3 + 4, 1);
+  material.side = THREE.DoubleSide;          // l'intérieur reste plein pendant la coupe
+  scanMesh.visible = !reduceMotion.matches;
+  tween('reveal', ms, (t) => {
+    const y = height * t;
+    clipPlane.constant = t >= 1 ? 1e6 : y + 0.01;
+    shadowMat.opacity = shadowAlpha * Math.min(1, t * 1.6);
+    if (first && grid) grid.material.opacity = Math.min(1, t * 1.4);
+    scanMesh.position.y = y;
+    scanMat.opacity = t >= 1 ? 0 : Math.min(1, t * 8) * Math.min(1, (1 - t) * 6);
+    if (t >= 1) { scanMesh.visible = false; material.side = THREE.FrontSide; }
+  }, easeInOutSine);
+  if (first && !reduceMotion.matches) {
+    const start = dir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), -0.75);
+    start.y += 0.3;
+    frame(start);
+    frame(dir, 2600, easeInOut);
+  } else {
+    frame(dir);
+  }
+}
 
 // ---------- Échelle ----------
 const scaleInput = $('scaleInput');
 const chips = [...document.querySelectorAll('.chip')];
-function setControlsEnabled(on) {
-  chips.forEach(c => { c.disabled = !on; });
-  scaleInput.disabled = !on;
-}
 const shown = {};          // dernière valeur affichée de chaque chiffre, pour les faire défiler
 function setNum(id, value, format, ms = 450) {
   const from = shown[id];
@@ -707,19 +932,25 @@ function setNum(id, value, format, ms = 450) {
   if (from == null || from === value) { tweens.delete('n-' + id); el.textContent = format(value); return; }
   tween('n-' + id, ms, (t) => { el.textContent = format(from + (value - from) * t); });
 }
+function setControlsEnabled(on) {
+  chips.forEach(c => { c.disabled = !on; });
+  scaleInput.disabled = !on;
+  $('shotBtn').disabled = !on || recording;
+  $('videoBtn').disabled = !on || recording;
+}
 function clearPanel() {
   for (const id of ['d-h', 'd-w', 'd-d', 'd-b', 'd-v', 'm-t', 'm-v', 'm-o', 'm-s', 'm-time']) { tweens.delete('n-' + id); $(id).textContent = '—'; }
   for (const k of Object.keys(shown)) delete shown[k];
   setControlsEnabled(false);
+  renderCheck(null);
 }
 const mm = (v) => fmt(v) + ' mm';
 const ml = (v) => '≈ ' + fmt(v, v < 10 ? 2 : 1) + ' ml';
 function setScale(s, from, animate = true) {
   if (!info) return;
-  const prev = scale;
   scale = Math.min(4, Math.max(0.05, s));
   const it = items.find(i => i.id === shownId);
-  if (it) { it.scale = scale; updateCard(it); }
+  if (it) { it.scale = scale; updateCard(it); if (sortEl.value === 'height' && from !== 'quiet') applyListView(); }
   setNum('d-h', info.h * scale, mm);
   setNum('d-w', info.w * scale, mm);
   setNum('d-d', info.d * scale, mm);
@@ -731,11 +962,20 @@ function setScale(s, from, animate = true) {
     const match = b === 0 ? Math.abs(scale - 1) < 1e-6 : Math.abs(info.footprint * scale - b) < 0.05;
     c.setAttribute('aria-pressed', String(match));
   });
-  if (mesh && animate) {
-    const a = mesh.scale.x, b = scale;
-    tween('scale', 500, (t) => { if (mesh) mesh.scale.setScalar(a + (b - a) * t); });
-    frame(currentDir(), 500, b, easeOut);
-  } else if (mesh) { mesh.scale.setScalar(scale); }
+  const e = entries().find(x => x.it.id === shownId);
+  if (!e) return;
+  e.ts = scale;
+  if (lineup) {
+    relayout(animate);
+    if (e.label) updateLabelText(e);
+    if (animate) frame(currentDir(), 550, easeOut);
+  } else if (animate) {
+    const m = e.mesh, a = m.scale.x, b = scale;
+    tween('scale', 500, (t) => m.scale.setScalar(a + (b - a) * t));
+    frame(currentDir(), 500, easeOut);
+  } else {
+    e.mesh.scale.setScalar(scale);
+  }
 }
 chips.forEach(c => c.addEventListener('click', () => {
   const b = Number(c.dataset.base);
@@ -745,6 +985,345 @@ scaleInput.addEventListener('input', () => {
   const v = parseFloat(scaleInput.value.replace(',', '.'));
   if (Number.isFinite(v) && v > 0) setScale(v / 100, 'input');
 });
+
+// ---------- Contrôle du maillage ----------
+let showMarks = false;
+function checkLevel(c) {
+  if (!c || c.skipped) return null;
+  if (c.open) return 'bad';
+  if (c.flipped || c.nonManifold || c.fragments || c.insideOut) return 'warn';
+  return 'ok';
+}
+function renderCheck(it) {
+  const st = $('checkState'), rows = $('checkRows'), note = $('checkNote'), btn = $('marksBtn');
+  const span = st.querySelector('span');
+  rows.textContent = ''; rows.hidden = true; note.hidden = true; note.textContent = '';
+  st.className = 'state';
+  const c = it && it.check;
+  if (!c) { st.classList.add('muted'); span.textContent = 'Ouvrez un fichier pour le contrôler.'; btn.disabled = true; return; }
+  if (c.skipped) {
+    st.classList.add('muted'); span.textContent = 'Contrôle non fait.';
+    note.textContent = 'Le contrôle est réservé aux modèles de moins de 8 millions de triangles, pour ne pas saturer la mémoire.'; note.hidden = false;
+    btn.disabled = true; return;
+  }
+  const lvl = checkLevel(c);
+  st.classList.add(lvl);
+  span.innerHTML = lvl === 'ok' ? '<strong>Prêt à imprimer.</strong> Aucun défaut trouvé.' : lvl === 'bad' ? '<strong>Trous dans le maillage.</strong>' : '<strong>À vérifier.</strong>';
+  const row = (k, v, cls) => {
+    const dt = document.createElement('dt'); dt.textContent = k;
+    const dd = document.createElement('dd'); dd.textContent = v; if (cls) dd.className = cls;
+    rows.append(dt, dd);
+  };
+  row('Étanche', c.open ? 'Non, ' + pl(c.open, 'arête ouverte', 'arêtes ouvertes') : 'Oui', c.open ? 'bad' : '');
+  row('Faces inversées', c.flipped ? pl(c.flipped, 'arête incohérente', 'arêtes incohérentes') : 'Aucune', c.flipped ? 'warn' : '');
+  row('Arêtes non conformes', c.nonManifold ? fmtInt(c.nonManifold) : 'Aucune', c.nonManifold ? 'warn' : '');
+  row('Pièces', fmtInt(c.parts) + (c.fragments ? ' + ' + pl(c.fragments, 'fragment', 'fragments') : ''), c.fragments ? 'warn' : '');
+  rows.hidden = false;
+  if (c.insideOut) note.textContent = 'Le modèle est retourné : ses faces pointent vers l\'intérieur. La plupart des slicers le remettent à l\'endroit.';
+  else if (lvl !== 'ok') note.textContent = 'En rouge : trous et fragments isolés. En orange : arêtes non conformes ou faces inversées. Les petits défauts sont souvent réparés par le slicer.';
+  note.hidden = !note.textContent;
+  btn.disabled = !(c.red.length || c.orange.length);
+}
+function updateMarks() {
+  for (const e of [...lineModels, ...(single ? [single] : [])]) {
+    for (const o of [...e.mesh.children]) if (o.userData.marks) { e.mesh.remove(o); o.geometry.dispose(); }
+  }
+  const e = activeEntry();
+  $('marksBtn').setAttribute('aria-pressed', String(showMarks));
+  if (!showMarks || !e || !e.it.check || e.it.check.skipped) return;
+  for (const [arr, color] of [[e.it.check.red, css('--danger')], [e.it.check.orange, css('--warn')]]) {
+    if (!arr.length) continue;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+    const p = new THREE.Points(g, new THREE.PointsMaterial({ size: 7, sizeAttenuation: false, map: dotTex, transparent: true, alphaTest: 0.4, depthTest: false, color: new THREE.Color(color) }));
+    p.renderOrder = 8; p.userData.marks = true; p.raycast = () => {};
+    e.mesh.add(p);
+  }
+}
+$('marksBtn').addEventListener('click', () => { showMarks = !showMarks; updateMarks(); });
+
+// ---------- Mesure ----------
+let measuring = false;
+let measPts = [];            // [{ mesh, local }]
+const mlabel = $('mlabel');
+const raycaster = new THREE.Raycaster();
+function clearMeasure() { measPts = []; updateMeasure(); }
+function setMeasuring(on) {
+  measuring = on;
+  $('t-meas').setAttribute('aria-pressed', String(on));
+  stage.classList.toggle('measuring', on);
+  if (!on) clearMeasure();
+  updateHint();
+}
+$('t-meas').addEventListener('click', () => setMeasuring(!measuring));
+const tmpV = new THREE.Vector3(), tmpW = [new THREE.Vector3(), new THREE.Vector3()];
+function toScreen(v) {
+  tmpV.copy(v).project(camera);
+  const { w, h } = viewSize();
+  return [(tmpV.x + 1) / 2 * w, (1 - tmpV.y) / 2 * h];
+}
+function updateMeasure() {
+  const n = measPts.length;
+  measPoints.visible = n > 0;
+  measLine.visible = n === 2;
+  if (!n) { mlabel.hidden = true; return; }
+  const arr = measGeo.attributes.position.array;
+  measPts.forEach((p, i) => { p.mesh.localToWorld(tmpW[i].copy(p.local)); arr[i * 3] = tmpW[i].x; arr[i * 3 + 1] = tmpW[i].y; arr[i * 3 + 2] = tmpW[i].z; });
+  measGeo.setDrawRange(0, n);
+  measGeo.attributes.position.needsUpdate = true;
+  if (n === 2) {
+    const dist = tmpW[0].distanceTo(tmpW[1]);
+    const mid = tmpW[0].clone().add(tmpW[1]).multiplyScalar(0.5);
+    const [x, y] = toScreen(mid);
+    mlabel.textContent = fmt(dist, dist < 10 ? 2 : 1) + ' mm';
+    mlabel.style.transform = `translate(${x}px, ${y - 34}px) translateX(-50%)`;
+    mlabel.hidden = false;
+  } else mlabel.hidden = true;
+}
+let down = null;
+renderer.domElement.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, t: e.timeStamp, b: e.button }; });
+renderer.domElement.addEventListener('pointerup', (e) => {
+  if (!down || !measuring || down.b !== 0) return;
+  if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) return;   // un clic, pas un glisser
+  const h = pick(e.clientX, e.clientY);
+  if (!h) return;
+  if (measPts.length >= 2) measPts = [];
+  measPts.push({ mesh: h.mesh, local: h.mesh.worldToLocal(h.point.clone()) });
+  updateMeasure();
+});
+
+// Trouver le point cliqué : la carte graphique dessine un seul pixel contenant la position 3D,
+// instantané même avec des millions de triangles ; sinon, recherche classique triangle par triangle.
+const pickTarget = new THREE.WebGLRenderTarget(1, 1, { type: THREE.FloatType, format: THREE.RGBAFormat });
+const pickScene = new THREE.Scene();
+const pickVS = 'varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }';
+const pickFS = 'uniform float uId; varying vec3 vW; void main(){ gl_FragColor = vec4(vW, uId); }';
+let gpuPickOk = true;
+function pick(clientX, clientY) {
+  const list = entries();
+  const r = renderer.domElement.getBoundingClientRect();
+  if (gpuPickOk) {
+    try {
+      const proxies = list.map((e, i) => {
+        e.mesh.updateMatrixWorld(true);
+        const m = new THREE.Mesh(e.mesh.geometry, new THREE.ShaderMaterial({ uniforms: { uId: { value: i + 1 } }, vertexShader: pickVS, fragmentShader: pickFS, side: THREE.DoubleSide }));
+        m.matrixAutoUpdate = false; m.matrix.copy(e.mesh.matrixWorld); m.matrixWorld.copy(e.mesh.matrixWorld);
+        pickScene.add(m);
+        return m;
+      });
+      camera.setViewOffset(r.width, r.height, clientX - r.left, clientY - r.top, 1, 1);
+      renderer.setRenderTarget(pickTarget);
+      renderer.clear();
+      renderer.render(pickScene, camera);
+      renderer.setRenderTarget(null);
+      camera.clearViewOffset();
+      for (const m of proxies) { pickScene.remove(m); m.material.dispose(); }
+      const px = new Float32Array(4);
+      renderer.readRenderTargetPixels(pickTarget, 0, 0, 1, 1, px);
+      if (px[3] < 0.5) return null;
+      const e = list[Math.round(px[3]) - 1];
+      return e ? { mesh: e.mesh, point: new THREE.Vector3(px[0], px[1], px[2]) } : null;
+    } catch (err) {
+      camera.clearViewOffset(); renderer.setRenderTarget(null);
+      gpuPickOk = false;
+    }
+  }
+  const ndc = new THREE.Vector2(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  const hits = raycaster.intersectObjects(list.map(x => x.mesh), false);
+  return hits.length ? { mesh: hits[0].object, point: hits[0].point } : null;
+}
+
+// ---------- Côte à côte ----------
+const labelsEl = $('labels');
+function updateLabelText(e) {
+  e.label.textContent = '';
+  const b = document.createElement('b'); b.textContent = baseName(e.it.name);
+  const s = document.createElement('span'); s.textContent = fmt(e.it.stats.h * e.ts) + ' mm';
+  e.label.append(b, s);
+}
+function addLabel(e) {
+  const l = document.createElement('button');
+  l.type = 'button'; l.className = 'flabel'; l.title = e.it.name;
+  l.addEventListener('click', () => select(e.it.id));
+  e.label = l;
+  updateLabelText(e);
+  labelsEl.append(l);
+}
+function positionLabels() {
+  for (const e of lineModels) {
+    if (!e.label) continue;
+    const bb = e.mesh.geometry.boundingBox;
+    tmpV.set(e.mesh.position.x, 0, bb.max.z * e.mesh.scale.x);
+    const [x, y] = toScreen(tmpV);
+    e.label.style.transform = `translate(${x}px, ${y + 10}px) translateX(-50%)`;
+    e.label.classList.toggle('active', e.it.id === activeId);
+  }
+}
+function relayout(animate) {
+  const gap = 10;
+  const widths = lineModels.map(e => e.it.stats.w * e.ts);
+  const total = widths.reduce((a, b) => a + b, 0) + gap * Math.max(0, lineModels.length - 1);
+  let x = -total / 2;
+  lineModels.forEach((e, i) => { e.tx = x + widths[i] / 2; x += widths[i] + gap; });
+  for (const e of lineModels) {
+    const m = e.mesh, x0 = m.position.x, s0 = m.scale.x, x1 = e.tx, s1 = e.ts;
+    if (!animate) { tweens.delete('lay-' + e.it.id); m.position.x = x1; m.scale.setScalar(s1); continue; }
+    tween('lay-' + e.it.id, 550, (t) => { m.position.x = x0 + (x1 - x0) * t; m.scale.setScalar(s0 + (s1 - s0) * t); });
+  }
+}
+function lineupTris() { return lineModels.reduce((s, e) => s + e.it.stats.tris, 0); }
+function canAddToLineup(it) {
+  return lineModels.length < MAX_LINEUP && !lineModels.some(e => e.it === it) && (lineupTris() + it.stats.tris <= LINEUP_TRIS || !lineModels.length);
+}
+function addToLineup(it, animate) {
+  const e = { it, mesh: buildModelMesh(it), tx: 0, ts: it.scale, label: null };
+  lineGroup.add(e.mesh);
+  lineModels.push(e);
+  addLabel(e);
+  relayout(false);
+  if (animate) {
+    // le nouveau venu se construit couche par couche à sa place
+    const m = e.mesh; m.scale.setScalar(0.001);
+    tween('lay-' + it.id, 600, (t) => m.scale.setScalar(Math.max(0.001, e.ts * t)), easeOut);
+  }
+  if (showMarks && it.id === activeId) updateMarks();
+}
+function clearLineup() {
+  for (const e of lineModels) { tweens.delete('lay-' + e.it.id); disposeModelMesh(e.mesh); if (e.label) e.label.remove(); }
+  lineModels.length = 0;
+  labelsEl.textContent = '';
+}
+function enterLineup() {
+  const ready = visibleOrder().filter(i => i.status === 'ready' && i.data);
+  if (ready.length < 2) { toast('<strong>Côte à côte</strong> demande au moins deux fichiers chargés' + (searchEl.value.trim() ? ' parmi ceux de la recherche.' : '.')); return; }
+  const dir = single ? currentDir() : (savedDir || VIEWS.front);
+  disposeSingle();
+  clearMeasure();
+  lineup = true;
+  $('t-line').setAttribute('aria-pressed', 'true');
+  const act = items.find(i => i.id === activeId);
+  const order = act && act.status === 'ready' ? [act, ...ready.filter(i => i !== act)] : ready;
+  const chosen = [];
+  let tris = 0;
+  for (const it of order) {
+    if (chosen.length >= MAX_LINEUP) break;
+    if (chosen.length && tris + it.stats.tris > LINEUP_TRIS) continue;
+    chosen.push(it); tris += it.stats.tris;
+  }
+  for (const it of visibleOrder()) if (chosen.includes(it)) addToLineup(it, false);
+  const e = activeEntry() || lineModels[0];
+  activeId = e.it.id;
+  markSelectedRows();
+  setTitle(e.it.name);
+  showModelUI(e.it);
+  statusEl.hidden = true;
+  reveal(true, dir);
+  if (ready.length > lineModels.length) toast(`<strong>${lineModels.length} modèles côte à côte.</strong> Les autres sont trop lourds pour être affichés ensemble.`);
+}
+function exitLineup() {
+  const dir = currentDir();
+  lineup = false;
+  $('t-line').setAttribute('aria-pressed', 'false');
+  clearMeasure();
+  clearLineup();
+  resetReveal();
+  savedDir = dir;
+  const it = items.find(i => i.id === activeId);
+  if (it) select(it.id); else hideMesh();
+  updateHint();
+}
+$('t-line').addEventListener('click', () => lineup ? exitLineup() : enterLineup());
+
+// ---------- Capture et vidéo ----------
+async function saveBlob(blob, name, desc, mime, ext) {
+  if (window.showSaveFilePicker) {
+    try {
+      const h = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: desc, accept: { [mime]: ['.' + ext] } }] });
+      const w = await h.createWritable(); await w.write(blob); await w.close();
+      toast('<strong>Enregistré :</strong> ' + esc(h.name));
+      return;
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 20000);
+  toast('<strong>Enregistré</strong> dans les téléchargements : ' + esc(name));
+}
+function exportName() {
+  if (lineup) return 'cote-a-cote';
+  const it = items.find(i => i.id === activeId);
+  return it ? baseName(it.name) : 'atelier-3d';
+}
+$('shotBtn').addEventListener('click', async () => {
+  if (!entries().length) return;
+  const gridWas = grid.visible;
+  grid.visible = false;
+  renderer.render(scene, camera);
+  const url = renderer.domElement.toDataURL('image/png');
+  grid.visible = gridWas;
+  const blob = await (await fetch(url)).blob();
+  saveBlob(blob, exportName() + '.png', 'Image PNG', 'image/png', 'png');
+});
+$('videoBtn').addEventListener('click', recordTurntable);
+async function recordTurntable() {
+  if (recording || !entries().length) return;
+  const types = ['video/mp4;codecs=avc1.42E01E', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'];
+  const mime = window.MediaRecorder && types.find(t => MediaRecorder.isTypeSupported(t));
+  if (!mime) { toast('<strong>Vidéo impossible :</strong> ce navigateur ne sait pas enregistrer de vidéo. Utilisez Chrome ou Edge.'); return; }
+  recording = true;
+  document.body.classList.add('recording');
+  setControlsEnabled(true);
+  const label = $('videoBtn').querySelector('span');
+  tweens.delete('cam');
+  controls.enabled = false; controls.autoRotate = false;
+  const gridWas = grid.visible;
+  grid.visible = false;
+  scene.background = new THREE.Color(css('--stage-a'));
+  const stream = renderer.domElement.captureStream(60);
+  const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12e6 });
+  const chunks = [];
+  rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+  const stopped = new Promise((r) => { rec.onstop = r; });
+  const tg = controls.target.clone();
+  const s0 = new THREE.Spherical().setFromVector3(camera.position.clone().sub(tg));
+  const DUR = 6000, sph = new THREE.Spherical(), off = new THREE.Vector3();
+  rec.start(250);
+  const t0 = performance.now();
+  const tick = setInterval(() => { label.textContent = 'Enregistrement… ' + Math.max(0, Math.ceil((DUR - (performance.now() - t0)) / 1000)) + ' s'; }, 200);
+  // tour complet à vitesse constante, même si le système réduit les animations
+  tweens.set('turn', { t0, ms: DUR, ease: linear, fn: (t) => {
+    sph.set(s0.radius, s0.phi, s0.theta + t * Math.PI * 2);
+    camera.position.copy(tg).add(off.setFromSpherical(sph));
+    camera.lookAt(tg);
+  } });
+  await new Promise((r) => setTimeout(r, DUR + 200));
+  rec.stop();
+  await stopped;
+  stream.getTracks().forEach((t) => t.stop());
+  clearInterval(tick);
+  label.textContent = 'Enregistrer une vidéo qui tourne';
+  scene.background = null;
+  grid.visible = gridWas;
+  controls.enabled = true; controls.autoRotate = spinOn; controls.update();
+  recording = false;
+  document.body.classList.remove('recording');
+  setControlsEnabled(entries().length > 0);
+  const ext = mime.includes('mp4') ? 'mp4' : 'webm';
+  saveBlob(new Blob(chunks, { type: mime.split(';')[0] }), exportName() + '-rotation.' + ext, 'Vidéo', mime.split(';')[0], ext);
+}
+
+// ---------- Indications ----------
+function updateHint() {
+  const parts = [];
+  if (realSize) parts.push(calibrated ? '<span class="badge"><i></i>Taille réelle</span>' : '<span class="badge warn"><i></i>Taille réelle, écran non calibré</span>');
+  if (measuring) parts.push('<span class="badge accent"><i></i>Mesure</span><span>Cliquez deux points sur le modèle. Échap pour effacer.</span>');
+  else parts.push(realSize ? '<span>Faites glisser pour tourner, clic droit pour déplacer.</span>' : '<span>Faites glisser pour tourner, molette pour zoomer, clic droit pour déplacer.</span>');
+  if (lineup) parts.push('<span>Cliquez une étiquette pour afficher ses informations.</span>');
+  else if (items.length > 1 && !measuring) parts.push('<span>Flèches du clavier pour changer de fichier.</span>');
+  hint.innerHTML = parts.join('');
+}
 
 // ---------- Calibrage ----------
 const calib = $('calib');
@@ -790,7 +1369,7 @@ $('calibDone').addEventListener('click', closeCalib);
 calib.addEventListener('click', (e) => { if (e.target === calib) closeCalib(); });
 
 // ---------- Fichiers ouverts ----------
-const items = [];          // { id, file, name, size, status, progress, data, stats, thumb, scale, secs, error, lastUsed, el }
+const items = [];          // { id, file, name, size, status, progress, data, stats, check, thumb, zen, scale, secs, error, lastUsed, el }
 const running = new Map(); // id → worker
 let activeId = null;
 let seq = 0;
@@ -818,7 +1397,7 @@ function addFiles(list) {
     const dup = items.find(it => it.name === f.name && it.size === f.size && it.file.lastModified === f.lastModified);
     if (dup) { firstExisting = firstExisting || dup; continue; }
     if (items.length >= MAX_FILES) { tooMany++; continue; }
-    const it = { id: ++seq, file: f, name: f.name, size: f.size, status: 'queued', progress: 0, data: null, stats: null, thumb: null, scale: 1, secs: 0, error: null, lastUsed: 0, el: null };
+    const it = { id: ++seq, file: f, name: f.name, size: f.size, status: 'queued', progress: 0, data: null, stats: null, check: null, thumb: null, zen: null, scale: 1, secs: 0, error: null, lastUsed: 0, el: null };
     items.push(it);
     firstNew = firstNew || it;
   }
@@ -827,22 +1406,24 @@ function addFiles(list) {
   if (wrongType) msgs.push(`<strong>${wrongType} fichier${wrongType > 1 ? 's ignorés' : ' ignoré'}.</strong> Seuls les fichiers .3mf et .stl sont lus.`);
   if (msgs.length) toast(msgs.join('<br>'));
   renderList();
+  applyListView();
   const pick = firstNew || firstExisting;
-  if (pick) select(pick.id);
+  if (pick && !lineup) select(pick.id);
   pump();
 }
 
-function bytesOf(it) { return it.data ? it.data.pos.byteLength + it.data.idx.byteLength + it.data.nrm.byteLength : 0; }
+function bytesOf(it) { return it.data ? it.data.pos.byteLength + it.data.idx.byteLength + it.data.nrm.byteLength + (it.zen ? it.zen.byteLength : 0) : 0; }
 
 function enforceBudget() {
   let total = items.reduce((s, it) => s + bytesOf(it), 0);
   if (total <= MEMORY_BUDGET) return;
-  const candidates = items.filter(it => it.data && it.id !== activeId && it.id !== shownId).sort((a, b) => a.lastUsed - b.lastUsed);
+  const onScreen = new Set(entries().map(e => e.it));
+  const candidates = items.filter(it => it.data && it.id !== activeId && it.id !== shownId && !onScreen.has(it)).sort((a, b) => a.lastUsed - b.lastUsed);
   for (const it of candidates) {
     if (total <= MEMORY_BUDGET) break;
     total -= bytesOf(it);
-    it.data = null;
-    it.status = 'sleeping';     // mesures et vignette gardées, relu si on le rouvre
+    it.data = null; it.zen = null;
+    it.status = 'sleeping';     // mesures, contrôle et vignette gardés, relu si on le rouvre
   }
 }
 
@@ -858,7 +1439,7 @@ function pump() {
 function startParse(it) {
   it.status = 'loading'; it.progress = 0; it.error = null;
   updateCard(it);
-  if (it.id === activeId) renderActiveStatus();
+  if (it.id === activeId && !lineup) renderActiveStatus();
   const t0 = performance.now();
   const w = new Worker('./parser.js', { type: 'module' });
   running.set(it.id, w);
@@ -868,21 +1449,26 @@ function startParse(it) {
     if (m.type === 'progress') {
       it.progress = m.phase === 'lecture' ? m.p * 0.95 : 0.97;
       updateCard(it);
-      if (it.id === activeId) renderActiveStatus();
+      if (it.id === activeId && !lineup) renderActiveStatus();
     } else if (m.type === 'done') {
       it.data = { pos: m.pos, idx: m.idx, nrm: m.nrm };
       it.stats = m.stats;
-      it.secs = (performance.now() - t0) / 1000;
+      it.check = m.check;
+      if (!it.secs) it.secs = (performance.now() - t0) / 1000;
       it.status = 'ready';
       if (!it.thumb) makeThumb(it);
       updateCard(it);
-      if (it.id === activeId) showItem(it);
+      if (sortEl.value === 'height') applyListView();
+      if (lineup) {
+        if (canAddToLineup(it)) { addToLineup(it, true); frame(currentDir(), 600, easeOut); }
+        if (it.id === activeId) showModelUI(it);
+      } else if (it.id === activeId) showItem(it);
       enforceBudget();
       finish();
     } else if (m.type === 'error') {
       it.status = 'error'; it.error = m.message;
       updateCard(it);
-      if (it.id === activeId) renderActiveStatus();
+      if (it.id === activeId && !lineup) renderActiveStatus();
       finish();
     }
   };
@@ -890,10 +1476,16 @@ function startParse(it) {
     e.preventDefault();
     it.status = 'error'; it.error = 'le lecteur a rencontré une erreur';
     updateCard(it);
-    if (it.id === activeId) renderActiveStatus();
+    if (it.id === activeId && !lineup) renderActiveStatus();
     finish();
   };
   w.postMessage({ name: it.name, file: it.file });
+}
+
+function markSelectedRows() {
+  for (const x of items) if (x.el) x.el.row.setAttribute('aria-selected', String(x.id === activeId));
+  const it = items.find(i => i.id === activeId);
+  if (it && it.el) it.el.row.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
 
 function select(id) {
@@ -901,9 +1493,15 @@ function select(id) {
   if (!it) return;
   activeId = id;
   it.lastUsed = performance.now();
-  for (const x of items) if (x.el) x.el.row.setAttribute('aria-selected', String(x.id === id));
-  if (it.el) it.el.row.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  markSelectedRows();
   setTitle(it.name);
+  if (lineup) {
+    if (lineModels.some(e => e.it === it)) { showModelUI(it); return; }
+    if (it.status === 'ready' && canAddToLineup(it)) { addToLineup(it, true); frame(currentDir(), 600, easeOut); showModelUI(it); return; }
+    if (it.status === 'sleeping') { it.status = 'queued'; updateCard(it); pump(); }
+    if (it.stats) showModelUI(it); else clearPanel();
+    return;
+  }
   if (it.status === 'ready') { showItem(it); return; }
   if (it.status === 'sleeping') { it.status = 'queued'; updateCard(it); }
   hideMesh();
@@ -920,25 +1518,21 @@ function setTitle(name) {
     s.textContent = (items.findIndex(i => i.id === activeId) + 1) + ' sur ' + items.length;
     t.append(s);
   }
-  document.title = name.replace(/\.(3mf|stl)$/i, '') + ' – Atelier 3D';
+  document.title = baseName(name) + ' – Atelier 3D';
 }
 
-function disposeMesh() {
-  if (!mesh) return;
-  scene.remove(mesh);
-  mesh.geometry.dispose();
-  mesh = null;
-  tweens.delete('reveal'); tweens.delete('scale');
-  scanMesh = null; scanMat.opacity = 0;
-  clipPlane.constant = 1e6;
-  material.side = THREE.FrontSide;
-  shadowMat.opacity = shadowAlpha;
+function disposeSingle() {
+  if (!single) return;
+  tweens.delete('scale');
+  disposeModelMesh(single.mesh);
+  single = null;
+  resetReveal();
 }
 
-let savedDir = null;     // garde l'angle de vue d'un fichier à l'autre
 function hideMesh() {
-  if (mesh) savedDir = currentDir();
-  disposeMesh();
+  if (single) savedDir = currentDir();
+  disposeSingle();
+  clearMeasure();
   shownId = null; info = null;
   grid.visible = false;
   $('controls').hidden = true;
@@ -963,30 +1557,14 @@ function renderActiveStatus() {
   pfill.style.width = Math.round(it.progress * 100) + '%';
   statusText.textContent = it.status === 'queued'
     ? 'En attente : ' + it.name
-    : (it.progress >= 0.96 ? 'Calcul des mesures…' : 'Lecture de ' + it.name + ', ' + Math.round(it.progress * 100) + ' %');
+    : (it.progress >= 0.96 ? 'Calcul des mesures et contrôle…' : 'Lecture de ' + it.name + ', ' + Math.round(it.progress * 100) + ' %');
 }
 
-function showItem(it) {
-  const first = !mesh;
-  const dir = mesh ? currentDir() : (savedDir || VIEWS.front);
-  disposeMesh();
-  mesh = new THREE.Mesh(makeGeometry(it.data), material);
-  const sh = new THREE.Mesh(shadowGeo, shadowMat);
-  sh.rotation.x = -Math.PI / 2;
-  sh.position.y = 0.02;
-  sh.scale.set(it.stats.w * 1.35, it.stats.d * 1.35, 1);
-  sh.raycast = () => {};
-  mesh.add(sh);
-  scanMesh = new THREE.Mesh(shadowGeo, scanMat);
-  scanMesh.rotation.x = -Math.PI / 2;
-  scanMesh.scale.set(it.stats.w * 1.3, it.stats.d * 1.3, 1);
-  scanMesh.renderOrder = 2;
-  scanMesh.visible = false;
-  scanMesh.raycast = () => {};
-  mesh.add(scanMesh);
-  scene.add(mesh);
+// Remplit l'inspecteur et la barre de commandes pour le fichier actif
+function showModelUI(it) {
   shownId = it.id;
   info = it.stats;
+  scale = it.scale;
   const sizeMb = it.size / 1048576;
   setNum('m-t', info.tris, (v) => fmtInt(Math.round(v)), 600);
   setNum('m-v', info.verts, (v) => fmtInt(Math.round(v)), 600);
@@ -999,38 +1577,21 @@ function showItem(it) {
   hint.hidden = false;
   updateHint();
   statusEl.hidden = true;
-  mesh.scale.setScalar(it.scale);
-  scale = it.scale;
   setScale(it.scale, null, false);
-  reveal(it.stats.h * it.scale, first, dir);
+  renderCheck(it);
+  updateMarks();
 }
 
-// Le modèle monte couche par couche pendant que la caméra se pose
-const easeInOutSine = (t) => -(Math.cos(Math.PI * t) - 1) / 2;
-function reveal(height, first, dir) {
-  const ms = 2200;                           // assez long pour voir le modèle se construire
-  material.side = THREE.DoubleSide;          // l'intérieur reste plein pendant la coupe
-  if (scanMesh && !reduceMotion.matches) scanMesh.visible = true;
-  tween('reveal', ms, (t) => {
-    const y = height * t;
-    clipPlane.constant = t >= 1 ? 1e6 : y + 0.01;
-    shadowMat.opacity = shadowAlpha * Math.min(1, t * 1.6);
-    if (first && grid) grid.material.opacity = Math.min(1, t * 1.4);
-    if (scanMesh) {
-      scanMesh.position.y = y / (mesh ? mesh.scale.x : 1);
-      scanMat.opacity = t >= 1 ? 0 : Math.min(1, t * 8) * Math.min(1, (1 - t) * 6);
-      if (t >= 1) scanMesh.visible = false;
-    }
-    if (t >= 1) material.side = THREE.FrontSide;
-  }, easeInOutSine);
-  if (first && !reduceMotion.matches) {
-    const start = dir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), -0.75);
-    start.y += 0.3;
-    frame(start);
-    frame(dir, 2600, null, easeInOut);
-  } else {
-    frame(dir);
-  }
+function showItem(it) {
+  const first = !single;
+  const dir = single ? currentDir() : (savedDir || VIEWS.front);
+  disposeSingle();
+  clearMeasure();
+  const m = buildModelMesh(it);
+  scene.add(m);
+  single = { it, mesh: m, tx: 0, ts: it.scale };
+  showModelUI(it);
+  reveal(first, dir);
 }
 
 function closeItem(id) {
@@ -1045,28 +1606,47 @@ function closeItem(id) {
     else { node.classList.remove('enter'); node.classList.add('leave'); setTimeout(() => node.remove(), 230); }
   }
   items.splice(i, 1);
-  if (shownId === id) hideMesh();
-  if (activeId === id) {
-    activeId = null;
-    const next = items[i] || items[i - 1];
-    if (next) select(next.id);
+  if (lineup) {
+    const k = lineModels.findIndex(e => e.it === it);
+    if (k >= 0) {
+      const e = lineModels[k];
+      if (measPts.some(p => p.mesh === e.mesh)) clearMeasure();
+      disposeModelMesh(e.mesh); if (e.label) e.label.remove();
+      lineModels.splice(k, 1);
+      relayout(true);
+    }
+    if (lineModels.length < 2) { exitLineup(); }
+    else if (activeId === id) { activeId = null; select(lineModels[Math.min(k, lineModels.length - 1)].it.id); frame(currentDir(), 550, easeOut); }
+    else frame(currentDir(), 550, easeOut);
+  } else {
+    if (shownId === id) hideMesh();
+    if (activeId === id) {
+      activeId = null;
+      const next = items[i] || items[i - 1];
+      if (next) select(next.id);
+    }
   }
   afterListChange();
   pump();
 }
 
 function closeAll() {
+  if (lineup) { lineup = false; $('t-line').setAttribute('aria-pressed', 'false'); clearLineup(); resetReveal(); }
   for (const w of running.values()) w.terminate();
   running.clear();
   items.length = 0;
   filesEl.textContent = '';
+  searchEl.value = '';
   activeId = null;
   hideMesh();
+  setMeasuring(false);
   afterListChange();
 }
 
 function afterListChange() {
   const n = items.length;
+  $('sideTools').hidden = n < 2;
+  $('noResult').hidden = !(n && !visibleOrder().length);
   document.body.classList.toggle('has-files', n > 0);
   $('count').textContent = n ? n + ' sur ' + MAX_FILES : '';
   if (!n) {
@@ -1093,7 +1673,7 @@ function renderList() {
     row.setAttribute('aria-selected', 'false'); row.title = it.name;
     const thumb = document.createElement('span'); thumb.className = 'thumb';
     const txt = document.createElement('span'); txt.className = 'ftxt';
-    const fn = document.createElement('span'); fn.className = 'fn'; fn.textContent = it.name.replace(/\.(3mf|stl)$/i, '');
+    const fn = document.createElement('span'); fn.className = 'fn'; fn.textContent = baseName(it.name);
     const fm = document.createElement('span'); fm.className = 'fm';
     txt.append(fn, fm);
     row.append(thumb, txt);
@@ -1136,29 +1716,119 @@ function updateCard(it, forceThumb) {
   else if (it.status === 'queued' && !it.stats) text = 'En attente';
   else if (it.status === 'loading' && !it.stats) text = 'Lecture, ' + Math.round(it.progress * 100) + ' %';
   else if (it.stats) text = fmt(it.stats.h * it.scale) + ' mm' + (Math.abs(it.scale - 1) > 1e-6 ? ', ' + fmt(it.scale * 100, 0) + ' %' : '');
-  fm.append(tag, document.createTextNode(text));
+  fm.append(tag);
+  const lvl = checkLevel(it.check);
+  if (lvl) {
+    const dot = document.createElement('span'); dot.className = 'dot ' + lvl;
+    dot.title = lvl === 'ok' ? 'Maillage sans défaut' : lvl === 'bad' ? 'Trous dans le maillage' : 'Maillage à vérifier';
+    fm.append(dot);
+  }
+  fm.append(document.createTextNode(text));
 }
 
 // ---------- Ouverture ----------
 function pickFiles() { fileInput.click(); }
 $('openBtn').addEventListener('click', pickFiles);
 $('openBtn2').addEventListener('click', pickFiles);
+
+// Dossiers : sous-dossiers compris, les fichiers .3mf et .stl sont triés par nom
+const isModel = (n) => /\.(3mf|stl)$/i.test(n);
+const MAX_SCAN = 10000;
+async function collectHandle(dir, out, depth) {
+  for await (const h of dir.values()) {
+    if (out.length >= MAX_SCAN) return;
+    if (h.kind === 'file') { if (isModel(h.name)) out.push(await h.getFile()); }
+    else if (h.kind === 'directory' && depth < 10) await collectHandle(h, out, depth + 1);
+  }
+}
+function readEntries(dirEntry) {
+  const reader = dirEntry.createReader();
+  return new Promise((resolve) => {
+    const all = [];
+    const next = () => reader.readEntries((batch) => { if (!batch.length) resolve(all); else { all.push(...batch); next(); } }, () => resolve(all));
+    next();
+  });
+}
+async function collectEntry(entry, out, depth) {
+  if (out.length >= MAX_SCAN) return;
+  if (entry.isFile) {
+    if (isModel(entry.name)) { const f = await new Promise((r) => entry.file(r, () => r(null))); if (f) out.push(f); }
+  } else if (entry.isDirectory && depth < 10) {
+    for (const e of await readEntries(entry)) await collectEntry(e, out, depth + 1);
+  }
+}
+function openFolderFiles(files, folder) {
+  files = files.filter(f => isModel(f.name)).sort((a, b) => collator.compare(a.webkitRelativePath || a.name, b.webkitRelativePath || b.name));
+  if (!files.length) { toast('<strong>Aucun modèle trouvé.</strong> Le dossier « ' + esc(folder) + ' » ne contient pas de fichier .3mf ou .stl.'); return; }
+  const room = MAX_FILES - items.length;
+  addFiles(files);
+  if (files.length > room) toast(`<strong>Dossier « ${esc(folder)} » :</strong> ${fmtInt(files.length)} modèles trouvés, les ${Math.max(0, room)} premiers par ordre alphabétique sont ouverts (${MAX_FILES} fichiers au maximum).`);
+  else toast(`<strong>Dossier « ${esc(folder)} » :</strong> ${pl(files.length, 'modèle ouvert', 'modèles ouverts')}.`);
+}
+async function pickFolder() {
+  if (window.showDirectoryPicker) {
+    try {
+      const dir = await window.showDirectoryPicker({ id: 'atelier3d', mode: 'read' });
+      toast('Recherche des modèles dans « ' + esc(dir.name) + ' »…');
+      const files = [];
+      await collectHandle(dir, files, 0);
+      openFolderFiles(files, dir.name);
+    } catch (e) { if (!e || e.name !== 'AbortError') toast('<strong>Dossier inaccessible.</strong> Choisissez-en un autre ou ouvrez les fichiers directement.'); }
+    return;
+  }
+  $('dirInput').click();
+}
+$('openDirBtn').addEventListener('click', pickFolder);
+$('openDirBtn2').addEventListener('click', pickFolder);
+$('dirInput').addEventListener('change', () => {
+  const files = [...$('dirInput').files];
+  const folder = files[0] && files[0].webkitRelativePath ? files[0].webkitRelativePath.split('/')[0] : 'dossier';
+  if (files.length) openFolderFiles(files, folder);
+  $('dirInput').value = '';
+});
 $('closeAll').addEventListener('click', closeAll);
 fileInput.addEventListener('change', () => { if (fileInput.files.length) addFiles(fileInput.files); fileInput.value = ''; });
 
+// Ordre de la liste selon le tri et la recherche
+const searchEl = $('search'), sortEl = $('sort');
+const norm = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const collator = new Intl.Collator('fr', { numeric: true, sensitivity: 'base' });
+function visibleOrder() {
+  const q = norm(searchEl.value.trim());
+  let list = q ? items.filter(it => norm(it.name).includes(q)) : items.slice();
+  if (sortEl.value === 'name') list.sort((a, b) => collator.compare(a.name, b.name));
+  else if (sortEl.value === 'height') list.sort((a, b) => (b.stats ? b.stats.h * b.scale : -1) - (a.stats ? a.stats.h * a.scale : -1));
+  return list;
+}
+function applyListView() {
+  const order = visibleOrder();
+  const vis = new Set(order);
+  for (const it of order) if (it.el) filesEl.append(it.el.root);
+  for (const it of items) if (it.el) it.el.root.hidden = !vis.has(it);
+  $('noResult').hidden = !(items.length && !order.length);
+  $('sideTools').hidden = items.length < 2;
+}
+searchEl.addEventListener('input', applyListView);
+sortEl.addEventListener('change', applyListView);
+
 function step(delta) {
-  if (items.length < 2) return;
-  let i = items.findIndex(x => x.id === activeId);
-  i = (i + delta + items.length) % items.length;
-  select(items[i].id);
+  const order = visibleOrder();
+  if (order.length < 2) return;
+  let i = order.findIndex(x => x.id === activeId);
+  i = (i + delta + order.length) % order.length;
+  select(order[i].id);
 }
 
 document.addEventListener('keydown', (e) => {
   if (!calib.hidden) { if (e.key === 'Escape') closeCalib(); return; }
-  if (e.key === 'Escape') { closeHelp(); return; }
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') { e.preventDefault(); pickFiles(); return; }
+  if (e.key === 'Escape') {
+    if (measuring && measPts.length) { clearMeasure(); return; }
+    if (measuring) { setMeasuring(false); return; }
+    closeHelp(); return;
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') { e.preventDefault(); if (e.shiftKey) pickFolder(); else pickFiles(); return; }
   const tag = (e.target && e.target.tagName) || '';
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || e.altKey || e.ctrlKey || e.metaKey) return;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || e.altKey || e.ctrlKey || e.metaKey || recording) return;
   if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); step(1); }
   else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); step(-1); }
 });
@@ -1167,9 +1837,16 @@ let dragDepth = 0;
 window.addEventListener('dragenter', (e) => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) { dragDepth++; stage.classList.add('drag'); } });
 window.addEventListener('dragleave', () => { dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) stage.classList.remove('drag'); });
 window.addEventListener('dragover', (e) => { e.preventDefault(); });
-window.addEventListener('drop', (e) => {
+window.addEventListener('drop', async (e) => {
   e.preventDefault(); dragDepth = 0; stage.classList.remove('drag');
-  if (e.dataTransfer && e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+  const dt = e.dataTransfer;
+  if (!dt) return;
+  const dropped = [...(dt.items || [])].map(i => i.kind === 'file' && i.webkitGetAsEntry ? i.webkitGetAsEntry() : null).filter(Boolean);
+  const dirs = dropped.filter(x => x.isDirectory);
+  if (!dirs.length) { if (dt.files.length) addFiles(dt.files); return; }
+  const files = [];
+  for (const entry of dropped) await collectEntry(entry, files, 0);
+  openFolderFiles(files, dirs.length === 1 && dropped.length === 1 ? dirs[0].name : 'éléments déposés');
 });
 
 // Ouverture depuis l'Explorateur (« Ouvrir avec » une fois l'app installée), plusieurs fichiers possibles
@@ -1186,10 +1863,12 @@ if ('launchQueue' in window) {
 calibRange.value = String(pxPerMm);
 updateCalibState();
 
-renderer.setAnimationLoop((now) => {
+renderer.setAnimationLoop(() => {
   stepTweens(performance.now());
   controls.update();
   renderer.render(scene, camera);
+  if (lineup) positionLabels();
+  if (measPts.length) updateMeasure();
 });
 
 // ---------- Installation ----------

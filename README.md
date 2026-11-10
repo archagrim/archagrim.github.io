@@ -31,6 +31,12 @@ Chaque nouveau site peut avoir son propre dossier ici et sera publié à `https:
 - Une fois installée, sélectionne un ou plusieurs `.3mf`/`.stl` dans l'Explorateur → clic droit → **Ouvrir avec** → **Atelier 3D**. Glisser-déposer et **Ctrl + O** marchent aussi.
 - Jusqu'à **60 fichiers** ouverts à la fois, lus en parallèle, avec une liste de vignettes ; flèches du clavier pour passer de l'un à l'autre. Chaque fichier garde sa propre échelle. Les gros modèles les moins récemment vus sont mis en veille pour ne pas saturer la mémoire et relus à la demande.
 - Windows n'affiche **Ouvrir avec** que jusqu'à 15 fichiers sélectionnés : au-delà, glisser-déposer ou **Ouvrir des fichiers**.
+- **Ouvrir un dossier** (Ctrl + Maj + O, ou glisser un dossier) : sous-dossiers compris, les 60 premiers modèles par ordre alphabétique ; recherche et tri (nom, hauteur) dans la liste.
+- **Côte à côte** : jusqu'à 16 modèles (30 millions de triangles au total) alignés en taille réelle, avec leur nom et leur hauteur.
+- **Sous-couche** : aperçu résine, noire, blanche ou zénithale.
+- **Mesurer** : deux clics sur le modèle donnent la distance en mm, à l'échelle choisie (point trouvé par la carte graphique, instantané même sur des millions de triangles).
+- **Contrôle du maillage** (modèles jusqu'à 8 millions de triangles) : trous, faces inversées, arêtes non conformes, fragments isolés, modèle retourné ; problèmes affichés en rouge et orange.
+- **Partager** : image PNG sur fond transparent, vidéo d'un tour complet en 6 s (MP4 ou WebM).
 - Style : thème « Apple moderne » du kit (fond `#F2F2F7`, accent `#0088FF`), clair ou sombre selon le système ; police Inter embarquée (`3d/fonts/`, licence OFL).
 - Mouvement : le modèle apparaît couche par couche (plan de coupe three.js) pendant que la caméra se pose ; vues, échelle et chiffres animés ; entrées et sorties de la liste. Tout est natif (aucune bibliothèque) et coupé si le système demande moins d'animations.
 - `3d/parser.js` lit les fichiers en arrière-plan (3MF en flux, avec composants, transformations et unités ; STL binaire et texte).

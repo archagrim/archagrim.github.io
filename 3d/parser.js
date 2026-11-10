@@ -388,11 +388,95 @@ export function finish(mesh) {
   };
 }
 
+// ---------- Contrôle du maillage ----------
+// Trous (arêtes ouvertes), arêtes non conformes, faces à l'orientation incohérente, pièces et fragments isolés.
+// Les sommets sont d'abord soudés par position exacte, pour ne pas compter les coutures comme des trous.
+export const CHECK_MAX_TRIS = 8e6;
+export function analyzeMesh(pos, idx) {
+  const V = pos.length / 3, T = idx.length / 3;
+  const MAXMARK = 60000;
+  const bits = new Uint32Array(pos.buffer, pos.byteOffset, pos.length);
+  let cap = 1; while (cap < V * 2) cap <<= 1;
+  const mask = cap - 1;
+  const table = new Int32Array(cap).fill(-1);
+  const canon = new Uint32Array(V);
+  for (let i = 0; i < V; i++) {
+    const a = bits[i * 3], b = bits[i * 3 + 1], c = bits[i * 3 + 2];
+    let h = (Math.imul(a, 73856093) ^ Math.imul(b, 19349663) ^ Math.imul(c, 83492791)) & mask;
+    for (;;) {
+      const e = table[h];
+      if (e < 0) { table[h] = i; canon[i] = i; break; }
+      if (bits[e * 3] === a && bits[e * 3 + 1] === b && bits[e * 3 + 2] === c) { canon[i] = e; break; }
+      h = (h + 1) & mask;
+    }
+  }
+  const parent = new Int32Array(V);
+  for (let i = 0; i < V; i++) parent[i] = i;
+  const find = (x) => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
+  const union = (x, y) => { x = find(x); y = find(y); if (x !== y) parent[y] = x; };
+
+  // Une clé par demi-arête : (min·V + max)·2 + sens
+  const keys = new Float64Array(T * 3);
+  let k = 0, degenerate = 0, vol = 0;
+  const edge = (u, v) => { if (u !== v) keys[k++] = u < v ? (u * V + v) * 2 : (v * V + u) * 2 + 1; };
+  for (let t = 0; t < T; t++) {
+    const a = canon[idx[t * 3]], b = canon[idx[t * 3 + 1]], c = canon[idx[t * 3 + 2]];
+    if (a === b || b === c || a === c) degenerate++;
+    union(a, b); union(b, c);
+    edge(a, b); edge(b, c); edge(c, a);
+    const A = a * 3, B = b * 3, C = c * 3;
+    vol += pos[A] * (pos[B + 1] * pos[C + 2] - pos[B + 2] * pos[C + 1])
+         - pos[A + 1] * (pos[B] * pos[C + 2] - pos[B + 2] * pos[C])
+         + pos[A + 2] * (pos[B] * pos[C + 1] - pos[B + 1] * pos[C]);
+  }
+  const used = keys.subarray(0, k);
+  used.sort();
+  const red = new Grow(Float32Array, 4096), orange = new Grow(Float32Array, 4096);
+  const mark = (g, v) => { if (g.n < MAXMARK * 3) g.push3(pos[v * 3], pos[v * 3 + 1], pos[v * 3 + 2]); };
+  let open = 0, nonManifold = 0, flipped = 0;
+  for (let i = 0; i < used.length;) {
+    const base = Math.floor(used[i] / 2);
+    let j = i, fwd = 0, rev = 0;
+    while (j < used.length && Math.floor(used[j] / 2) === base) { if (used[j] % 2) rev++; else fwd++; j++; }
+    const n = j - i, u = Math.floor(base / V), v = base - u * V;
+    if (n === 1) { open++; mark(red, u); mark(red, v); }
+    else if (n > 2) { nonManifold++; mark(orange, u); mark(orange, v); }
+    else if (fwd === 2 || rev === 2) { flipped++; mark(orange, u); mark(orange, v); }
+    i = j;
+  }
+
+  // Pièces : composantes connexes ; un fragment est une pièce minuscule à côté du reste
+  const triCount = new Int32Array(V);
+  for (let t = 0; t < T; t++) triCount[find(canon[idx[t * 3]])]++;
+  let largest = 0, largestN = 0;
+  for (let i = 0; i < V; i++) if (triCount[i] > largestN) { largestN = triCount[i]; largest = i; }
+  const thr = Math.max(1, Math.min(5000, Math.floor(T * 0.001)));
+  let parts = 0, fragments = 0;
+  for (let i = 0; i < V; i++) {
+    const n = triCount[i];
+    if (!n) continue;
+    if (i !== largest && n < thr) fragments++; else parts++;
+  }
+  if (fragments) {
+    for (let t = 0; t < T; t++) {
+      const r = find(canon[idx[t * 3]]);
+      if (r !== largest && triCount[r] < thr) { mark(red, canon[idx[t * 3]]); mark(red, canon[idx[t * 3 + 1]]); mark(red, canon[idx[t * 3 + 2]]); }
+    }
+  }
+  return {
+    open, nonManifold, flipped, parts, fragments, degenerate,
+    insideOut: vol < 0 && open === 0,
+    red: red.view.slice(), orange: orange.view.slice(),
+  };
+}
+
 export function readModel(name, buf, progress) {
   const is3mf = /\.3mf$/i.test(name) || (new Uint8Array(buf, 0, 2)[0] === 0x50 && new Uint8Array(buf, 0, 2)[1] === 0x4b);
   const mesh = is3mf ? read3MF(buf, (p) => progress('lecture', p)) : readSTL(buf, (p) => progress('lecture', p));
   progress('mesures', 1);
-  return finish(mesh);
+  const r = finish(mesh);
+  r.check = r.stats.tris <= CHECK_MAX_TRIS ? analyzeMesh(r.pos, r.idx) : { skipped: true };
+  return r;
 }
 
 // ---------- Point d'entrée du worker ----------
@@ -406,7 +490,9 @@ if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScop
         const now = Date.now();
         if (now - last > 80 || p === 1) { last = now; self.postMessage({ type: 'progress', phase, p }); }
       });
-      self.postMessage({ type: 'done', pos: r.pos, idx: r.idx, nrm: r.nrm, stats: r.stats }, [r.pos.buffer, r.idx.buffer, r.nrm.buffer]);
+      const transfer = [r.pos.buffer, r.idx.buffer, r.nrm.buffer];
+      if (r.check.red) transfer.push(r.check.red.buffer, r.check.orange.buffer);
+      self.postMessage({ type: 'done', pos: r.pos, idx: r.idx, nrm: r.nrm, stats: r.stats, check: r.check }, transfer);
     } catch (err) {
       self.postMessage({ type: 'error', message: String(err && err.message || err) });
     }
