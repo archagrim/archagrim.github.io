@@ -8,7 +8,7 @@
   </defs>
   <rect width="512" height="512" rx="114" fill="url(#tile)"/>
   <ellipse cx="256" cy="388" rx="150" ry="34" fill="url(#shadow)"/>
-  <ellipse cx="256" cy="386" rx="132" ry="28" fill="none" stroke="#0071E3" stroke-width="7"/>
+  <ellipse cx="256" cy="386" rx="132" ry="28" fill="none" stroke="#0088FF" stroke-width="7"/>
   <polygon points="256,120 372,187 256,254 140,187" fill="url(#top)"/>
   <polygon points="140,187 256,254 256,388 140,321" fill="url(#left)"/>
   <polygon points="256,254 372,187 372,321 256,388" fill="url(#right)"/>

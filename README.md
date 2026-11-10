@@ -31,7 +31,8 @@ Chaque nouveau site peut avoir son propre dossier ici et sera publié à `https:
 - Une fois installée, sélectionne un ou plusieurs `.3mf`/`.stl` dans l'Explorateur → clic droit → **Ouvrir avec** → **Atelier 3D**. Glisser-déposer et **Ctrl + O** marchent aussi.
 - Jusqu'à **60 fichiers** ouverts à la fois, lus en parallèle, avec une liste de vignettes ; flèches du clavier pour passer de l'un à l'autre. Chaque fichier garde sa propre échelle. Les gros modèles les moins récemment vus sont mis en veille pour ne pas saturer la mémoire et relus à la demande.
 - Windows n'affiche **Ouvrir avec** que jusqu'à 15 fichiers sélectionnés : au-delà, glisser-déposer ou **Ouvrir des fichiers**.
-- Style : clair ou sombre selon le réglage du système ; police Inter embarquée (`3d/fonts/`, licence OFL).
+- Style : thème « Apple moderne » du kit (fond `#F2F2F7`, accent `#0088FF`), clair ou sombre selon le système ; police Inter embarquée (`3d/fonts/`, licence OFL).
+- Mouvement : le modèle apparaît couche par couche (plan de coupe three.js) pendant que la caméra se pose ; vues, échelle et chiffres animés ; entrées et sorties de la liste. Tout est natif (aucune bibliothèque) et coupé si le système demande moins d'animations.
 - `3d/parser.js` lit les fichiers en arrière-plan (3MF en flux, avec composants, transformations et unités ; STL binaire et texte).
 - `3d/lib/` contient three.js 0.160.0 et fflate, pour que l'app marche hors ligne.
 - Mode **Taille réelle 1:1** : calibrage avec une carte bancaire, mémorisé dans le navigateur.

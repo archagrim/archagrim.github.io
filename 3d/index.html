@@ -21,10 +21,10 @@
    Sans fichier, le studio prend toute la largeur. Sous 1000 px, tout s'empile et la liste des fichiers défile en ligne. */
 @font-face{font-family:"Inter Atelier";src:url("fonts/inter.woff2") format("woff2");font-weight:100 900;font-style:normal;font-display:swap}
 :root{
-  --window:#F5F5F7; --bar:rgba(251,251,253,.82); --side:#FBFBFD; --panel:#FFFFFF;
+  --window:#F2F2F7; --bar:rgba(251,251,253,.82); --side:#FBFBFD; --panel:#FFFFFF;
   --ink:#1D1D1F; --ink-2:#6E6E73; --ink-3:#86868B; --line:rgba(0,0,0,.09); --line-2:rgba(0,0,0,.14);
   --fill:rgba(0,0,0,.045); --fill-hover:rgba(0,0,0,.075); --selected:#E8E8ED;
-  --accent:#0071E3; --accent-hover:#0077ED; --accent-tint:rgba(0,113,227,.1); --accent-ink:#FFFFFF;
+  --accent:#0088FF; --accent-hover:#1A94FF; --accent-tint:rgba(0,136,255,.1); --accent-ink:#FFFFFF;
   --ok:#28A745; --warn:#E08600; --danger:#D70015;
   --stage-a:#FBFBFD; --stage-b:#E9E9EE;
   --glass:rgba(255,255,255,.74); --shadow:0 8px 30px rgba(0,0,0,.08),0 1px 3px rgba(0,0,0,.06);
@@ -37,7 +37,7 @@
   --window:#000000; --bar:rgba(28,28,30,.8); --side:#161617; --panel:#1C1C1E;
   --ink:#F5F5F7; --ink-2:#A1A1A6; --ink-3:#8E8E93; --line:rgba(255,255,255,.1); --line-2:rgba(255,255,255,.16);
   --fill:rgba(255,255,255,.07); --fill-hover:rgba(255,255,255,.11); --selected:#2C2C2E;
-  --accent:#2997FF; --accent-hover:#47A6FF; --accent-tint:rgba(41,151,255,.16); --accent-ink:#FFFFFF;
+  --accent:#0091FF; --accent-hover:#2EA2FF; --accent-tint:rgba(0,145,255,.18); --accent-ink:#FFFFFF;
   --ok:#30D158; --warn:#FF9F0A; --danger:#FF453A;
   --stage-a:#1E1E21; --stage-b:#0C0C0D;
   --glass:rgba(44,44,46,.72); --shadow:0 8px 30px rgba(0,0,0,.45),0 1px 3px rgba(0,0,0,.4);
@@ -206,6 +206,48 @@ dd{margin:0;text-align:right;font-size:13px;font-weight:500;font-variant-numeric
 .calib-ctrl .btn{width:30px;padding:0;font-size:17px}
 .calib-val{font-size:13px;font-weight:500;color:var(--ink-2);font-variant-numeric:tabular-nums}
 .sheet-actions{display:flex;gap:10px}
+/* Progression dans la vignette */
+@property --p{syntax:"<number>";inherits:false;initial-value:0}
+.ring{width:22px;height:22px;border-radius:50%;--p:0;background:conic-gradient(var(--accent) calc(var(--p) * 360deg),var(--fill-hover) 0);
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2.5px));mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2.5px));transition:--p .25s ease-out}
+.frow{transition:background-color .2s}
+
+/* Mouvement : une entrée orchestrée sur l'accueil, des transitions qui répondent aux actions ailleurs */
+@media (prefers-reduced-motion:no-preference){
+  .hero .cube path{stroke-dasharray:1;stroke-dashoffset:1;animation:draw 1.2s .1s cubic-bezier(.65,0,.35,1) forwards}
+  .hero .cube path+path{animation-delay:.45s}
+  .hero>*:not(.cube){animation:rise .8s cubic-bezier(.2,.7,.2,1) both}
+  .hero>h1{animation-delay:.25s}
+  .hero>.lede{animation-delay:.35s}
+  .hero>.cta{animation-delay:.45s}
+  .hero>.foot{animation-delay:.6s}
+  body.has-files .sidebar{animation:fromLeft .55s cubic-bezier(.2,.7,.2,1) both}
+  body.has-files .inspector{animation:fromRight .55s .05s cubic-bezier(.2,.7,.2,1) both}
+  .controls:not([hidden]){animation:barIn .55s .2s cubic-bezier(.2,.7,.2,1) both}
+  .hint:not([hidden]){animation:fade .5s .3s both}
+  .fitem.enter{animation:rowIn .5s cubic-bezier(.2,.7,.2,1) both;animation-delay:var(--d,0ms)}
+  .fitem.leave{animation:rowOut .22s ease-in forwards;pointer-events:none}
+  .thumb img{animation:thumbIn .55s cubic-bezier(.2,.7,.2,1) both}
+  .status:not([hidden])>div{animation:fade .35s .15s both}
+  .toast:not([hidden]){animation:toastIn .4s cubic-bezier(.2,.8,.2,1) both}
+  .ihelp:not([hidden]){animation:pop .22s cubic-bezier(.2,.8,.2,1) both;transform-origin:top right}
+  .calib:not([hidden]){animation:fade .25s both}
+  .calib:not([hidden]) .sheet{animation:sheetIn .4s cubic-bezier(.2,.8,.2,1) both}
+  .stage.drag::after{animation:dropIn .25s cubic-bezier(.2,.8,.2,1) both}
+}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes fromLeft{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:none}}
+@keyframes fromRight{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}
+@keyframes barIn{from{opacity:0;transform:translate(-50%,16px) scale(.97)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes rowIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes rowOut{to{opacity:0;transform:translateX(-12px)}}
+@keyframes thumbIn{from{opacity:0;transform:scale(.82)}to{opacity:1;transform:none}}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,14px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes pop{from{opacity:0;transform:scale(.94) translateY(-6px)}to{opacity:1;transform:none}}
+@keyframes sheetIn{from{opacity:0;transform:scale(.96) translateY(10px)}to{opacity:1;transform:none}}
+@keyframes dropIn{from{opacity:0;transform:scale(.985)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 <script type="importmap">
@@ -246,7 +288,7 @@ dd{margin:0;text-align:right;font-size:13px;font-weight:500;font-variant-numeric
 
     <div class="empty" id="empty">
       <div class="hero">
-        <svg aria-hidden="true"><use href="#i-cube"/></svg>
+        <svg class="cube" viewBox="0 0 64 64" aria-hidden="true"><path pathLength="1" d="M32 6 55 19v26L32 58 9 45V19z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path pathLength="1" d="M9 19l23 13 23-13M32 32v26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
         <h1>Vos modèles 3D, en taille réelle.</h1>
         <p class="lede">Ouvrez jusqu'à 60 fichiers .3mf ou .stl. Dimensions, échelle par socle et volume de résine, d'un coup d'œil.</p>
         <div class="cta">
@@ -372,6 +414,24 @@ const icon = (id) => `<svg aria-hidden="true"><use href="#${id}"/></svg>`;
 const stage = $('stage');
 const hint = $('hint');
 
+// Petites animations pilotées par la boucle de rendu ; coupées si le système demande moins de mouvement
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+const tweens = new Map();
+const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+const easeInOut = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+const easeOutQuart = (t) => 1 - Math.pow(1 - t, 4);
+function tween(key, ms, fn, ease = easeOut) {
+  if (reduceMotion.matches || ms <= 0) { tweens.delete(key); fn(1); return; }
+  tweens.set(key, { t0: performance.now(), ms, fn, ease });
+}
+function stepTweens(now) {
+  for (const [key, tw] of tweens) {
+    const t = Math.min(1, (now - tw.t0) / tw.ms);
+    if (t >= 1) tweens.delete(key);
+    tw.fn(tw.ease(t));
+  }
+}
+
 let pxPerMm = NOMINAL;
 let calibrated = false;
 try {
@@ -384,6 +444,7 @@ const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.setClearColor(0x000000, 0);
+renderer.localClippingEnabled = true;
 stage.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
@@ -402,6 +463,7 @@ function makeControls(cam, prevTarget) {
   c.autoRotate = spinOn;
   c.enableZoom = !realSize;           // en taille réelle, le zoom est fixé par le calibrage
   if (prevTarget) c.target.copy(prevTarget);
+  c.addEventListener('start', () => tweens.delete('cam'));   // la main reprend la caméra
   return c;
 }
 
@@ -414,7 +476,9 @@ function addLights(sc) {
 }
 addLights(scene);
 
-const material = new THREE.MeshStandardMaterial({ roughness: 0.52, metalness: 0 });
+// Plan de coupe : fait apparaître le modèle couche par couche, comme une impression
+const clipPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 1e6);
+const material = new THREE.MeshStandardMaterial({ roughness: 0.52, metalness: 0, clippingPlanes: [clipPlane] });
 
 // Ombre de contact douce sous le modèle
 const shadowTex = (() => {
@@ -429,14 +493,17 @@ const shadowMat = new THREE.MeshBasicMaterial({ map: shadowTex, transparent: tru
 const shadowGeo = new THREE.PlaneGeometry(1, 1);
 
 let grid = null;
+let shadowAlpha = 0.3;
 function applyTheme() {
   material.color.set(css('--model') || '#A6A8AE');
-  shadowMat.opacity = parseFloat(css('--shadow-alpha')) || 0.3;
+  shadowAlpha = parseFloat(css('--shadow-alpha')) || 0.3;
+  shadowMat.opacity = shadowAlpha;
   const visible = grid ? grid.visible : false;
   if (grid) { scene.remove(grid); grid.geometry.dispose(); grid.material.dispose(); }
   const gc = new THREE.Color(css('--grid') || '#DCDCE2');
   grid = new THREE.GridHelper(400, 40, gc, gc);
   grid.position.y = -0.01;
+  grid.material.transparent = true;
   grid.visible = visible;
   scene.add(grid);
 }
@@ -533,17 +600,19 @@ function currentDir() {
   return d.lengthSq() > 1e-9 ? d.normalize() : VIEWS.front.clone();
 }
 
-function frame(dir) {
+// Cadre la caméra sur le modèle ; ms > 0 : déplacement en douceur autour du modèle
+function frame(dir, ms = 0, sc = null, ease = easeInOut) {
   if (!mesh) return;
-  mesh.updateMatrixWorld(true);
-  const box = mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrixWorld);   // sans l'ombre
+  const k = sc == null ? mesh.scale.x : sc;
+  const bb = mesh.geometry.boundingBox;                                  // sans l'ombre
+  const box = new THREE.Box3(bb.min.clone().multiplyScalar(k), bb.max.clone().multiplyScalar(k));
   const size = box.getSize(new THREE.Vector3());
-  box.getCenter(target);
+  const newTarget = box.getCenter(new THREE.Vector3());
   const radius = Math.max(size.length() / 2, 1);
   const d = dir.clone().normalize();
+  let dist;
   if (realSize) {
-    const dist = Math.max(radius * 4, 300);
-    ortho.position.copy(target).addScaledVector(d, dist);
+    dist = Math.max(radius * 4, 300);
     ortho.near = 0.1;
     ortho.far = dist + radius * 4 + 200;
     updateOrtho();
@@ -551,16 +620,36 @@ function frame(dir) {
     const fov = THREE.MathUtils.degToRad(persp.fov);
     const fitH = radius / Math.sin(fov / 2);
     const fitW = fitH / Math.min(persp.aspect, 1);
-    const dist = Math.max(fitH, fitW) * 0.82;
-    persp.position.copy(target).addScaledVector(d, dist);
+    dist = Math.max(fitH, fitW) * 0.82;
     persp.near = dist / 100; persp.far = dist * 20;
     persp.updateProjectionMatrix();
   }
-  controls.target.copy(target);
-  controls.update();
+  target.copy(newTarget);
+  const cam = camera;
+  if (ms <= 0 || reduceMotion.matches) {
+    tweens.delete('cam');
+    cam.position.copy(newTarget).addScaledVector(d, dist);
+    controls.target.copy(newTarget);
+    controls.update();
+    return;
+  }
+  const fromT = controls.target.clone();
+  const s0 = new THREE.Spherical().setFromVector3(cam.position.clone().sub(fromT));
+  const s1 = new THREE.Spherical().setFromVector3(d.clone().multiplyScalar(dist));
+  let dTheta = s1.theta - s0.theta;
+  while (dTheta > Math.PI) dTheta -= 2 * Math.PI;
+  while (dTheta < -Math.PI) dTheta += 2 * Math.PI;
+  const sph = new THREE.Spherical(), off = new THREE.Vector3(), tg = new THREE.Vector3();
+  tween('cam', ms, (t) => {
+    sph.set(s0.radius + (s1.radius - s0.radius) * t, s0.phi + (s1.phi - s0.phi) * t, s0.theta + dTheta * t);
+    tg.copy(fromT).lerp(newTarget, t);
+    cam.position.copy(tg).add(off.setFromSpherical(sph));
+    controls.target.copy(tg);
+    controls.update();
+  }, ease);
 }
 
-for (const k of Object.keys(VIEWS)) $('v-' + k).addEventListener('click', () => frame(VIEWS[k]));
+for (const k of Object.keys(VIEWS)) $('v-' + k).addEventListener('click', () => frame(VIEWS[k], 700));
 
 $('t-real').addEventListener('click', () => {
   const dir = currentDir();
@@ -591,28 +680,43 @@ function setControlsEnabled(on) {
   chips.forEach(c => { c.disabled = !on; });
   scaleInput.disabled = !on;
 }
+const shown = {};          // dernière valeur affichée de chaque chiffre, pour les faire défiler
+function setNum(id, value, format, ms = 450) {
+  const from = shown[id];
+  shown[id] = value;
+  const el = $(id);
+  if (from == null || from === value) { tweens.delete('n-' + id); el.textContent = format(value); return; }
+  tween('n-' + id, ms, (t) => { el.textContent = format(from + (value - from) * t); });
+}
 function clearPanel() {
-  for (const id of ['d-h', 'd-w', 'd-d', 'd-b', 'd-v', 'm-t', 'm-v', 'm-o', 'm-s', 'm-time']) $(id).textContent = '—';
+  for (const id of ['d-h', 'd-w', 'd-d', 'd-b', 'd-v', 'm-t', 'm-v', 'm-o', 'm-s', 'm-time']) { tweens.delete('n-' + id); $(id).textContent = '—'; }
+  for (const k of Object.keys(shown)) delete shown[k];
   setControlsEnabled(false);
 }
-function setScale(s, from) {
+const mm = (v) => fmt(v) + ' mm';
+const ml = (v) => '≈ ' + fmt(v, v < 10 ? 2 : 1) + ' ml';
+function setScale(s, from, animate = true) {
   if (!info) return;
+  const prev = scale;
   scale = Math.min(4, Math.max(0.05, s));
   const it = items.find(i => i.id === shownId);
   if (it) { it.scale = scale; updateCard(it); }
-  $('d-h').textContent = fmt(info.h * scale) + ' mm';
-  $('d-w').textContent = fmt(info.w * scale) + ' mm';
-  $('d-d').textContent = fmt(info.d * scale) + ' mm';
-  $('d-b').textContent = fmt(info.footprint * scale) + ' mm';
-  const ml = info.volume * scale ** 3 / 1000;
-  $('d-v').textContent = '≈ ' + fmt(ml, ml < 10 ? 2 : 1) + ' ml';
+  setNum('d-h', info.h * scale, mm);
+  setNum('d-w', info.w * scale, mm);
+  setNum('d-d', info.d * scale, mm);
+  setNum('d-b', info.footprint * scale, mm);
+  setNum('d-v', info.volume * scale ** 3 / 1000, ml);
   if (from !== 'input') scaleInput.value = String(Math.round(scale * 1000) / 10);
   chips.forEach(c => {
     const b = Number(c.dataset.base);
     const match = b === 0 ? Math.abs(scale - 1) < 1e-6 : Math.abs(info.footprint * scale - b) < 0.05;
     c.setAttribute('aria-pressed', String(match));
   });
-  if (mesh) { mesh.scale.setScalar(scale); frame(currentDir()); }
+  if (mesh && animate) {
+    const a = mesh.scale.x, b = scale;
+    tween('scale', 500, (t) => { if (mesh) mesh.scale.setScalar(a + (b - a) * t); });
+    frame(currentDir(), 500, b, easeOut);
+  } else if (mesh) { mesh.scale.setScalar(scale); }
 }
 chips.forEach(c => c.addEventListener('click', () => {
   const b = Number(c.dataset.base);
@@ -805,6 +909,10 @@ function disposeMesh() {
   scene.remove(mesh);
   mesh.geometry.dispose();
   mesh = null;
+  tweens.delete('reveal'); tweens.delete('scale');
+  clipPlane.constant = 1e6;
+  material.side = THREE.FrontSide;
+  shadowMat.opacity = shadowAlpha;
 }
 
 let savedDir = null;     // garde l'angle de vue d'un fichier à l'autre
@@ -839,6 +947,7 @@ function renderActiveStatus() {
 }
 
 function showItem(it) {
+  const first = !mesh;
   const dir = mesh ? currentDir() : (savedDir || VIEWS.front);
   disposeMesh();
   mesh = new THREE.Mesh(makeGeometry(it.data), material);
@@ -852,8 +961,8 @@ function showItem(it) {
   shownId = it.id;
   info = it.stats;
   const sizeMb = it.size / 1048576;
-  $('m-t').textContent = fmtInt(info.tris);
-  $('m-v').textContent = fmtInt(info.verts);
+  setNum('m-t', info.tris, (v) => fmtInt(Math.round(v)), 600);
+  setNum('m-v', info.verts, (v) => fmtInt(Math.round(v)), 600);
   $('m-o').textContent = fmtInt(info.objects);
   $('m-s').textContent = fmt(sizeMb, sizeMb < 10 ? 1 : 0) + ' Mo';
   $('m-time').textContent = fmt(it.secs, 1) + ' s';
@@ -864,8 +973,29 @@ function showItem(it) {
   updateHint();
   statusEl.hidden = true;
   mesh.scale.setScalar(it.scale);
-  setScale(it.scale);
-  frame(dir);
+  scale = it.scale;
+  setScale(it.scale, null, false);
+  reveal(it.stats.h * it.scale, first, dir);
+}
+
+// Le modèle monte couche par couche pendant que la caméra se pose
+function reveal(height, first, dir) {
+  const ms = first ? 1100 : 700;
+  material.side = THREE.DoubleSide;          // l'intérieur reste plein pendant la coupe
+  tween('reveal', ms, (t) => {
+    clipPlane.constant = t >= 1 ? 1e6 : height * t + 0.01;
+    shadowMat.opacity = shadowAlpha * t;
+    if (first && grid) grid.material.opacity = t;
+    if (t >= 1) material.side = THREE.FrontSide;
+  }, easeInOut);
+  if (first && !reduceMotion.matches) {
+    const start = dir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), -0.6);
+    start.y += 0.25;
+    frame(start);
+    frame(dir, 1300, null, easeOutQuart);
+  } else {
+    frame(dir);
+  }
 }
 
 function closeItem(id) {
@@ -874,7 +1004,11 @@ function closeItem(id) {
   const it = items[i];
   const w = running.get(id);
   if (w) { w.terminate(); running.delete(id); }
-  if (it.el) it.el.root.remove();
+  if (it.el) {
+    const node = it.el.root;
+    if (reduceMotion.matches) node.remove();
+    else { node.classList.remove('enter'); node.classList.add('leave'); setTimeout(() => node.remove(), 230); }
+  }
   items.splice(i, 1);
   if (shownId === id) hideMesh();
   if (activeId === id) {
@@ -914,9 +1048,11 @@ function afterListChange() {
 }
 
 function renderList() {
+  let k = 0;
   for (const it of items) {
     if (it.el) continue;
-    const root = document.createElement('li'); root.className = 'fitem';
+    const root = document.createElement('li'); root.className = 'fitem enter';
+    root.style.setProperty('--d', Math.min(k++ * 35, 700) + 'ms');
     const row = document.createElement('button');
     row.type = 'button'; row.className = 'frow'; row.setAttribute('role', 'option');
     row.setAttribute('aria-selected', 'false'); row.title = it.name;
@@ -954,7 +1090,9 @@ function updateCard(it, forceThumb) {
   } else if (it.status === 'error') {
     thumb.textContent = '!'; thumb.classList.add('err');
   } else {
-    thumb.textContent = it.status === 'loading' ? Math.round(it.progress * 100) + ' %' : '';
+    let ring = thumb.querySelector('.ring');
+    if (!ring) { thumb.textContent = ''; ring = document.createElement('span'); ring.className = 'ring'; thumb.append(ring); }
+    ring.style.setProperty('--p', it.status === 'loading' ? it.progress.toFixed(3) : '0');
   }
   fm.textContent = '';
   const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = ext;
@@ -1013,7 +1151,8 @@ if ('launchQueue' in window) {
 calibRange.value = String(pxPerMm);
 updateCalibState();
 
-renderer.setAnimationLoop(() => {
+renderer.setAnimationLoop((now) => {
+  stepTweens(performance.now());
   controls.update();
   renderer.render(scene, camera);
 });
