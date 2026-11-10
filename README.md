@@ -6,6 +6,7 @@ Mes sites et applications, publiés avec GitHub Pages.
 |---|---|---|
 | `codex/` | https://archagrim.github.io/codex/ | Lanceur installable du Codex (bible League of Legends) : logo, icônes, ouverture directe du Codex sur claude.ai. |
 | `adc/` | https://archagrim.github.io/adc/ | ADC Lab : analyse automatique de mes parties classées (morts, lane, objectifs, sessions). |
+| `3d/` | https://archagrim.github.io/3d/ | Atelier 3D : visionneuse de fichiers 3MF et STL en taille réelle (dimensions, échelle par socle, volume de résine). Les fichiers sont lus sur l'ordinateur, rien n'est envoyé en ligne. |
 
 ## Installer le Codex sur le téléphone
 
@@ -21,3 +22,11 @@ Chaque nouveau site peut avoir son propre dossier ici et sera publié à `https:
 - `adc/accounts.json` liste les comptes suivis (Riot ID et nom affiché) ; chaque compte a ses données dans `adc/data/<compte>/`.
 - `.github/workflows/adc-lab.yml` vérifie toutes les 5 minutes s'il y a de nouvelles parties (et à la demande depuis l'onglet **Actions**).
 - La clé Riot est le secret `RIOT_API_KEY` du dépôt : elle n'est jamais écrite dans les fichiers.
+
+## Atelier 3D
+
+- **Installer sur le PC** : ouvre https://archagrim.github.io/3d/ dans Chrome ou Edge → bouton **Installer** en haut à droite (ou icône d'installation dans la barre d'adresse).
+- Une fois installée, clic droit sur un `.3mf` ou un `.stl` → **Ouvrir avec** → **Atelier 3D**. Glisser-déposer et **Ctrl + O** marchent aussi.
+- `3d/parser.js` lit les fichiers en arrière-plan (3MF en flux, avec composants, transformations et unités ; STL binaire et texte).
+- `3d/lib/` contient three.js 0.160.0 et fflate, pour que l'app marche hors ligne.
+- Mode **Taille réelle 1:1** : calibrage avec une carte bancaire, mémorisé dans le navigateur.

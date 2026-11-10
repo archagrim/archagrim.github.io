@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Atelier 3D</title>
+<meta name="description" content="Visionneuse de fichiers 3MF et STL en taille réelle : dimensions, échelle par socle, volume de résine.">
+<meta name="theme-color" content="#010A13">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Atelier 3D">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Layout : barre collante en tête ; scène 3D à gauche, fiche d'impression à droite ; empilé sur téléphone ; thème client LoL du site */
+:root{
+  --bg:#010A13; --card:#0A1520; --card2:#0E1C2A; --stage:#05101A; --sep:rgba(200,170,110,.15); --edge:rgba(200,170,110,.32);
+  --fg:#F0E6D2; --muted:#A09B8C; --faint:#5F6067;
+  --gold:#C8AA6E; --gold-grad:linear-gradient(180deg,#F7EEDB 0%,#C8AA6E 55%,#8A6A30 100%);
+  --hex:#0AC8B9; --hex-hi:#CDFAFA; --warn:#E8C670; --loss:#E84057;
+  --model:#CFC6B4; --grid:#16303B;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter","Segoe UI",Roboto,sans-serif;
+  --display:"Cinzel","Trajan Pro",Georgia,serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;background:var(--bg)}
+body{margin:0;color:var(--fg);font:400 15px/1.45 var(--font);-webkit-font-smoothing:antialiased;
+  background:radial-gradient(1000px 480px at 50% -160px,rgba(10,200,185,.11),transparent 62%),var(--bg);
+  padding-bottom:env(safe-area-inset-bottom)}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--hex);outline-offset:2px}
+[hidden]{display:none!important}
+.num{font-variant-numeric:tabular-nums}
+.wrap{max-width:1400px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
+
+header.top{position:sticky;top:0;z-index:20;background:rgba(2,10,19,.82);-webkit-backdrop-filter:saturate(160%) blur(20px);backdrop-filter:saturate(160%) blur(20px);padding-top:env(safe-area-inset-top)}
+header.top::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:linear-gradient(90deg,transparent,rgba(200,170,110,.55) 30%,rgba(240,230,210,.7) 50%,rgba(200,170,110,.55) 70%,transparent)}
+.bar{display:flex;align-items:center;gap:12px;min-height:54px;padding-block:8px}
+.brand{display:flex;align-items:center;gap:10px;flex:none}
+.brand img{width:30px;height:30px;border-radius:8px}
+.brand b{font:700 17px/1 var(--display);letter-spacing:.14em;background:var(--gold-grad);-webkit-background-clip:text;background-clip:text;color:transparent;white-space:nowrap}
+.fname{min-width:0;flex:1;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fname b{color:var(--fg);font-weight:600}
+.actions{display:flex;gap:8px;flex:none}
+
+.btn{height:34px;padding:0 14px;border-radius:999px;border:1px solid var(--sep);background:rgba(1,10,19,.55);font-size:13px;font-weight:600;color:var(--fg);transition:border-color .15s,background .15s;white-space:nowrap}
+.btn:hover{border-color:var(--edge)}
+.btn.gold{border-color:rgba(200,170,110,.6);background:linear-gradient(180deg,rgba(200,170,110,.22),rgba(200,170,110,.08));color:var(--fg)}
+.btn.gold:hover{border-color:var(--gold)}
+.btn[aria-pressed="true"]{border-color:var(--hex);background:rgba(10,200,185,.14);color:var(--hex-hi)}
+
+main{padding-block:16px 28px}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;align-items:start}
+@media (max-width:900px){.layout{grid-template-columns:minmax(0,1fr)}}
+
+.stage{position:relative;background:var(--stage);border:1px solid var(--sep);border-radius:16px;overflow:hidden;height:calc(100vh - 54px - env(safe-area-inset-top) - 46px);min-height:420px}
+@media (max-width:900px){.stage{height:64vh;min-height:360px}}
+.stage canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+.stage canvas:active{cursor:grabbing}
+.stage.drag{border-color:var(--hex);box-shadow:inset 0 0 0 2px rgba(10,200,185,.5)}
+.hint{position:absolute;top:12px;left:14px;right:14px;font-size:12px;color:var(--muted);pointer-events:none}
+.hint b{color:var(--hex);font-weight:700;letter-spacing:.04em}
+.hint .warn{color:var(--warn)}
+
+.empty,.status{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center}
+.empty-box{max-width:420px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.empty-box img{width:84px;height:84px;border-radius:20px;opacity:.95}
+.empty-box h1{margin:4px 0 0;font:700 24px/1.15 var(--display);letter-spacing:.04em;background:var(--gold-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.empty-box p{margin:0;color:var(--muted)}
+.empty-box .small{font-size:12.5px;color:var(--faint);max-width:44ch}
+.drop{border:1.5px dashed var(--edge);border-radius:16px;padding:22px 26px;display:flex;flex-direction:column;align-items:center;gap:12px;background:rgba(1,10,19,.35)}
+.stage.drag .drop{border-color:var(--hex)}
+
+.status{background:rgba(5,16,26,.7);font-size:13px;color:var(--muted)}
+.status .pbar{width:220px;height:3px;background:var(--sep);border-radius:2px;margin:10px auto 0;overflow:hidden}
+.status .pbar i{display:block;height:100%;width:0;background:var(--hex);transition:width .15s}
+.status .err{color:var(--fg);max-width:46ch}
+.status .err b{color:var(--loss)}
+
+.toolbar{position:absolute;left:12px;right:12px;bottom:12px;display:flex;flex-wrap:wrap;gap:6px;justify-content:space-between;pointer-events:none}
+.toolbar .group{display:flex;flex-wrap:wrap;gap:6px;pointer-events:auto}
+.toolbar .btn{height:32px;padding:0 12px;font-size:12.5px;background:rgba(2,10,19,.78)}
+
+aside{display:flex;flex-direction:column;gap:12px;min-width:0}
+.card{background:linear-gradient(180deg,var(--card2),var(--card));border:1px solid var(--sep);border-radius:16px;padding:16px;min-width:0}
+.over{font:700 11.5px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--hex);margin:0 0 10px}
+dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:7px 14px}
+dt{color:var(--muted);font-size:13.5px}
+dd{margin:0;text-align:right;font-size:13.5px;font-weight:600;font-variant-numeric:tabular-nums}
+.note{font-size:12.5px;color:var(--muted);margin:10px 0 0}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{height:30px;padding:0 11px;border-radius:999px;border:1px solid var(--sep);background:rgba(1,10,19,.5);font-size:12.5px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
+.chip:hover{color:var(--fg);border-color:var(--edge)}
+.chip[aria-pressed="true"]{color:var(--hex-hi);border-color:var(--hex);background:rgba(10,200,185,.14)}
+.chip:disabled{opacity:.45;cursor:default}
+.scale-row{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13.5px;color:var(--muted)}
+.scale-row input{width:80px;height:32px;font:600 14px var(--font);font-variant-numeric:tabular-nums;padding:0 10px;border-radius:8px;border:1px solid var(--sep);background:rgba(1,10,19,.6);color:var(--fg)}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-top:12px}
+.state{font-size:12.5px;color:var(--muted)}
+.state.ok{color:var(--hex)}
+
+/* Calibrage plein écran */
+.calib{position:fixed;inset:0;z-index:50;background:var(--bg);overflow:auto;display:flex;justify-content:center;
+  padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));
+  padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
+.calib-box{width:100%;max-width:560px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;padding-block:8px}
+.calib-box h2{margin:0;font:700 22px/1.15 var(--display);letter-spacing:.04em;background:var(--gold-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.calib-box p{margin:0;color:var(--muted);max-width:46ch}
+.cardshape{box-sizing:border-box;border:2px dashed var(--hex);display:grid;place-items:center;font-size:12px;color:var(--muted);flex:none}
+.calib-ctrl{display:flex;align-items:center;gap:8px;width:min(380px,100%)}
+.calib-ctrl input[type=range]{flex:1;min-width:0;accent-color:var(--hex)}
+.calib-val{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+.calib-actions{display:flex;gap:8px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<script type="importmap">
+{ "imports": { "three": "./lib/three.module.js" } }
+</script>
+</head>
+<body>
+<header class="top">
+  <div class="wrap bar">
+    <div class="brand"><img src="icons/icon-192.png" alt=""><b>ATELIER 3D</b></div>
+    <div class="fname" id="fname">Aucun fichier ouvert</div>
+    <div class="actions">
+      <button class="btn" id="install" type="button" hidden>Installer</button>
+      <button class="btn gold" id="openBtn" type="button" title="Ctrl + O">Ouvrir un fichier</button>
+    </div>
+  </div>
+</header>
+
+<input id="fileInput" type="file" accept=".3mf,.stl,model/3mf,model/stl" hidden>
+
+<main class="wrap">
+  <div class="layout">
+    <div class="stage" id="stage">
+      <div class="hint" id="hint" hidden></div>
+
+      <div class="empty" id="empty">
+        <div class="empty-box">
+          <img src="icons/icon-192.png" alt="">
+          <h1>Ouvre un modèle 3D</h1>
+          <div class="drop">
+            <p>Glisse un fichier <b>.3mf</b> ou <b>.stl</b> ici</p>
+            <button class="btn gold" id="openBtn2" type="button">Choisir un fichier</button>
+          </div>
+          <p class="small">Le fichier reste sur ton PC : il est lu ici, rien n'est envoyé en ligne. Une fois l'app installée, clic droit sur un .3mf ou un .stl → Ouvrir avec → Atelier 3D.</p>
+        </div>
+      </div>
+
+      <div class="status" id="status" hidden>
+        <div>
+          <div id="statusText">Lecture…</div>
+          <div class="pbar" id="pbar"><i id="pfill"></i></div>
+        </div>
+      </div>
+
+      <div class="toolbar" id="toolbar" hidden>
+        <div class="group" role="group" aria-label="Vues">
+          <button class="btn" id="v-front" type="button">Face</button>
+          <button class="btn" id="v-side" type="button">Côté</button>
+          <button class="btn" id="v-back" type="button">Dos</button>
+          <button class="btn" id="v-top" type="button">Dessus</button>
+        </div>
+        <div class="group">
+          <button class="btn" id="t-real" type="button" aria-pressed="true">Taille réelle 1:1</button>
+          <button class="btn" id="t-spin" type="button" aria-pressed="false">Rotation auto</button>
+          <button class="btn" id="t-grid" type="button" aria-pressed="true">Grille 10 mm</button>
+        </div>
+      </div>
+    </div>
+
+    <aside>
+      <section class="card">
+        <h2 class="over">Dimensions</h2>
+        <dl>
+          <dt>Hauteur</dt><dd id="d-h">—</dd>
+          <dt>Largeur</dt><dd id="d-w">—</dd>
+          <dt>Profondeur</dt><dd id="d-d">—</dd>
+          <dt>Socle (Ø au sol)</dt><dd id="d-b">—</dd>
+          <dt>Résine si plein</dt><dd id="d-v">—</dd>
+        </dl>
+        <p class="note">Le volume n'est juste que si le modèle est fermé. Évidé, il faut nettement moins de résine.</p>
+      </section>
+
+      <section class="card">
+        <h2 class="over">Échelle</h2>
+        <div class="chips" role="group" aria-label="Diamètre du socle">
+          <button class="chip" type="button" data-base="25" disabled>Ø 25</button>
+          <button class="chip" type="button" data-base="32" disabled>Ø 32</button>
+          <button class="chip" type="button" data-base="40" disabled>Ø 40</button>
+          <button class="chip" type="button" data-base="50" disabled>Ø 50</button>
+          <button class="chip" type="button" data-base="60" disabled>Ø 60</button>
+          <button class="chip" type="button" data-base="0" aria-pressed="true" disabled>Origine</button>
+        </div>
+        <label class="scale-row" for="scaleInput">Échelle <input id="scaleInput" type="number" min="5" max="400" step="1" value="100" disabled> %</label>
+        <p class="note">Choisis le diamètre du socle voulu : toutes les cotes suivent, et en 1:1 la figurine change de taille à l'écran.</p>
+      </section>
+
+      <section class="card">
+        <h2 class="over">Taille réelle</h2>
+        <p class="note" style="margin-top:0">En 1:1, 1 mm du modèle fait 1 mm sur ton écran. Calibre une fois avec une carte bancaire. À refaire si tu changes d'écran ou de zoom.</p>
+        <div class="row">
+          <button class="btn" id="calibOpen" type="button">Calibrer l'écran</button>
+          <span class="state" id="calibState">non calibré</span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="over">Fichier</h2>
+        <dl>
+          <dt>Triangles</dt><dd id="m-t">—</dd>
+          <dt>Sommets</dt><dd id="m-v">—</dd>
+          <dt>Objets</dt><dd id="m-o">—</dd>
+          <dt>Taille du fichier</dt><dd id="m-s">—</dd>
+          <dt>Lu en</dt><dd id="m-time">—</dd>
+        </dl>
+      </section>
+    </aside>
+  </div>
+</main>
+
+<div class="calib" id="calib" hidden role="dialog" aria-modal="true" aria-labelledby="calibTitle">
+  <div class="calib-box">
+    <h2 id="calibTitle">Calibrer la taille réelle</h2>
+    <p>Pose une carte bancaire contre l'écran, dans le rectangle. Ajuste le curseur jusqu'à ce que le rectangle ait exactement la taille de la carte.</p>
+    <div class="calib-ctrl">
+      <button class="btn" id="calibMinus" type="button" aria-label="Plus petit">−</button>
+      <input id="calibRange" type="range" min="2" max="10" step="0.01" aria-label="Pixels par millimètre">
+      <button class="btn" id="calibPlus" type="button" aria-label="Plus grand">+</button>
+    </div>
+    <div class="calib-val" id="calibVal"></div>
+    <div class="calib-actions">
+      <button class="btn" id="calibReset" type="button">Réinitialiser</button>
+      <button class="btn gold" id="calibDone" type="button">Terminé</button>
+    </div>
+    <div class="cardshape" id="calibCard">54 × 85,6 mm</div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from './lib/OrbitControls.js';
+
+const CARD = { w: 53.98, h: 85.6, r: 3.18 };           // carte bancaire ISO ID-1, en portrait
+const NOMINAL = 96 / 25.4;                              // px CSS par mm selon la norme CSS
+const STORE_KEY = 'atelier3d.pxPerMm';
+
+const $ = (id) => document.getElementById(id);
+const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmt = (v, dec = 1) => v.toLocaleString('fr-CH', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+const fmtInt = (v) => v.toLocaleString('fr-CH');
+
+const stage = $('stage');
+const hint = $('hint');
+
+let pxPerMm = NOMINAL;
+let calibrated = false;
+try {
+  const v = parseFloat(localStorage.getItem(STORE_KEY));
+  if (v > 1 && v < 20) { pxPerMm = v; calibrated = true; }
+} catch (e) { /* stockage indisponible */ }
+
+// ---------- Scène ----------
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+stage.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(css('--stage'));
+const persp = new THREE.PerspectiveCamera(32, 1, 1, 5000);
+const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 5000);
+let realSize = true;
+let spinOn = false;
+let camera = ortho;
+let controls = makeControls(camera);
+
+function makeControls(cam, prevTarget) {
+  const c = new OrbitControls(cam, renderer.domElement);
+  c.enableDamping = true;
+  c.dampingFactor = 0.08;
+  c.autoRotateSpeed = 1.6;
+  c.autoRotate = spinOn;
+  c.enableZoom = !realSize;           // en 1:1 le zoom est fixé par le calibrage
+  if (prevTarget) c.target.copy(prevTarget);
+  return c;
+}
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x2b3a44, 1.05));
+const key = new THREE.DirectionalLight(0xfff4e2, 2.0);
+key.position.set(-120, 180, 160);
+scene.add(key);
+const rim = new THREE.DirectionalLight(0x9fe8ff, 1.0);
+rim.position.set(140, 90, -160);
+scene.add(rim);
+const fill = new THREE.DirectionalLight(0xffffff, 0.35);
+fill.position.set(80, 20, 120);
+scene.add(fill);
+
+const material = new THREE.MeshStandardMaterial({ color: new THREE.Color(css('--model')), roughness: 0.58, metalness: 0 });
+const gridColor = new THREE.Color(css('--grid'));
+const grid = new THREE.GridHelper(400, 40, gridColor, gridColor);
+grid.visible = false;
+scene.add(grid);
+
+function viewSize() { return { w: Math.max(stage.clientWidth, 1), h: Math.max(stage.clientHeight, 1) }; }
+function updateOrtho() {
+  const { w, h } = viewSize();
+  const W = w / pxPerMm, H = h / pxPerMm;      // champ visible en millimètres réels
+  ortho.left = -W / 2; ortho.right = W / 2; ortho.top = H / 2; ortho.bottom = -H / 2;
+  ortho.zoom = 1;
+  ortho.updateProjectionMatrix();
+}
+function resize() {
+  const { w, h } = viewSize();
+  renderer.setSize(w, h, false);
+  persp.aspect = w / h;
+  persp.updateProjectionMatrix();
+  updateOrtho();
+}
+new ResizeObserver(resize).observe(stage);
+resize();
+
+function updateHint() {
+  hint.innerHTML = realSize
+    ? '<b>1:1</b>' + (calibrated ? '' : ' <span class="warn">(écran non calibré)</span>') + ' · glisser pour tourner · clic droit pour déplacer'
+    : 'Glisser pour tourner · molette pour zoomer · clic droit pour déplacer';
+}
+updateHint();
+
+let mesh = null;
+let info = null;       // mesures d'origine du modèle ouvert
+let scale = 1;
+const target = new THREE.Vector3();
+const VIEWS = {
+  front: new THREE.Vector3(0, 0.18, 1),
+  side: new THREE.Vector3(1, 0.18, 0),
+  back: new THREE.Vector3(0, 0.18, -1),
+  top: new THREE.Vector3(0, 1, 0.001),
+};
+
+function currentDir() {
+  const d = camera.position.clone().sub(controls.target);
+  return d.lengthSq() > 1e-9 ? d.normalize() : VIEWS.front.clone();
+}
+
+function frame(dir) {
+  if (!mesh) return;
+  const box = new THREE.Box3().setFromObject(mesh);
+  const size = box.getSize(new THREE.Vector3());
+  box.getCenter(target);
+  const radius = Math.max(size.length() / 2, 1);
+  const d = dir.clone().normalize();
+  if (realSize) {
+    const dist = Math.max(radius * 4, 300);
+    ortho.position.copy(target).addScaledVector(d, dist);
+    ortho.near = 0.1;
+    ortho.far = dist + radius * 4 + 200;
+    updateOrtho();
+  } else {
+    const fov = THREE.MathUtils.degToRad(persp.fov);
+    const fitH = radius / Math.sin(fov / 2);
+    const fitW = fitH / Math.min(persp.aspect, 1);
+    const dist = Math.max(fitH, fitW) * 0.82;
+    persp.position.copy(target).addScaledVector(d, dist);
+    persp.near = dist / 100; persp.far = dist * 20;
+    persp.updateProjectionMatrix();
+  }
+  controls.target.copy(target);
+  controls.update();
+}
+
+for (const k of Object.keys(VIEWS)) $('v-' + k).addEventListener('click', () => frame(VIEWS[k]));
+
+$('t-real').addEventListener('click', () => {
+  const dir = currentDir();
+  const prevTarget = controls.target.clone();
+  realSize = !realSize;
+  $('t-real').setAttribute('aria-pressed', String(realSize));
+  controls.dispose();
+  camera = realSize ? ortho : persp;
+  controls = makeControls(camera, prevTarget);
+  frame(dir);
+  updateHint();
+});
+$('t-spin').addEventListener('click', () => {
+  spinOn = !spinOn;
+  controls.autoRotate = spinOn;
+  $('t-spin').setAttribute('aria-pressed', String(spinOn));
+});
+$('t-grid').addEventListener('click', () => {
+  const on = $('t-grid').getAttribute('aria-pressed') !== 'true';
+  $('t-grid').setAttribute('aria-pressed', String(on));
+  grid.visible = on && !!mesh;
+});
+
+// ---------- Échelle ----------
+const scaleInput = $('scaleInput');
+const chips = [...document.querySelectorAll('.chip')];
+function setScale(s, from) {
+  if (!info) return;
+  scale = Math.min(4, Math.max(0.05, s));
+  $('d-h').textContent = fmt(info.h * scale) + ' mm';
+  $('d-w').textContent = fmt(info.w * scale) + ' mm';
+  $('d-d').textContent = fmt(info.d * scale) + ' mm';
+  $('d-b').textContent = fmt(info.footprint * scale) + ' mm';
+  const ml = info.volume * scale ** 3 / 1000;
+  $('d-v').textContent = '≈ ' + fmt(ml, ml < 10 ? 2 : 1) + ' ml';
+  if (from !== 'input') scaleInput.value = String(Math.round(scale * 1000) / 10);
+  chips.forEach(c => {
+    const b = Number(c.dataset.base);
+    const match = b === 0 ? Math.abs(scale - 1) < 1e-6 : Math.abs(info.footprint * scale - b) < 0.05;
+    c.setAttribute('aria-pressed', String(match));
+  });
+  if (mesh) { mesh.scale.setScalar(scale); frame(currentDir()); }
+}
+chips.forEach(c => c.addEventListener('click', () => {
+  const b = Number(c.dataset.base);
+  setScale(b === 0 ? 1 : b / info.footprint);
+}));
+scaleInput.addEventListener('input', () => {
+  const v = parseFloat(scaleInput.value.replace(',', '.'));
+  if (Number.isFinite(v) && v > 0) setScale(v / 100, 'input');
+});
+
+// ---------- Calibrage ----------
+const calib = $('calib');
+const calibCard = $('calibCard');
+const calibRange = $('calibRange');
+function updateCalibState() {
+  const el = $('calibState');
+  el.textContent = calibrated ? 'calibré · ' + fmt(pxPerMm, 2) + ' px/mm' : 'non calibré, taille approximative';
+  el.classList.toggle('ok', calibrated);
+  updateHint();
+}
+function renderCard() {
+  calibCard.style.width = (CARD.w * pxPerMm) + 'px';
+  calibCard.style.height = (CARD.h * pxPerMm) + 'px';
+  calibCard.style.borderRadius = (CARD.r * pxPerMm) + 'px';
+  $('calibVal').textContent = fmt(pxPerMm, 2) + ' px/mm';
+}
+function setPx(v, save) {
+  pxPerMm = Math.min(10, Math.max(2, v));
+  calibRange.value = String(pxPerMm);
+  renderCard();
+  updateOrtho();
+  if (save) {
+    calibrated = true;
+    try { localStorage.setItem(STORE_KEY, String(pxPerMm)); } catch (e) { /* ignoré */ }
+  }
+  updateCalibState();
+}
+calibRange.addEventListener('input', () => setPx(parseFloat(calibRange.value), true));
+$('calibMinus').addEventListener('click', () => setPx(pxPerMm - 0.02, true));
+$('calibPlus').addEventListener('click', () => setPx(pxPerMm + 0.02, true));
+$('calibReset').addEventListener('click', () => {
+  calibrated = false;
+  try { localStorage.removeItem(STORE_KEY); } catch (e) { /* ignoré */ }
+  setPx(NOMINAL, false);
+});
+function closeCalib() { calib.hidden = true; $('calibOpen').focus(); }
+$('calibOpen').addEventListener('click', () => { setPx(pxPerMm, false); calib.hidden = false; calibRange.focus(); });
+$('calibDone').addEventListener('click', closeCalib);
+calibRange.value = String(pxPerMm);
+updateCalibState();
+
+// ---------- Ouverture des fichiers ----------
+const fileInput = $('fileInput');
+const statusEl = $('status');
+const statusText = $('statusText');
+const pfill = $('pfill');
+let worker = null;
+
+function pickFile() { fileInput.click(); }
+$('openBtn').addEventListener('click', pickFile);
+$('openBtn2').addEventListener('click', pickFile);
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) openFile(fileInput.files[0]); fileInput.value = ''; });
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !calib.hidden) { closeCalib(); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') { e.preventDefault(); pickFile(); }
+});
+
+let dragDepth = 0;
+window.addEventListener('dragenter', (e) => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) { dragDepth++; stage.classList.add('drag'); } });
+window.addEventListener('dragleave', () => { dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) stage.classList.remove('drag'); });
+window.addEventListener('dragover', (e) => { e.preventDefault(); });
+window.addEventListener('drop', (e) => {
+  e.preventDefault(); dragDepth = 0; stage.classList.remove('drag');
+  const f = e.dataTransfer && e.dataTransfer.files[0];
+  if (f) openFile(f);
+});
+
+// Ouverture depuis l'Explorateur (« Ouvrir avec » une fois l'app installée)
+if ('launchQueue' in window) {
+  window.launchQueue.setConsumer(async (params) => {
+    if (!params.files || !params.files.length) return;
+    try { openFile(await params.files[0].getFile()); } catch (e) { showError("le fichier n'a pas pu être ouvert depuis l'Explorateur"); }
+  });
+}
+
+function showStatus(text, p) {
+  statusEl.hidden = false;
+  statusText.textContent = text;
+  $('pbar').hidden = p == null;
+  if (p != null) pfill.style.width = Math.round(p * 100) + '%';
+}
+function showError(msg) {
+  statusEl.hidden = false;
+  $('pbar').hidden = true;
+  statusText.innerHTML = '';
+  const d = document.createElement('div');
+  d.className = 'err';
+  const b = document.createElement('b'); b.textContent = 'Lecture impossible. ';
+  d.append(b, document.createTextNode('Ce fichier n\'a pas pu être lu (' + msg + '). Vérifie qu\'il s\'agit bien d\'un .3mf ou d\'un .stl.'));
+  const again = document.createElement('button');
+  again.className = 'btn gold'; again.type = 'button'; again.textContent = 'Choisir un autre fichier';
+  again.style.marginTop = '14px';
+  again.addEventListener('click', pickFile);
+  statusText.append(d, again);
+}
+
+function openFile(file) {
+  if (!/\.(3mf|stl)$/i.test(file.name)) { showError('format non pris en charge : seuls .3mf et .stl sont lus'); $('empty').hidden = true; return; }
+  if (worker) worker.terminate();
+  $('empty').hidden = true;
+  const sizeMb = file.size / 1048576;
+  showStatus('Lecture de ' + file.name + '…', 0);
+  const t0 = performance.now();
+  worker = new Worker('./parser.js', { type: 'module' });
+  worker.onmessage = (e) => {
+    const m = e.data;
+    if (m.type === 'progress') {
+      if (m.phase === 'lecture') showStatus('Lecture de ' + file.name + '… ' + Math.round(m.p * 100) + ' %', m.p);
+      else showStatus('Calcul des mesures…', 1);
+    } else if (m.type === 'done') {
+      worker.terminate(); worker = null;
+      showModel(file, m, sizeMb, (performance.now() - t0) / 1000);
+    } else if (m.type === 'error') {
+      worker.terminate(); worker = null;
+      showError(m.message);
+    }
+  };
+  worker.onerror = (e) => { e.preventDefault(); showError('le lecteur a rencontré une erreur'); };
+  worker.postMessage({ name: file.name, file });
+}
+
+function showModel(file, m, sizeMb, secs) {
+  if (mesh) { scene.remove(mesh); mesh.geometry.dispose(); mesh = null; }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(m.pos, 3));
+  geo.setAttribute('normal', new THREE.BufferAttribute(m.nrm, 3));
+  geo.setIndex(new THREE.BufferAttribute(m.idx, 1));
+  geo.computeBoundingBox();
+  geo.computeBoundingSphere();
+  mesh = new THREE.Mesh(geo, material);
+  scene.add(mesh);
+  info = m.stats;
+
+  const fn = $('fname'); fn.textContent = '';
+  const b = document.createElement('b'); b.textContent = file.name; fn.append(b);
+  document.title = file.name.replace(/\.(3mf|stl)$/i, '') + ' · Atelier 3D';
+  $('m-t').textContent = fmtInt(info.tris);
+  $('m-v').textContent = fmtInt(info.verts);
+  $('m-o').textContent = fmtInt(info.objects);
+  $('m-s').textContent = fmt(sizeMb, sizeMb < 10 ? 1 : 0) + ' Mo';
+  $('m-time').textContent = fmt(secs, 1) + ' s';
+
+  chips.forEach(c => { c.disabled = false; });
+  scaleInput.disabled = false;
+  grid.visible = $('t-grid').getAttribute('aria-pressed') === 'true';
+  $('toolbar').hidden = false;
+  hint.hidden = false;
+  statusEl.hidden = true;
+  setScale(1);
+  frame(VIEWS.front);
+}
+
+renderer.setAnimationLoop(() => {
+  controls.update();
+  renderer.render(scene, camera);
+});
+
+// ---------- Installation (Chrome, Edge) ----------
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+let deferredInstall = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredInstall = e; $('install').hidden = false; });
+$('install').addEventListener('click', async () => {
+  if (!deferredInstall) return;
+  deferredInstall.prompt();
+  await deferredInstall.userChoice.catch(() => null);
+  deferredInstall = null; $('install').hidden = true;
+});
+window.addEventListener('appinstalled', () => { $('install').hidden = true; });
+</script>
+</body>
+</html>

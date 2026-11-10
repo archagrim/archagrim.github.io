@@ -1,0 +1,43 @@
+{
+  "name": "Atelier 3D",
+  "short_name": "Atelier 3D",
+  "description": "Visionneuse de fichiers 3MF et STL en taille réelle, pour préparer mes impressions.",
+  "lang": "fr",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#010A13",
+  "theme_color": "#010A13",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "file_handlers": [
+    {
+      "action": "./",
+      "accept": {
+        "model/3mf": [".3mf"],
+        "model/stl": [".stl"],
+        "application/vnd.ms-pki.stl": [".stl"]
+      }
+    }
+  ],
+  "launch_handler": {
+    "client_mode": "focus-existing"
+  }
+}
