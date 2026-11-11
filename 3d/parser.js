@@ -882,6 +882,18 @@ export async function cutMesh(pos, idx, y0) {
 // Retouches demandées depuis la page : réparation, puis coupe du socle ; renvoie un modèle posé au sol
 export async function editModel(pos, idx, opts) {
   let report = null, cut = null;
+  if (opts.rot) {
+    // nouvelle orientation (quaternion), puis reposé au sol
+    const [qx, qy, qz, qw] = opts.rot;
+    for (let i = 0; i < pos.length; i += 3) {
+      const x = pos[i], y = pos[i + 1], z = pos[i + 2];
+      const tx = 2 * (qy * z - qz * y), ty = 2 * (qz * x - qx * z), tz = 2 * (qx * y - qy * x);
+      pos[i] = x + qw * tx + (qy * tz - qz * ty);
+      pos[i + 1] = y + qw * ty + (qz * tx - qx * tz);
+      pos[i + 2] = z + qw * tz + (qx * ty - qy * tx);
+    }
+    place(pos);
+  }
   if (opts.repair) { const r = repairMesh(pos, idx); pos = r.pos; idx = r.idx; report = r.report; }
   if (opts.cut > 0) { const r = await cutMesh(pos, idx, opts.cut); pos = r.pos; idx = r.idx; cut = { loops: r.loops, capped: r.capped, open: r.open }; }
   const offset = place(pos);

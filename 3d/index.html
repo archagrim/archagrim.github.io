@@ -588,6 +588,11 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
     <section class="group" id="printGroup">
       <h2>Impression</h2>
       <p class="state muted" id="editBusy" hidden><i class="spin"></i><span>Calcul en cours…</span></p>
+      <h3 class="sub">Orientation</h3>
+      <div class="row-btns"><button class="btn" id="rotAuto" type="button" disabled>Redresser le socle</button><button class="btn" id="rotPick" type="button" disabled>Choisir la face du dessous</button><button class="btn plain" id="rotReset" type="button" hidden>Remettre</button></div>
+      <label class="slider"><span>Avant</span><input id="rotX" type="range" min="-45" max="45" step="0.5" value="0" disabled><output id="rotXOut">0°</output></label>
+      <label class="slider"><span>Côté</span><input id="rotZ" type="range" min="-45" max="45" step="0.5" value="0" disabled><output id="rotZOut">0°</output></label>
+      <p class="foot">« Redresser le socle » met le dessous du socle bien à plat. Ou cliquez sur la face qui doit toucher le sol, puis affinez avec les curseurs. L'orientation est gardée avec la taille.</p>
       <h3 class="sub">Couper le socle</h3>
       <label class="slider"><span>Hauteur</span><input id="cutRange" type="range" min="0" max="20" step="0.1" value="0" disabled><output id="cutOut">Aucune</output></label>
       <div class="row-btns"><button class="btn" id="cutSuggest" type="button" disabled>Proposer</button><button class="btn plain" id="cutReset" type="button" hidden>Remettre le socle</button></div>
@@ -1235,7 +1240,7 @@ function clearPanel() {
   renderCheck(null);
   $('keepInfo').textContent = ''; $('keepForget').hidden = true; $('keepBtn').hidden = false; $('keepBtn').textContent = 'Garder cette taille';
   rodSel = null; placing = null; stage.classList.remove('placing'); gizmo.detach(); cutDragging = null;
-  updateCutUI(); renderRods(); $('editBusy').hidden = true;
+  updateCutUI(); updateRotUI(); renderRods(); $('editBusy').hidden = true;
 }
 const mm = (v) => fmt(v) + ' mm';
 const ml = (v) => '≈ ' + fmt(v, v < 10 ? 2 : 1) + ' ml';
@@ -1290,6 +1295,7 @@ const sizeKey = (name, bytes) => String(name).toLowerCase() + '|' + bytes;
 let kept = {};
 try { kept = JSON.parse(localStorage.getItem(SIZES_KEY) || '{}') || {}; } catch (e) { kept = {}; }
 function keptScale(name, bytes) { const k = kept[sizeKey(name, bytes)]; return k && k.s ? k.s : null; }
+function keptRot(name, bytes) { const k = kept[sizeKey(name, bytes)]; return k && k.s && Array.isArray(k.r) && k.r.length === 4 ? { q0: k.r.slice(), ax: 0, az: 0 } : null; }
 function keptCut(name, bytes) { const k = kept[sizeKey(name, bytes)]; return k && k.s && k.c > 0 ? k.c : 0; }
 function saveKept() {
   try { localStorage.setItem(SIZES_KEY, JSON.stringify(kept)); return true; }
@@ -1300,9 +1306,11 @@ function updateKeep() {
   const it = items.find(i => i.id === shownId);
   const btn = $('keepBtn'), forget = $('keepForget'), txt = $('keepInfo');
   if (!it || !info) { btn.hidden = false; btn.textContent = 'Garder cette taille'; forget.hidden = true; txt.textContent = ''; return; }
-  const k = keptScale(it.name, it.size), kc = keptCut(it.name, it.size);
-  const same = k && Math.abs(k - it.scale) < 1e-4 && Math.abs(kc - (it.edit.cut || 0)) < 0.01;
-  txt.textContent = k ? 'Taille gardée : ' + pctText(k) + (kc ? ', socle coupé' : '') : '';
+  const k = keptScale(it.name, it.size), kc = keptCut(it.name, it.size), kr = keptRot(it.name, it.size);
+  const q = rotQuat(it), krq = kr ? new THREE.Quaternion().fromArray(kr.q0) : null;
+  const sameRot = (!q && !krq) || (q && krq && q.angleTo(krq) < 1e-3);
+  const same = k && Math.abs(k - it.scale) < 1e-4 && Math.abs(kc - (it.edit.cut || 0)) < 0.01 && sameRot;
+  txt.textContent = k ? 'Taille gardée : ' + pctText(k) + (kc ? ', socle coupé' : '') + (kr ? ', redressée' : '') : '';
   forget.hidden = !k;
   btn.hidden = !!same;
   btn.textContent = k ? 'Garder ' + pctText(it.scale) : 'Garder cette taille';
@@ -1313,7 +1321,8 @@ function refreshKeptTiles(it) {
 $('keepBtn').addEventListener('click', () => {
   const it = items.find(i => i.id === shownId);
   if (!it) return;
-  kept[sizeKey(it.name, it.size)] = { s: it.scale, n: it.name, t: Date.now(), c: it.edit.cut || 0 };
+  const rq = rotQuat(it);
+  kept[sizeKey(it.name, it.size)] = { s: it.scale, n: it.name, t: Date.now(), c: it.edit.cut || 0, r: rq ? rq.toArray().map(v => Math.round(v * 1e6) / 1e6) : null };
   if (!saveKept()) return;
   updateKeep(); refreshKeptTiles(it);
   const msg = '<strong>' + esc(baseName(it.name)) + '</strong> se rouvrira à ' + pctText(it.scale) + ' (' + fmt(info.h * it.scale) + ' mm de haut).';
@@ -1353,13 +1362,13 @@ function mergeSizes(into, from) {
   let changed = false;
   for (const [k, v] of Object.entries(from || {})) {
     if (!v || typeof v.t !== 'number') continue;
-    if (!into[k] || !(into[k].t >= v.t)) { into[k] = { s: typeof v.s === 'number' && v.s > 0 ? v.s : null, n: String(v.n || ''), t: v.t, c: typeof v.c === 'number' && v.c > 0 ? v.c : 0 }; changed = true; }
+    if (!into[k] || !(into[k].t >= v.t)) { into[k] = { s: typeof v.s === 'number' && v.s > 0 ? v.s : null, n: String(v.n || ''), t: v.t, c: typeof v.c === 'number' && v.c > 0 ? v.c : 0, r: Array.isArray(v.r) && v.r.length === 4 ? v.r.map(Number) : null }; changed = true; }
   }
   return changed;
 }
 function sameSizes(a, b) {
   const ka = Object.keys(a || {});
-  return ka.length === Object.keys(b || {}).length && ka.every(k => b[k] && b[k].t === a[k].t && b[k].s === a[k].s && (b[k].c || 0) === (a[k].c || 0));
+  return ka.length === Object.keys(b || {}).length && ka.every(k => b[k] && b[k].t === a[k].t && b[k].s === a[k].s && (b[k].c || 0) === (a[k].c || 0) && JSON.stringify(b[k].r || null) === JSON.stringify(a[k].r || null));
 }
 async function mayWrite(r, ask) {
   if (r.h.disk) return true;
@@ -1501,6 +1510,7 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   if (!down || down.b !== 0) return;
   if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) return;   // un clic, pas un glisser
   if (gizmo.dragging || gizmo.axis) return;                              // les flèches d'une tige
+  if (placing === 'face') { faceFromClick(e.clientX, e.clientY); return; }
   if (placing) { const hp = pick(e.clientX, e.clientY); if (hp) rodFromClick(hp); return; }
   if (!measuring) { selectRodAt(e.clientX, e.clientY); return; }
   const h = pick(e.clientX, e.clientY);
@@ -1818,6 +1828,152 @@ function repairSummary(r, c) {
 }
 $('repairBtn').addEventListener('click', () => { const it = shownItem(); if (!it) return; it.edit.repair = true; it.repairToast = true; runEdit(it); renderCheck(it); });
 $('repairUndo').addEventListener('click', () => { const it = shownItem(); if (!it) return; it.edit.repair = false; runEdit(it); });
+
+// ----- Orientation : socle remis à plat -----
+// it.src : le modèle tel que lu dans le fichier ; l'orientation en fait une nouvelle base (it.orig ou it.data),
+// sur laquelle s'appliquent ensuite réparation et coupe. Rotation totale = curseurs × base (q0).
+const DEG = Math.PI / 180;
+function rotQuat(it) {
+  const r = it.edit && it.edit.rot;
+  if (!r) return null;
+  const q = new THREE.Quaternion().fromArray(r.q0 || [0, 0, 0, 1]);
+  const qs = new THREE.Quaternion().setFromEuler(new THREE.Euler((r.ax || 0) * DEG, 0, (r.az || 0) * DEG, 'XZY'));
+  q.premultiply(qs).normalize();
+  return q.angleTo(new THREE.Quaternion()) < 1e-4 ? null : q;
+}
+function runRotate(it, initial = false) {
+  if (it.editWorker) { it.editWorker.terminate(); it.editWorker = null; }
+  const cur = it.orig || it;
+  if (!it.src) it.src = { data: cur.data, stats: cur.stats, check: cur.check };
+  const src = it.src;
+  if (!src.data) return;
+  it.steps = null;
+  if (it.rods.length) {
+    it.rods = []; if (rodSel && rodSel.it === it) rodSel = null;
+    toast('<strong>Tiges retirées</strong> : replacez-les une fois l\'orientation réglée.');
+  }
+  const q = rotQuat(it);
+  const setBase = (b) => {
+    it.appliedRot = q ? q.toArray() : null;
+    if (it.orig) it.orig = b; else { it.data = b.data; it.stats = b.stats; it.check = b.check; }
+    it.offset = null;
+    if (needsEdit(it)) runEdit(it, initial);
+    else { it.orig = null; it.editing = false; editDone(it, initial, null); }
+  };
+  if (!q) { setBase({ data: src.data, stats: src.stats, check: src.check }); return; }
+  it.editing = true;
+  renderEditBusy();
+  const w = new Worker('./parser.js', { type: 'module' });
+  it.editWorker = w;
+  const pos = src.data.pos.slice(), idx = src.data.idx.slice();
+  const fail = (msg) => {
+    if (it.editWorker !== w) return;
+    w.terminate(); it.editWorker = null; it.editing = false;
+    toast('<strong>Orientation impossible.</strong> ' + esc(msg));
+    it.edit.rot = null; runRotate(it, initial);
+  };
+  w.onmessage = (e) => {
+    const m = e.data;
+    if (m.type === 'error') { fail(m.message); return; }
+    if (m.type !== 'edited' || it.editWorker !== w) return;
+    w.terminate(); it.editWorker = null; it.editing = false;
+    setBase({ data: { pos: m.pos, idx: m.idx, nrm: m.nrm }, stats: { ...m.stats, objects: src.stats.objects }, check: m.check });
+  };
+  w.onerror = (e) => { e.preventDefault(); fail('le calcul a échoué'); };
+  w.postMessage({ op: 'edit', pos, idx, rot: q.toArray(), cut: 0, repair: false, objects: src.stats.objects }, [pos.buffer, idx.buffer]);
+}
+function setRotation(it, q0, ax = 0, az = 0) {
+  it.edit.rot = { q0: q0.toArray(), ax, az };
+  if (!rotQuat(it)) it.edit.rot = null;
+  updateRotUI();
+  runRotate(it);
+  updateKeep();
+}
+// La rotation à appliquer à la base actuelle pour obtenir la rotation voulue (aperçu pendant le réglage)
+function previewRot(it) {
+  const e = entries().find(x => x.it === it);
+  if (!e) return;
+  const want = rotQuat(it) || new THREE.Quaternion();
+  const have = it.appliedRot ? new THREE.Quaternion().fromArray(it.appliedRot) : new THREE.Quaternion();
+  e.mesh.quaternion.copy(want.multiply(have.invert()));
+}
+function updateRotUI() {
+  const it = shownItem();
+  const on = !!(it && info);
+  for (const id of ['rotAuto', 'rotPick', 'rotX', 'rotZ']) $(id).disabled = !on;
+  const r = on && it.edit.rot;
+  $('rotX').value = String(r ? r.ax : 0); $('rotXOut').textContent = fmt(r ? r.ax : 0, 1) + '°';
+  $('rotZ').value = String(r ? r.az : 0); $('rotZOut').textContent = fmt(r ? r.az : 0, 1) + '°';
+  $('rotReset').hidden = !(on && rotQuat(it));
+  $('rotPick').textContent = placing === 'face' ? 'Annuler' : 'Choisir la face du dessous';
+}
+// Normale du dessous du socle : la grande face plate tournée vers le bas, dans le bas du modèle
+function baseNormal(data, h) {
+  const pos = data.pos, idx = data.idx, lim = h * 0.15;
+  let n = new THREE.Vector3(0, -1, 0);
+  for (let pass = 0; pass < 4; pass++) {
+    const cosLim = pass === 0 ? 0.5 : Math.cos(10 * DEG);
+    let sx = 0, sy = 0, sz = 0;
+    for (let t = 0; t < idx.length; t += 3) {
+      const a = idx[t] * 3, b = idx[t + 1] * 3, c = idx[t + 2] * 3;
+      if (pos[a + 1] > lim && pos[b + 1] > lim && pos[c + 1] > lim) continue;
+      const ux = pos[b] - pos[a], uy = pos[b + 1] - pos[a + 1], uz = pos[b + 2] - pos[a + 2];
+      const vx = pos[c] - pos[a], vy = pos[c + 1] - pos[a + 1], vz = pos[c + 2] - pos[a + 2];
+      const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+      const l = Math.hypot(nx, ny, nz);
+      if (!l || (nx * n.x + ny * n.y + nz * n.z) / l < cosLim) continue;
+      sx += nx; sy += ny; sz += nz;      // pondéré par l'aire
+    }
+    if (!sx && !sy && !sz) return null;
+    n.set(sx, sy, sz).normalize();
+  }
+  return n;
+}
+$('rotAuto').addEventListener('click', () => {
+  const it = shownItem();
+  const base = it && origOf(it);
+  if (!base || !base.data) return;
+  const n = baseNormal(base.data, base.stats.h);
+  if (!n) { toast('<strong>Pas de dessous plat trouvé.</strong> Cliquez plutôt sur la face qui doit toucher le sol.'); return; }
+  const fix = new THREE.Quaternion().setFromUnitVectors(n, new THREE.Vector3(0, -1, 0));
+  const ang = fix.angleTo(new THREE.Quaternion()) / DEG;
+  if (ang < 0.15) { toast('<strong>Le socle est déjà à plat</strong> (écart de ' + fmt(ang, 2) + '°).'); return; }
+  const q = fix.multiply(rotQuat(it) || new THREE.Quaternion());
+  setRotation(it, q);
+  toast('<strong>Socle redressé</strong> de ' + fmt(ang, 1) + '°.');
+});
+$('rotPick').addEventListener('click', () => { setPlacing(placing === 'face' ? null : 'face'); updateRotUI(); });
+$('rotReset').addEventListener('click', () => { const it = shownItem(); if (!it) return; it.edit.rot = null; updateRotUI(); runRotate(it); updateKeep(); });
+for (const [id, key] of [['rotX', 'ax'], ['rotZ', 'az']]) {
+  $(id).addEventListener('input', () => {
+    const it = shownItem();
+    if (!it) return;
+    if (!it.edit.rot) it.edit.rot = { q0: [0, 0, 0, 1], ax: 0, az: 0 };
+    it.edit.rot[key] = Number($(id).value);
+    $(id + 'Out').textContent = fmt(it.edit.rot[key], 1) + '°';
+    previewRot(it);
+  });
+  $(id).addEventListener('change', () => {
+    const it = shownItem();
+    if (!it || !it.edit.rot) return;
+    if (!rotQuat(it)) it.edit.rot = null;
+    updateRotUI(); runRotate(it); updateKeep();
+  });
+}
+const faceRay = new THREE.Raycaster();
+function faceFromClick(x, y) {
+  setPlacing(null); updateRotUI();
+  const it = shownItem();
+  const e = it && entries().find(v => v.it === it);
+  if (!e) return;
+  const r = renderer.domElement.getBoundingClientRect();
+  faceRay.setFromCamera(new THREE.Vector2(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1), camera);
+  const hit = faceRay.intersectObject(e.mesh, false)[0];
+  if (!hit || !hit.face) { toast('Cliquez sur la figurine elle-même.'); return; }
+  const n = hit.face.normal.clone().normalize();      // dans le repère du modèle affiché
+  const q = new THREE.Quaternion().setFromUnitVectors(n, new THREE.Vector3(0, -1, 0)).multiply(rotQuat(it) || new THREE.Quaternion());
+  setRotation(it, q);
+}
 
 // ----- Couper le socle -----
 const cutRange = $('cutRange');
@@ -2204,7 +2360,8 @@ async function recordTurntable() {
 function updateHint() {
   const parts = [];
   if (realSize) parts.push(calibrated ? '<span class="badge"><i></i>Taille réelle</span>' : '<span class="badge warn"><i></i>Taille réelle, écran non calibré</span>');
-  if (placing) parts.push('<span class="badge accent"><i></i>Tige</span><span>Cliquez sur la figurine à l\'endroit où placer la tige. Échap pour annuler.</span>');
+  if (placing === 'face') parts.push('<span class="badge accent"><i></i>Orientation</span><span>Cliquez sur la face qui doit toucher le sol. Échap pour annuler.</span>');
+  else if (placing) parts.push('<span class="badge accent"><i></i>Tige</span><span>Cliquez sur la figurine à l\'endroit où placer la tige. Échap pour annuler.</span>');
   else if (measuring) parts.push('<span class="badge accent"><i></i>Mesure</span><span>Cliquez deux points sur le modèle. Échap pour effacer.</span>');
   else parts.push(realSize ? '<span>Faites glisser pour tourner, clic droit pour déplacer.</span>' : '<span>Faites glisser pour tourner, molette pour zoomer, clic droit pour déplacer.</span>');
   if (lineup) parts.push('<span>Cliquez une étiquette pour afficher ses informations.</span>');
@@ -2285,7 +2442,7 @@ function addFiles(list) {
     const dup = items.find(it => it.name === f.name && it.size === f.size && it.file.lastModified === f.lastModified);
     if (dup) { firstExisting = firstExisting || dup; continue; }
     if (items.length >= MAX_FILES) { tooMany++; continue; }
-    const it = { id: ++seq, file: f, name: f.name, size: f.size, status: 'queued', progress: 0, data: null, stats: null, check: null, thumb: null, scale: keptScale(f.name, f.size) || 1, edit: { cut: keptCut(f.name, f.size), repair: false }, orig: null, offset: null, rods: [], secs: 0, error: null, lastUsed: 0, el: null };
+    const it = { id: ++seq, file: f, name: f.name, size: f.size, status: 'queued', progress: 0, data: null, stats: null, check: null, thumb: null, scale: keptScale(f.name, f.size) || 1, edit: { cut: keptCut(f.name, f.size), repair: false, rot: keptRot(f.name, f.size) }, orig: null, offset: null, rods: [], secs: 0, error: null, lastUsed: 0, el: null };
     items.push(it);
     firstNew = firstNew || it;
   }
@@ -2301,7 +2458,7 @@ function addFiles(list) {
 }
 
 const dataBytes = (d) => (d ? d.pos.byteLength + d.idx.byteLength + d.nrm.byteLength : 0);
-function bytesOf(it) { return dataBytes(it.data) + (it.orig ? dataBytes(it.orig.data) : 0); }
+function bytesOf(it) { const src = it.src && it.src.data !== it.data && !(it.orig && it.src.data === it.orig.data) ? dataBytes(it.src.data) : 0; return dataBytes(it.data) + (it.orig ? dataBytes(it.orig.data) : 0) + src; }
 
 function enforceBudget() {
   let total = items.reduce((s, it) => s + bytesOf(it), 0);
@@ -2311,7 +2468,7 @@ function enforceBudget() {
   for (const it of candidates) {
     if (total <= MEMORY_BUDGET) break;
     total -= bytesOf(it);
-    it.data = null; it.orig = null; it.offset = null;
+    it.data = null; it.orig = null; it.offset = null; it.src = null; it.appliedRot = null;
     it.status = 'sleeping';     // mesures, contrôle et vignette gardés, relu si on le rouvre
   }
 }
@@ -2346,7 +2503,9 @@ function startParse(it) {
       it.orig = null; it.offset = null;
       if (!it.secs) it.secs = (performance.now() - t0) / 1000;
       finish();
-      if (needsEdit(it)) runEdit(it, true);     // socle coupé gardé avec la taille, ou retouche faite avant la mise en veille
+      it.src = null; it.appliedRot = null;
+      if (rotQuat(it)) runRotate(it, true);
+      else if (needsEdit(it)) runEdit(it, true);     // socle coupé gardé avec la taille, ou retouche faite avant la mise en veille
       else onReady(it);
     } else if (m.type === 'error') {
       it.status = 'error'; it.error = m.message;
@@ -2476,7 +2635,7 @@ function showModelUI(it) {
   renderCheck(it);
   updateMarks();
   if (rodSel && rodSel.it !== it) rodSel = null;
-  updateCutUI(); renderRods(); attachGizmo(); renderEditBusy();
+  updateCutUI(); updateRotUI(); renderRods(); attachGizmo(); renderEditBusy();
 }
 
 function showItem(it) {
@@ -2732,7 +2891,7 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (e.key === 'Escape') {
-    if (placing) { setPlacing(null); return; }
+    if (placing) { setPlacing(null); updateRotUI(); return; }
     if (rodSel) { const it = rodSel.it; rodSel = null; refreshRods(it); return; }
     if (measuring && measPts.length) { clearMeasure(); return; }
     if (measuring) { setMeasuring(false); return; }
