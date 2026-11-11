@@ -199,6 +199,22 @@ dd.warn{color:var(--warn)}
 .field .box{display:flex;align-items:center;height:30px;border-radius:8px;background:var(--fill);padding:0 10px 0 4px}
 .field input{width:64px;height:28px;border:0;background:transparent;text-align:right;font:500 13px var(--font);font-variant-numeric:tabular-nums;color:var(--ink);padding:0 4px}
 .field input:focus{outline:none}
+.slider{display:grid;grid-template-columns:70px minmax(0,1fr) 54px;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--ink-2)}
+.slider input{width:100%;min-width:0;margin:0;accent-color:var(--accent)}
+.slider input:disabled{opacity:.45}
+.slider output{text-align:right;font-size:12.5px;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+.group h3.sub{margin:18px 0 0;font-size:12px;font-weight:600;color:var(--ink-2)}
+.group h2 + h3.sub,.group #editBusy + h3.sub{margin-top:4px}
+.row-btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.rods{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.rods:empty{display:none}
+.rods button{height:28px;border:0;border-radius:14px;background:var(--fill);padding:0 12px;font-size:12px;font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
+.rods button[aria-pressed="true"]{background:var(--accent);color:#fff}
+.seg2{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:10px}
+.rod-edit{margin-top:4px}
+.state i.spin,.state.muted i.spin{width:10px;height:10px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--accent);background:none;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.stage.placing canvas,.stage.placing canvas:active{cursor:crosshair}
 .keep{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:6px;margin-top:10px;font-size:13px;color:var(--ink-2);font-variant-numeric:tabular-nums}
 .keep span{margin-right:auto}
 .keep span:empty{display:none}
@@ -400,6 +416,8 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
   <symbol id="i-video" viewBox="0 0 16 16"><rect x="1.5" y="3.5" width="9.5" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M11 7l3.5-2v6L11 9" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></symbol>
   <symbol id="i-check" viewBox="0 0 12 12"><path d="M2.5 6.3l2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="i-folder" viewBox="0 0 64 64"><path d="M8 18a4 4 0 0 1 4-4h13l5 6h22a4 4 0 0 1 4 4v24a4 4 0 0 1-4 4H12a4 4 0 0 1-4-4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M32 27l9 5v10l-9 5-9-5V32z M23 32l9 5 9-5 M32 37v10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></symbol>
+  <symbol id="i-download" viewBox="0 0 16 16"><path d="M8 2v8.2M4.6 7l3.4 3.4L11.4 7M2.5 11.5v1.5a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-1.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-wrench" viewBox="0 0 16 16"><path d="M10.3 2.2a3.6 3.6 0 0 0-3.5 4.6L2.4 11.2a1.5 1.5 0 0 0 2.1 2.1l4.4-4.4a3.6 3.6 0 0 0 4.6-3.5l-2.1 2.1-2.1-.5-.5-2.1z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></symbol>
   <symbol id="i-warn" viewBox="0 0 16 16"><path d="M8 2.2l6.2 11H1.8z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 6.5v3.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="11.4" r=".8" fill="currentColor"/></symbol>
 </svg>
 
@@ -552,6 +570,10 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
         <button type="button" data-primer="white" aria-pressed="false">Blanche</button>
         <button type="button" data-primer="zenithal" aria-pressed="false">Zénithale</button>
       </div>
+      <label class="slider"><span>Direction</span><input id="lightAz" type="range" min="0" max="359" step="1"><output id="lightAzOut"></output></label>
+      <label class="slider"><span>Hauteur</span><input id="lightEl" type="range" min="5" max="90" step="1"><output id="lightElOut"></output></label>
+      <label class="slider"><span>Intensité</span><input id="lightK" type="range" min="20" max="200" step="5"><output id="lightKOut"></output></label>
+      <div class="row-btns"><button class="btn plain" id="lightReset" type="button">Lumière par défaut</button></div>
       <p class="foot" id="primerNote">Aperçu de la figurine imprimée, en résine grise.</p>
     </section>
 
@@ -560,7 +582,29 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
       <p class="state muted" id="checkState"><i></i><span>Ouvrez un fichier pour le contrôler.</span></p>
       <dl id="checkRows" style="margin-top:12px" hidden></dl>
       <p class="foot" id="checkNote" hidden></p>
-      <div class="stack"><button class="btn" id="marksBtn" type="button" aria-pressed="false" disabled><svg aria-hidden="true"><use href="#i-warn"/></svg>Montrer les problèmes</button></div>
+      <div class="stack"><button class="btn" id="marksBtn" type="button" aria-pressed="false" disabled><svg aria-hidden="true"><use href="#i-warn"/></svg>Montrer les problèmes</button><button class="btn" id="repairBtn" type="button" disabled><svg aria-hidden="true"><use href="#i-wrench"/></svg><span>Réparer le maillage</span></button><button class="btn plain" id="repairUndo" type="button" hidden>Annuler la réparation</button></div>
+    </section>
+
+    <section class="group" id="printGroup">
+      <h2>Impression</h2>
+      <p class="state muted" id="editBusy" hidden><i class="spin"></i><span>Calcul en cours…</span></p>
+      <h3 class="sub">Couper le socle</h3>
+      <label class="slider"><span>Hauteur</span><input id="cutRange" type="range" min="0" max="20" step="0.1" value="0" disabled><output id="cutOut">Aucune</output></label>
+      <div class="row-btns"><button class="btn" id="cutSuggest" type="button" disabled>Proposer</button><button class="btn plain" id="cutReset" type="button" hidden>Remettre le socle</button></div>
+      <p class="foot" id="cutNote">Retire tout ce qui est sous la hauteur choisie et referme le dessous. Les cotes et l'échelle portent alors sur la figurine seule.</p>
+      <h3 class="sub">Tiges de résine</h3>
+      <div class="rods" id="rodList"></div>
+      <div class="row-btns"><button class="btn" id="rodAdd" type="button" disabled>Ajouter une tige</button></div>
+      <div class="rod-edit" id="rodEdit" hidden>
+        <div class="segfull seg2" role="group" aria-label="Orientation de la tige"><button type="button" data-axis="v" aria-pressed="true">Verticale</button><button type="button" data-axis="h" aria-pressed="false">Horizontale</button></div>
+        <label class="slider"><span>Diamètre</span><input id="rodD" type="range" min="0.5" max="6" step="0.1"><output id="rodDOut"></output></label>
+        <label class="slider"><span>Longueur</span><input id="rodL" type="range" min="1" max="120" step="0.5"><output id="rodLOut"></output></label>
+        <label class="slider" id="rodARow"><span>Angle</span><input id="rodA" type="range" min="0" max="359" step="1"><output id="rodAOut"></output></label>
+        <div class="row-btns"><button class="btn" id="rodMove" type="button">Replacer</button><button class="btn plain" id="rodDel" type="button">Supprimer</button><button class="btn plain" id="rodDone" type="button">Terminé</button></div>
+      </div>
+      <p class="foot" id="rodNote">Cliquez sur la figurine pour placer la tige, puis faites-la glisser avec les flèches. Une tige verticale part du sol ; elle reste visible en transparence dans la figurine.</p>
+      <div class="stack"><button class="btn wide" id="stlBtn" type="button" disabled><svg aria-hidden="true"><use href="#i-download"/></svg><span>Exporter en STL</span></button></div>
+      <p class="foot">Le modèle tel qu'il est affiché : à l'échelle choisie, socle coupé, tiges et réparations comprises, prêt pour votre slicer (Chitubox, Lychee…).</p>
     </section>
 
     <section class="group">
@@ -621,6 +665,7 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from './lib/OrbitControls.js';
+import { TransformControls } from './lib/TransformControls.js';
 
 const MAX_FILES = 60;
 const MAX_LINEUP = 16;                                  // modèles affichés côte à côte
@@ -761,16 +806,28 @@ function makeControls(cam, prevTarget) {
 
 // Éclairage de studio neutre
 function addLights(sc) {
-  sc.add(new THREE.HemisphereLight(0xffffff, 0x8a8d94, 1.15));
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x8a8d94, 1.15); sc.add(hemi);
   const key = new THREE.DirectionalLight(0xffffff, 1.9); key.position.set(-130, 200, 170); sc.add(key);
   const rim = new THREE.DirectionalLight(0xffffff, 0.9); rim.position.set(150, 110, -170); sc.add(rim);
   const fill = new THREE.DirectionalLight(0xffffff, 0.4); fill.position.set(90, 30, 140); sc.add(fill);
+  return { hemi, key, rim, fill };
 }
-addLights(scene);
+const L = addLights(scene);
+scene.add(L.key.target);
+// Ombres portées (sous-couche zénithale) : la lumière principale projette l'ombre du modèle sur lui-même
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+L.key.shadow.mapSize.set(2048, 2048);
+L.key.shadow.bias = -0.0003;
 
 // Plan de coupe : fait apparaître le modèle couche par couche, comme une impression
 const clipPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 1e6);
-const material = new THREE.MeshStandardMaterial({ roughness: 0.52, metalness: 0, clippingPlanes: [clipPlane] });
+// Le sol : ce qui passe dessous est caché (aperçu de la coupe du socle pendant le réglage)
+const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0.0005);
+const material = new THREE.MeshStandardMaterial({ roughness: 0.52, metalness: 0, clippingPlanes: [clipPlane, floorPlane], clipShadows: true });
+// Tiges de résine : bleutées ; la partie cachée dans la figurine reste visible en transparence
+const rodMat = new THREE.MeshStandardMaterial({ color: '#7FA8E6', roughness: 0.45, metalness: 0, clippingPlanes: [floorPlane] });
+const rodSelMat = new THREE.MeshStandardMaterial({ color: '#0A84FF', roughness: 0.4, metalness: 0, clippingPlanes: [floorPlane] });
+const rodGhostMat = new THREE.MeshBasicMaterial({ color: '#0A84FF', transparent: true, opacity: 0.38, depthWrite: false, depthFunc: THREE.GreaterDepth, clippingPlanes: [floorPlane] });
 
 // ---------- Ce qui est affiché : un modèle seul, ou plusieurs côte à côte ----------
 let single = null;           // { it, mesh, tx, ts }
@@ -787,34 +844,62 @@ const PRIMERS = {
   resin: { note: 'Aperçu de la figurine imprimée, en résine grise.' },
   black: { color: '#2A2A2D', rough: 0.86, note: 'Sous-couche noire : les ombres restent profondes, idéal pour les couleurs sombres et le métal.' },
   white: { color: '#ECECEE', rough: 0.86, note: 'Sous-couche blanche : couleurs vives et lumineuses, mais les creux ressortent moins.' },
-  zenithal: { color: '#FFFFFF', rough: 0.9, note: 'Zénithale : noir partout, puis blanc vaporisé depuis le dessus. Les zones claires recevront la lumière.' },
+  zenithal: { color: '#FFFFFF', rough: 0.95, note: 'Zénithale : noir partout, puis blanc vaporisé depuis la lumière. Les ombres portées montrent les creux que la peinture n\'atteindra pas ; tournez la lumière pour choisir l\'angle du pinceau.' },
 };
-function zenithColors(it) {
-  if (it.zen) return it.zen;
-  const n = it.data.nrm, out = new Uint8Array(n.length);
-  for (let i = 0; i < n.length; i += 3) {
-    let s = (n[i + 1] / 32767 + 0.35) / 1.15;
-    s = s < 0 ? 0 : s > 1 ? 1 : s;
-    s = s * s * (3 - 2 * s);
-    const v = Math.round(255 * Math.pow(0.05 + 0.92 * s, 2.2));   // couleurs de sommets en linéaire
-    out[i] = out[i + 1] = out[i + 2] = v;
-  }
-  it.zen = out;
-  return out;
-}
-function prepareGeometry(geo, it) {
-  if (primer === 'zenithal' && !geo.getAttribute('color')) geo.setAttribute('color', new THREE.BufferAttribute(zenithColors(it), 3, true));
-}
 function applyPrimer() {
   const p = PRIMERS[primer];
   material.color.set(p.color || css('--model') || '#B2B4BA');
   material.roughness = p.rough || 0.52;
-  material.vertexColors = primer === 'zenithal';
   material.needsUpdate = true;
-  for (const e of entries()) prepareGeometry(e.mesh.geometry, e.it);
   $('primerNote').textContent = p.note;
   document.querySelectorAll('[data-primer]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.primer === primer)));
+  applyLight();
 }
+
+// ---------- Lumière : direction, hauteur et intensité (réglages séparés pour le studio et la zénithale) ----------
+const LIGHT_KEY = 'atelier3d.light';
+const LIGHT_DEF = { studio: { az: 323, el: 43, k: 100 }, zenith: { az: 0, el: 70, k: 100 } };
+let lightCfg = JSON.parse(JSON.stringify(LIGHT_DEF));
+try { const v = JSON.parse(localStorage.getItem(LIGHT_KEY) || 'null'); if (v && v.studio && v.zenith) lightCfg = v; } catch (e) { /* stockage indisponible */ }
+const lightDir = new THREE.Vector3();
+const lightMode = () => (primer === 'zenithal' ? 'zenith' : 'studio');
+function applyLight(save) {
+  const zen = lightMode() === 'zenith', c = lightCfg[lightMode()], k = c.k / 100;
+  const az = THREE.MathUtils.degToRad(c.az), el = THREE.MathUtils.degToRad(c.el);
+  lightDir.set(Math.cos(el) * Math.sin(az), Math.sin(el), Math.cos(el) * Math.cos(az));
+  // zénithale : une seule lumière, comme la bombe de blanc ; le reste du modèle reste presque noir
+  L.hemi.intensity = zen ? 0.08 : 1.15 * k;
+  L.key.intensity = (zen ? 3.4 : 1.9) * k;
+  L.rim.intensity = zen ? 0 : 0.9 * k;
+  L.fill.intensity = zen ? 0 : 0.4 * k;
+  L.key.castShadow = zen;
+  if (renderer.shadowMap.enabled !== zen) { renderer.shadowMap.enabled = zen; material.needsUpdate = true; rodMat.needsUpdate = true; rodSelMat.needsUpdate = true; }
+  updateLightRig();
+  $('lightAz').value = String(c.az); $('lightAzOut').textContent = c.az + '°';
+  $('lightEl').value = String(c.el); $('lightElOut').textContent = c.el + '°';
+  $('lightK').value = String(c.k); $('lightKOut').textContent = c.k + ' %';
+  if (save) { try { localStorage.setItem(LIGHT_KEY, JSON.stringify(lightCfg)); } catch (e) { /* ignoré */ } }
+}
+// Place la lumière autour de ce qui est affiché et cadre ses ombres au plus juste
+const rigBox = new THREE.Box3(), rigC = new THREE.Vector3(), rigS = new THREE.Vector3();
+function updateLightRig() {
+  rigBox.makeEmpty();
+  if (entries().length) rigBox.copy(contentBox());
+  if (rigBox.isEmpty()) rigBox.set(new THREE.Vector3(-40, 0, -40), new THREE.Vector3(40, 80, 40));
+  rigBox.getCenter(rigC);
+  const r = Math.max(rigBox.getSize(rigS).length() / 2, 10);
+  L.key.target.position.copy(rigC);
+  L.key.position.copy(rigC).addScaledVector(lightDir, r * 4);
+  const cam = L.key.shadow.camera;
+  cam.left = -r * 1.1; cam.right = r * 1.1; cam.top = r * 1.1; cam.bottom = -r * 1.1;
+  cam.near = r * 2; cam.far = r * 6.5;
+  cam.updateProjectionMatrix();
+  L.key.shadow.normalBias = r * 2.2 / L.key.shadow.mapSize.x * 1.6;
+}
+for (const [id, key] of [['lightAz', 'az'], ['lightEl', 'el'], ['lightK', 'k']]) {
+  $(id).addEventListener('input', () => { lightCfg[lightMode()][key] = Number($(id).value); applyLight(true); });
+}
+$('lightReset').addEventListener('click', () => { lightCfg[lightMode()] = { ...LIGHT_DEF[lightMode()] }; applyLight(true); });
 document.querySelectorAll('[data-primer]').forEach(b => b.addEventListener('click', () => { primer = b.dataset.primer; applyPrimer(); }));
 
 // Ombre de contact douce sous le modèle
@@ -971,21 +1056,26 @@ const VIEWS = {
   top: new THREE.Vector3(0, 1, 0.001),
 };
 
-function buildModelMesh(it) {
-  const g = makeGeometry(it.data);
-  prepareGeometry(g, it);
+// useOrig : le modèle d'origine, non retouché (aperçu pendant le réglage de la coupe)
+function buildModelMesh(it, useOrig = false) {
+  const src = useOrig && it.orig ? it.orig : it;
+  const g = makeGeometry(src.data);
   const m = new THREE.Mesh(g, material);
+  m.castShadow = true; m.receiveShadow = true;
+  m.userData.orig = useOrig && !!it.orig;
   const sh = new THREE.Mesh(shadowGeo, shadowMat);
   sh.rotation.x = -Math.PI / 2;
   sh.position.y = 0.02;
-  sh.scale.set(it.stats.w * 1.35, it.stats.d * 1.35, 1);
+  sh.scale.set(src.stats.w * 1.35, src.stats.d * 1.35, 1);
   sh.raycast = () => {};
+  m.userData.contactMesh = sh;
   m.add(sh);
   m.scale.setScalar(it.scale);
+  attachRods(m, it);
   return m;
 }
 function disposeModelMesh(m) {
-  m.traverse((o) => { if (o.userData.marks) o.geometry.dispose(); });
+  m.traverse((o) => { if (o.userData.marks || o.userData.rod) o.geometry.dispose(); });
   if (m.parent) m.parent.remove(m);
   m.geometry.dispose();
 }
@@ -997,6 +1087,8 @@ function contentBox() {
     const bb = e.mesh.geometry.boundingBox;
     const b = new THREE.Box3(bb.min.clone().multiplyScalar(e.ts), bb.max.clone().multiplyScalar(e.ts));
     b.min.x += e.tx; b.max.x += e.tx;
+    const dy = e.previewCut != null ? -e.previewCut * e.ts : 0;
+    b.min.y = Math.max(0, b.min.y + dy); b.max.y += dy;
     box.union(b);
   }
   return box;
@@ -1064,6 +1156,7 @@ $('t-real').addEventListener('click', () => {
   controls.dispose();
   camera = realSize ? ortho : persp;
   controls = makeControls(camera, prevTarget);
+  gizmo.camera = camera;
   frame(dir);
   updateHint();
 });
@@ -1130,6 +1223,7 @@ function setControlsEnabled(on) {
   chips.forEach(c => { c.disabled = !on; });
   scaleInput.disabled = !on;
   $('keepBtn').disabled = !on;
+  $('stlBtn').disabled = !on;
   $('shotBtn').disabled = !on || recording;
   $('videoBtn').disabled = !on || recording;
 }
@@ -1139,6 +1233,8 @@ function clearPanel() {
   setControlsEnabled(false);
   renderCheck(null);
   $('keepInfo').textContent = ''; $('keepForget').hidden = true; $('keepBtn').hidden = false; $('keepBtn').textContent = 'Garder cette taille';
+  rodSel = null; placing = null; stage.classList.remove('placing'); gizmo.detach(); cutDragging = null;
+  updateCutUI(); renderRods(); $('editBusy').hidden = true;
 }
 const mm = (v) => fmt(v) + ' mm';
 const ml = (v) => '≈ ' + fmt(v, v < 10 ? 2 : 1) + ' ml';
@@ -1159,6 +1255,8 @@ function setScale(s, from, animate = true) {
     c.setAttribute('aria-pressed', String(match));
   });
   updateKeep();
+  updateCutUI();
+  if (rodSel) renderRods();
   const e = entries().find(x => x.it.id === shownId);
   if (!e) return;
   e.ts = scale;
@@ -1191,6 +1289,7 @@ const sizeKey = (name, bytes) => String(name).toLowerCase() + '|' + bytes;
 let kept = {};
 try { kept = JSON.parse(localStorage.getItem(SIZES_KEY) || '{}') || {}; } catch (e) { kept = {}; }
 function keptScale(name, bytes) { const k = kept[sizeKey(name, bytes)]; return k && k.s ? k.s : null; }
+function keptCut(name, bytes) { const k = kept[sizeKey(name, bytes)]; return k && k.s && k.c > 0 ? k.c : 0; }
 function saveKept() {
   try { localStorage.setItem(SIZES_KEY, JSON.stringify(kept)); return true; }
   catch (e) { toast('<strong>Taille non enregistrée.</strong> Le stockage du navigateur est indisponible.'); return false; }
@@ -1200,9 +1299,9 @@ function updateKeep() {
   const it = items.find(i => i.id === shownId);
   const btn = $('keepBtn'), forget = $('keepForget'), txt = $('keepInfo');
   if (!it || !info) { btn.hidden = false; btn.textContent = 'Garder cette taille'; forget.hidden = true; txt.textContent = ''; return; }
-  const k = keptScale(it.name, it.size);
-  const same = k && Math.abs(k - it.scale) < 1e-4;
-  txt.textContent = k ? 'Taille gardée : ' + pctText(k) : '';
+  const k = keptScale(it.name, it.size), kc = keptCut(it.name, it.size);
+  const same = k && Math.abs(k - it.scale) < 1e-4 && Math.abs(kc - (it.edit.cut || 0)) < 0.01;
+  txt.textContent = k ? 'Taille gardée : ' + pctText(k) + (kc ? ', socle coupé' : '') : '';
   forget.hidden = !k;
   btn.hidden = !!same;
   btn.textContent = k ? 'Garder ' + pctText(it.scale) : 'Garder cette taille';
@@ -1213,7 +1312,7 @@ function refreshKeptTiles(it) {
 $('keepBtn').addEventListener('click', () => {
   const it = items.find(i => i.id === shownId);
   if (!it) return;
-  kept[sizeKey(it.name, it.size)] = { s: it.scale, n: it.name, t: Date.now() };
+  kept[sizeKey(it.name, it.size)] = { s: it.scale, n: it.name, t: Date.now(), c: it.edit.cut || 0 };
   if (!saveKept()) return;
   updateKeep(); refreshKeptTiles(it);
   const msg = '<strong>' + esc(baseName(it.name)) + '</strong> se rouvrira à ' + pctText(it.scale) + ' (' + fmt(info.h * it.scale) + ' mm de haut).';
@@ -1223,7 +1322,7 @@ $('keepBtn').addEventListener('click', () => {
 $('keepForget').addEventListener('click', () => {
   const it = items.find(i => i.id === shownId);
   if (!it) return;
-  kept[sizeKey(it.name, it.size)] = { s: null, n: it.name, t: Date.now() };
+  kept[sizeKey(it.name, it.size)] = { s: null, n: it.name, t: Date.now(), c: 0 };
   if (!saveKept()) return;
   updateKeep(); refreshKeptTiles(it);
   toast('<strong>Taille oubliée</strong> pour ' + esc(baseName(it.name)) + ' : retour à la taille d\'origine à la prochaine ouverture.');
@@ -1253,13 +1352,13 @@ function mergeSizes(into, from) {
   let changed = false;
   for (const [k, v] of Object.entries(from || {})) {
     if (!v || typeof v.t !== 'number') continue;
-    if (!into[k] || !(into[k].t >= v.t)) { into[k] = { s: typeof v.s === 'number' && v.s > 0 ? v.s : null, n: String(v.n || ''), t: v.t }; changed = true; }
+    if (!into[k] || !(into[k].t >= v.t)) { into[k] = { s: typeof v.s === 'number' && v.s > 0 ? v.s : null, n: String(v.n || ''), t: v.t, c: typeof v.c === 'number' && v.c > 0 ? v.c : 0 }; changed = true; }
   }
   return changed;
 }
 function sameSizes(a, b) {
   const ka = Object.keys(a || {});
-  return ka.length === Object.keys(b || {}).length && ka.every(k => b[k] && b[k].t === a[k].t && b[k].s === a[k].s);
+  return ka.length === Object.keys(b || {}).length && ka.every(k => b[k] && b[k].t === a[k].t && b[k].s === a[k].s && (b[k].c || 0) === (a[k].c || 0));
 }
 async function mayWrite(r, ask) {
   if (r.h.disk) return true;
@@ -1309,6 +1408,9 @@ function renderCheck(it) {
   const span = st.querySelector('span');
   rows.textContent = ''; rows.hidden = true; note.hidden = true; note.textContent = '';
   st.className = 'state';
+  const rb = $('repairBtn'), ru = $('repairUndo');
+  rb.disabled = true; ru.hidden = true; rb.querySelector('span').textContent = 'Réparer le maillage';
+  if (it && it.edit && it.edit.repair) { rb.querySelector('span').textContent = it.editing ? 'Réparation en cours…' : 'Maillage réparé'; ru.hidden = !!it.editing; }
   const c = it && it.check;
   if (!c) { st.classList.add('muted'); span.textContent = 'Ouvrez un fichier pour le contrôler.'; btn.disabled = true; return; }
   if (c.skipped) {
@@ -1331,8 +1433,10 @@ function renderCheck(it) {
   rows.hidden = false;
   if (c.insideOut) note.textContent = 'Le modèle est retourné : ses faces pointent vers l\'intérieur. La plupart des slicers le remettent à l\'endroit.';
   else if (lvl !== 'ok') note.textContent = 'En rouge : trous et fragments isolés. En orange : arêtes non conformes ou faces inversées. Les petits défauts sont souvent réparés par le slicer.';
+  if (it.edit && it.edit.repair && !it.editing) note.textContent = (note.textContent ? note.textContent + ' ' : '') + 'Réparé par Atelier 3D : l\'export STL contient le maillage corrigé.';
   note.hidden = !note.textContent;
   btn.disabled = !(c.red.length || c.orange.length);
+  if (!(it.edit && it.edit.repair)) rb.disabled = lvl === 'ok' || it.stats.tris > REPAIR_MAX_TRIS;
 }
 function updateMarks() {
   for (const e of [...lineModels, ...(single ? [single] : [])]) {
@@ -1393,8 +1497,11 @@ function updateMeasure() {
 let down = null;
 renderer.domElement.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, t: e.timeStamp, b: e.button }; });
 renderer.domElement.addEventListener('pointerup', (e) => {
-  if (!down || !measuring || down.b !== 0) return;
+  if (!down || down.b !== 0) return;
   if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) return;   // un clic, pas un glisser
+  if (gizmo.dragging || gizmo.axis) return;                              // les flèches d'une tige
+  if (placing) { const hp = pick(e.clientX, e.clientY); if (hp) rodFromClick(hp); return; }
+  if (!measuring) { selectRodAt(e.clientX, e.clientY); return; }
   const h = pick(e.clientX, e.clientY);
   if (!h) return;
   if (measPts.length >= 2) measPts = [];
@@ -1443,6 +1550,414 @@ function pick(clientX, clientY) {
   const hits = raycaster.intersectObjects(list.map(x => x.mesh), false);
   return hits.length ? { mesh: hits[0].object, point: hits[0].point } : null;
 }
+
+// ---------- Impression : retouches (réparation, coupe du socle), tiges de résine, export STL ----------
+// Les retouches partent toujours du modèle d'origine (it.orig) et sont calculées en arrière-plan.
+// Les tiges sont rangées dans les coordonnées du modèle d'origine ; it.offset dit où se trouve le modèle retouché.
+const REPAIR_MAX_TRIS = 6e6;
+const UP = new THREE.Vector3(0, 1, 0);
+let rodSeq = 0;
+let rodSel = null;            // { it, id } : tige en cours de réglage
+let placing = null;           // null | 'add' | 'move' : prochain clic sur la figurine
+const shownItem = () => items.find(i => i.id === shownId) || null;
+const rodDir = (r) => (r.axis === 'v' ? UP.clone() : new THREE.Vector3(Math.sin(THREE.MathUtils.degToRad(r.ang)), 0, Math.cos(THREE.MathUtils.degToRad(r.ang))));
+const offsetOf = (m, it) => ((m && m.userData.orig) || !it.orig || !it.offset ? [0, 0, 0] : it.offset);
+const origOf = (it) => it.orig || it;
+
+function makeRodMesh(it, r) {
+  const g = new THREE.CylinderGeometry(r.d / 2, r.d / 2, r.len, 32);
+  const sel = rodSel && rodSel.it === it && rodSel.id === r.id;
+  const m = new THREE.Mesh(g, sel ? rodSelMat : rodMat);
+  m.castShadow = true;
+  m.position.set(r.x, r.y, r.z);
+  m.quaternion.setFromUnitVectors(UP, rodDir(r));
+  m.userData.rod = r; m.userData.rodItem = it;
+  const ghost = new THREE.Mesh(g, rodGhostMat);
+  ghost.renderOrder = 3; ghost.raycast = () => {};
+  m.add(ghost);
+  return m;
+}
+function attachRods(m, it) {
+  const old = m.children.find(o => o.userData.rodGroup);
+  if (old) { old.traverse(o => { if (o.userData.rod) o.geometry.dispose(); }); m.remove(old); }
+  if (!it.rods || !it.rods.length) return;
+  const grp = new THREE.Group();
+  grp.userData.rodGroup = true;
+  grp.position.fromArray(offsetOf(m, it));
+  for (const r of it.rods) grp.add(makeRodMesh(it, r));
+  m.add(grp);
+}
+function rodMeshOf(it, id) {
+  let found = null;
+  for (const e of entries()) if (e.it === it) e.mesh.traverse(o => { if (o.userData.rod && o.userData.rod.id === id) found = o; });
+  return found;
+}
+function refreshRods(it) {
+  if (it) for (const e of entries()) if (e.it === it) attachRods(e.mesh, it);
+  attachGizmo();
+  renderRods();
+}
+
+// Flèches pour faire glisser la tige choisie
+const gizmo = new TransformControls(camera, renderer.domElement);
+gizmo.setMode('translate');
+gizmo.setSize(0.75);
+gizmo.addEventListener('dragging-changed', (ev) => { controls.enabled = !ev.value; });
+gizmo.addEventListener('objectChange', () => {
+  const o = gizmo.object;
+  if (!o || !o.userData.rod) return;
+  const r = o.userData.rod;
+  const dx = o.position.x - r.x, dy = o.position.y - r.y, dz = o.position.z - r.z;
+  r.x += dx; r.y += dy; r.z += dz;
+  r.ax += dx; r.ay += dy; r.az += dz;    // le point d'accroche suit la tige
+});
+scene.add(gizmo);
+function attachGizmo() {
+  const m = rodSel && !placing ? rodMeshOf(rodSel.it, rodSel.id) : null;
+  if (m) gizmo.attach(m); else gizmo.detach();
+}
+
+const viewAngle = () => {
+  const f = controls.target.clone().sub(camera.position);
+  return Math.round((THREE.MathUtils.radToDeg(Math.atan2(f.x, f.z)) + 360) % 360);
+};
+// Place la tige d'après son point d'accroche : verticale depuis le sol, horizontale vers l'intérieur de la figurine
+function layoutRod(r, it) {
+  if (r.axis === 'v') {
+    const floor = it.orig && it.offset ? -it.offset[1] : 0;   // le sol, en coordonnées du modèle d'origine
+    r.len = Math.max(2, Math.round((r.ay + 1.5 - floor) * 2) / 2);
+    r.x = r.ax; r.z = r.az; r.y = floor + r.len / 2;
+  } else {
+    if (!r.len || r.len > 40) r.len = 8;
+    const d = rodDir(r);
+    r.x = r.ax + d.x * (0.6 + r.len / 2); r.y = r.ay; r.z = r.az + d.z * (0.6 + r.len / 2);
+  }
+}
+function rodFromClick(h) {
+  const e = entries().find(x => x.mesh === h.mesh);
+  if (!e) return;
+  const it = e.it, off = offsetOf(e.mesh, it);
+  const local = e.mesh.worldToLocal(h.point.clone());
+  const ax = local.x - off[0], ay = local.y - off[1], az = local.z - off[2];
+  const mode = placing;
+  placing = null;
+  stage.classList.remove('placing');
+  let r = mode === 'move' && rodSel && rodSel.it === it ? it.rods.find(x => x.id === rodSel.id) : null;
+  if (r) { r.ax = ax; r.ay = ay; r.az = az; if (r.axis === 'h') r.ang = viewAngle(); }
+  else {
+    r = { id: ++rodSeq, d: 2, len: 0, axis: 'v', ang: viewAngle(), ax, ay, az, x: 0, y: 0, z: 0 };
+    it.rods.push(r);
+  }
+  layoutRod(r, it);
+  rodSel = { it, id: r.id };
+  if (it.id !== activeId) select(it.id);
+  updateHint();
+  refreshRods(it);
+}
+function selectRodAt(x, y) {
+  const meshes = [];
+  for (const e of entries()) e.mesh.traverse(o => { if (o.userData.rod) meshes.push(o); });
+  if (!meshes.length) return false;
+  const r = renderer.domElement.getBoundingClientRect();
+  raycaster.setFromCamera(new THREE.Vector2(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1), camera);
+  const hit = raycaster.intersectObjects(meshes, false)[0];
+  if (!hit) return false;
+  const o = hit.object;
+  rodSel = { it: o.userData.rodItem, id: o.userData.rod.id };
+  if (rodSel.it.id !== activeId) select(rodSel.it.id);
+  refreshRods(rodSel.it);
+  return true;
+}
+function setPlacing(mode) {
+  placing = mode;
+  stage.classList.toggle('placing', !!mode);
+  if (mode && measuring) setMeasuring(false);
+  attachGizmo();
+  updateHint();
+  renderRods();
+}
+
+function renderRods() {
+  const it = shownItem();
+  const list = $('rodList');
+  list.textContent = '';
+  const on = !!(it && info);
+  $('rodAdd').disabled = !on;
+  $('rodAdd').textContent = placing === 'add' ? 'Annuler' : 'Ajouter une tige';
+  if (!on) { $('rodEdit').hidden = true; return; }
+  it.rods.forEach((r, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = 'Tige ' + (i + 1) + ', ' + fmt(r.d, 1) + ' mm';
+    b.setAttribute('aria-pressed', String(!!(rodSel && rodSel.it === it && rodSel.id === r.id)));
+    b.addEventListener('click', () => { rodSel = { it, id: r.id }; refreshRods(it); });
+    list.append(b);
+  });
+  const r = rodSel && rodSel.it === it ? it.rods.find(x => x.id === rodSel.id) : null;
+  $('rodEdit').hidden = !r;
+  if (!r) return;
+  document.querySelectorAll('[data-axis]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.axis === r.axis)));
+  $('rodD').value = String(r.d); $('rodDOut').textContent = fmt(r.d * it.scale, 1) + ' mm';
+  $('rodL').value = String(Math.min(120, r.len)); $('rodLOut').textContent = fmt(r.len * it.scale, 1) + ' mm';
+  $('rodA').value = String(r.ang); $('rodAOut').textContent = r.ang + '°';
+  $('rodARow').hidden = r.axis === 'v';
+  $('rodMove').textContent = placing === 'move' ? 'Cliquez sur la figurine…' : 'Replacer';
+}
+const selRod = () => { const it = shownItem(); return it && rodSel && rodSel.it === it ? [it, it.rods.find(x => x.id === rodSel.id)] : [it, null]; };
+$('rodAdd').addEventListener('click', () => setPlacing(placing === 'add' ? null : 'add'));
+$('rodMove').addEventListener('click', () => setPlacing(placing === 'move' ? null : 'move'));
+$('rodDone').addEventListener('click', () => { const [it] = selRod(); rodSel = null; setPlacing(null); refreshRods(it); });
+$('rodDel').addEventListener('click', () => {
+  const [it, r] = selRod();
+  if (!r) return;
+  it.rods = it.rods.filter(x => x !== r);
+  rodSel = null;
+  refreshRods(it);
+});
+document.querySelectorAll('[data-axis]').forEach(b => b.addEventListener('click', () => {
+  const [it, r] = selRod();
+  if (!r || r.axis === b.dataset.axis) return;
+  r.axis = b.dataset.axis;
+  if (r.axis === 'h') { r.len = 8; r.ang = viewAngle(); }
+  layoutRod(r, it);
+  refreshRods(it);
+}));
+$('rodD').addEventListener('input', () => { const [it, r] = selRod(); if (!r) return; r.d = Number($('rodD').value); refreshRods(it); });
+$('rodL').addEventListener('input', () => {
+  const [it, r] = selRod();
+  if (!r) return;
+  const d = rodDir(r), len = Number($('rodL').value);
+  // le début de la tige reste en place (le pied pour une verticale)
+  const sx = r.x - d.x * r.len / 2, sy = r.y - d.y * r.len / 2, sz = r.z - d.z * r.len / 2;
+  r.len = len;
+  r.x = sx + d.x * len / 2; r.y = sy + d.y * len / 2; r.z = sz + d.z * len / 2;
+  refreshRods(it);
+});
+$('rodA').addEventListener('input', () => { const [it, r] = selRod(); if (!r) return; r.ang = Number($('rodA').value); layoutRod(r, it); refreshRods(it); });
+
+// ----- Retouches en arrière-plan -----
+const needsEdit = (it) => !!(it.edit && (it.edit.cut > 0 || it.edit.repair));
+function renderEditBusy() { const it = shownItem(); $('editBusy').hidden = !(it && it.editing); }
+function runEdit(it, initial = false) {
+  if (it.editWorker) { it.editWorker.terminate(); it.editWorker = null; }
+  const base = origOf(it);
+  if (!needsEdit(it)) {
+    if (it.orig) { it.data = it.orig.data; it.stats = it.orig.stats; it.check = it.orig.check; it.orig = null; }
+    it.offset = null; it.editing = false;
+    editDone(it, initial, null);
+    return;
+  }
+  if (!base.data) return;     // modèle libéré de la mémoire : la retouche sera refaite à la relecture
+  it.orig = { data: base.data, stats: base.stats, check: base.check };
+  it.editing = true;
+  renderEditBusy();
+  const w = new Worker('./parser.js', { type: 'module' });
+  it.editWorker = w;
+  const pos = it.orig.data.pos.slice(), idx = it.orig.data.idx.slice();
+  const fail = (msg) => {
+    if (it.editWorker !== w) return;
+    w.terminate(); it.editWorker = null; it.editing = false;
+    toast('<strong>Retouche impossible.</strong> ' + esc(msg));
+    it.edit.cut = 0; it.edit.repair = false;
+    runEdit(it, initial);
+  };
+  w.onmessage = (e) => {
+    const m = e.data;
+    if (m.type === 'error') { fail(m.message); return; }
+    if (m.type !== 'edited' || it.editWorker !== w) return;
+    w.terminate(); it.editWorker = null; it.editing = false;
+    it.data = { pos: m.pos, idx: m.idx, nrm: m.nrm };
+    it.stats = { ...m.stats, objects: it.orig.stats.objects };
+    it.check = m.check;
+    it.offset = m.offset;
+    editDone(it, initial, m);
+  };
+  w.onerror = (e) => { e.preventDefault(); fail('le calcul a échoué'); };
+  w.postMessage({ op: 'edit', pos, idx, cut: it.edit.cut, repair: it.edit.repair, objects: it.orig.stats.objects }, [pos.buffer, idx.buffer]);
+}
+function rebuildEntry(e) {
+  const old = e.mesh, parent = old.parent;
+  const m = buildModelMesh(e.it);
+  m.position.x = old.position.x;
+  m.scale.copy(old.scale);
+  if (parent) parent.add(m);
+  if (measPts.some(p => p.mesh === old)) clearMeasure();
+  disposeModelMesh(old);
+  e.mesh = m;
+  e.previewCut = null;
+}
+function editDone(it, initial, m) {
+  renderEditBusy();
+  if (initial) { onReady(it); return; }
+  for (const e of entries()) if (e.it === it) rebuildEntry(e);
+  updateCard(it);
+  if (lineup) relayout(false);
+  if (it.id === shownId) showModelUI(it);
+  attachGizmo();
+  if (entries().some(e => e.it === it)) frame(currentDir(), 450, easeOut);
+  if (it.repairToast && m && m.report) { it.repairToast = false; toast(repairSummary(m.report, it.check)); }
+}
+function repairSummary(r, c) {
+  const done = [];
+  if (r.inverted) done.push('modèle remis à l\'endroit');
+  if (r.flipped && !(r.inverted && r.flipped > c.parts * 1000)) done.push(pl(r.flipped, 'face remise dans le bon sens', 'faces remises dans le bon sens'));
+  if (r.holes) done.push(pl(r.holes, 'trou bouché', 'trous bouchés'));
+  if (r.duplicates + r.degenerate) done.push(pl(r.duplicates + r.degenerate, 'face en double ou plate retirée', 'faces en double ou plates retirées'));
+  if (r.fragments) done.push(pl(r.fragments, 'poussière retirée', 'poussières retirées'));
+  if (r.merged && !done.length) done.push(pl(r.merged, 'sommet en double soudé', 'sommets en double soudés'));
+  let html = '<strong>Maillage réparé.</strong> ' + (done.length ? esc(done.join(', ')) + '.' : 'Rien à corriger.');
+  const left = [];
+  if (c && !c.skipped) {
+    if (c.open) left.push(pl(c.open, 'arête ouverte', 'arêtes ouvertes'));
+    if (c.nonManifold) left.push(pl(c.nonManifold, 'arête non conforme', 'arêtes non conformes'));
+  }
+  if (r.bigHoles) left.push(pl(r.bigHoles, 'grande ouverture laissée', 'grandes ouvertures laissées'));
+  if (left.length) html += ' Restent ' + esc(left.join(', ')) + ' : le slicer s\'en charge en général.';
+  return html;
+}
+$('repairBtn').addEventListener('click', () => { const it = shownItem(); if (!it) return; it.edit.repair = true; it.repairToast = true; runEdit(it); renderCheck(it); });
+$('repairUndo').addEventListener('click', () => { const it = shownItem(); if (!it) return; it.edit.repair = false; runEdit(it); });
+
+// ----- Couper le socle -----
+const cutRange = $('cutRange');
+let cutDragging = null;      // hauteur en cours de réglage, en mm du modèle d'origine
+function updateCutUI() {
+  const it = shownItem();
+  const on = !!(it && info);
+  cutRange.disabled = !on; $('cutSuggest').disabled = !on;
+  if (!on) { cutRange.value = '0'; $('cutOut').textContent = 'Aucune'; $('cutReset').hidden = true; return; }
+  const s = it.scale, cut = cutDragging != null ? cutDragging : it.edit.cut;
+  cutRange.max = String(Math.max(1, Math.round(origOf(it).stats.h * 0.5 * s * 10) / 10));
+  cutRange.value = String(Math.round(cut * s * 10) / 10);
+  $('cutOut').textContent = cut > 0 ? fmt(cut * s, 1) + ' mm' : 'Aucune';
+  $('cutReset').hidden = !(it.edit.cut > 0);
+}
+// Aperçu immédiat : le modèle d'origine descend sous le sol, qui cache ce qui sera coupé
+function previewCut(it, cut) {
+  const e = entries().find(x => x.it === it);
+  if (!e) return;
+  if (it.orig && !e.mesh.userData.orig) {
+    const old = e.mesh, m = buildModelMesh(it, true);
+    m.position.x = old.position.x; m.scale.copy(old.scale);
+    old.parent.add(m);
+    if (measPts.length) clearMeasure();
+    disposeModelMesh(old);
+    e.mesh = m;
+    attachGizmo();
+  }
+  e.previewCut = cut;
+}
+cutRange.addEventListener('input', () => {
+  const it = shownItem();
+  if (!it) return;
+  const cut = Number(cutRange.value) / it.scale;
+  cutDragging = cut;
+  previewCut(it, cut);
+  $('cutOut').textContent = cut > 0 ? fmt(cut * it.scale, 1) + ' mm' : 'Aucune';
+  const h = (origOf(it).stats.h - cut) * it.scale;
+  tweens.delete('n-d-h'); shown['d-h'] = h; $('d-h').textContent = mm(h);
+});
+cutRange.addEventListener('change', () => commitCut());
+function commitCut(value) {
+  const it = shownItem();
+  if (!it) return;
+  const cut = value != null ? value : (cutDragging != null ? cutDragging : it.edit.cut);
+  cutDragging = null;
+  it.edit.cut = cut < 0.05 ? 0 : Math.round(cut * 100) / 100;
+  if (it.edit.cut) previewCut(it, it.edit.cut);
+  runEdit(it);
+  updateCutUI();
+  updateKeep();
+}
+// Hauteurs de coupe proposées : les dessus plats du socle (grandes surfaces tournées vers le haut dans la moitié basse)
+function baseSteps(pos, idx, h) {
+  const top = h * 0.5, BIN = 0.25, nb = Math.max(1, Math.ceil(top / BIN));
+  const area = new Float64Array(nb), ysum = new Float64Array(nb);
+  for (let t = 0; t < idx.length; t += 3) {
+    const a = idx[t] * 3, b = idx[t + 1] * 3, c = idx[t + 2] * 3;
+    const y = (pos[a + 1] + pos[b + 1] + pos[c + 1]) / 3;
+    if (y >= top) continue;
+    const ux = pos[b] - pos[a], uy = pos[b + 1] - pos[a + 1], uz = pos[b + 2] - pos[a + 2];
+    const vx = pos[c] - pos[a], vy = pos[c + 1] - pos[a + 1], vz = pos[c + 2] - pos[a + 2];
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    const l = Math.hypot(nx, ny, nz);
+    if (!l || ny / l < 0.9) continue;
+    const k = Math.min(nb - 1, Math.floor(y / BIN));
+    area[k] += l / 2; ysum[k] += y * l / 2;
+  }
+  const total = area.reduce((sum, v) => sum + v, 0);
+  const cands = [];
+  for (let k = 0; k < nb; k++) {
+    if (area[k] < total * 0.06) continue;
+    if ((k > 0 && area[k - 1] > area[k]) || (k + 1 < nb && area[k + 1] > area[k])) continue;
+    const y = ysum[k] / area[k];
+    if (y >= 0.4) cands.push({ y: y + 0.05, a: area[k] });
+  }
+  cands.sort((p, q) => q.a - p.a);
+  const out = [];
+  for (const c of cands) if (out.length < 4 && out.every(o => Math.abs(o.y - c.y) > 1)) out.push(c);
+  return out.sort((p, q) => p.y - q.y).map(c => Math.round(c.y * 100) / 100);
+}
+$('cutSuggest').addEventListener('click', () => {
+  const it = shownItem();
+  if (!it) return;
+  const src = origOf(it);
+  if (!src.data) return;
+  if (!it.steps) it.steps = baseSteps(src.data.pos, src.data.idx, src.stats.h);
+  if (!it.steps.length) { toast('<strong>Pas de palier net</strong> dans le socle : réglez la hauteur à la main.'); return; }
+  const next = it.steps.find(y => y > it.edit.cut + 0.05);
+  const y = next != null ? next : it.steps[0];
+  const i = it.steps.indexOf(y);
+  commitCut(y);
+  toast('<strong>Palier ' + (i + 1) + ' sur ' + it.steps.length + '</strong> : coupe à ' + fmt(y * it.scale, 1) + ' mm du bas.' + (it.steps.length > 1 ? ' Cliquez encore sur Proposer pour le palier suivant.' : ''));
+});
+$('cutReset').addEventListener('click', () => commitCut(0));
+
+// ----- Export STL : le modèle affiché, à l'échelle, avec ses tiges, remis en Z vers le haut -----
+function exportSTL() {
+  const it = shownItem();
+  if (!it || !it.data || it.editing) return;
+  const s = it.scale, off = it.orig && it.offset ? it.offset : [0, 0, 0];
+  const pos = it.data.pos, idx = it.data.idx;
+  const extra = [];
+  for (const r of it.rods) {
+    const g = new THREE.CylinderGeometry(r.d / 2, r.d / 2, r.len, 32).toNonIndexed();
+    g.applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3(r.x + off[0], r.y + off[1], r.z + off[2]), new THREE.Quaternion().setFromUnitVectors(UP, rodDir(r)), new THREE.Vector3(1, 1, 1)));
+    extra.push(g.attributes.position.array);
+    g.dispose();
+  }
+  const T = idx.length / 3 + extra.reduce((n, a) => n + a.length / 9, 0);
+  const buf = new ArrayBuffer(84 + T * 50), dv = new DataView(buf);
+  const head = 'Atelier 3D - ' + baseName(it.name);
+  for (let i = 0; i < Math.min(80, head.length); i++) dv.setUint8(i, head.charCodeAt(i) & 0x7f);
+  dv.setUint32(80, T, true);
+  let o = 84;
+  const v = new Float32Array(9);
+  const put = () => {
+    const ux = v[3] - v[0], uy = v[4] - v[1], uz = v[5] - v[2], wx = v[6] - v[0], wy = v[7] - v[1], wz = v[8] - v[2];
+    let nx = uy * wz - uz * wy, ny = uz * wx - ux * wz, nz = ux * wy - uy * wx;
+    const l = Math.hypot(nx, ny, nz) || 1;
+    dv.setFloat32(o, nx / l, true); dv.setFloat32(o + 4, ny / l, true); dv.setFloat32(o + 8, nz / l, true);
+    for (let k = 0; k < 9; k++) dv.setFloat32(o + 12 + k * 4, v[k], true);
+    o += 50;
+  };
+  // affichage (x, y, z) → impression (x, −z, y), à l'échelle choisie
+  const set = (k, x, y, z) => { v[k] = x * s; v[k + 1] = -z * s; v[k + 2] = y * s; };
+  for (let t = 0; t < idx.length; t += 3) {
+    for (let j = 0; j < 3; j++) { const p = idx[t + j] * 3; set(j * 3, pos[p], pos[p + 1], pos[p + 2]); }
+    put();
+  }
+  for (const a of extra) for (let i = 0; i < a.length; i += 9) {
+    for (let j = 0; j < 3; j++) set(j * 3, a[i + j * 3], a[i + j * 3 + 1], a[i + j * 3 + 2]);
+    put();
+  }
+  const parts = [baseName(it.name)];
+  if (it.edit.cut) parts.push('sans socle');
+  if (it.rods.length) parts.push(pl(it.rods.length, 'tige', 'tiges'));
+  if (Math.abs(s - 1) > 1e-6) parts.push(pctText(s).replace(/\s/g, ''));
+  saveBlob(new Blob([buf], { type: 'model/stl' }), parts.join(' - ') + '.stl', 'Modèle STL', 'model/stl', 'stl');
+}
+$('stlBtn').addEventListener('click', exportSTL);
 
 // ---------- Côte à côte ----------
 const labelsEl = $('labels');
@@ -1575,9 +2090,11 @@ $('shotBtn').addEventListener('click', async () => {
   if (!entries().length) return;
   const gridWas = grid.visible;
   grid.visible = false;
+  gizmo.detach();
   renderer.render(scene, camera);
   const url = renderer.domElement.toDataURL('image/png');
   grid.visible = gridWas;
+  attachGizmo();
   const blob = await (await fetch(url)).blob();
   saveBlob(blob, exportName() + '.png', 'Image PNG', 'image/png', 'png');
 });
@@ -1588,6 +2105,7 @@ async function recordTurntable() {
   const mime = window.MediaRecorder && types.find(t => MediaRecorder.isTypeSupported(t));
   if (!mime) { toast('<strong>Vidéo impossible :</strong> ce navigateur ne sait pas enregistrer de vidéo. Utilisez Chrome ou Edge.'); return; }
   recording = true;
+  gizmo.detach();
   document.body.classList.add('recording');
   setControlsEnabled(true);
   const label = $('videoBtn').querySelector('span');
@@ -1623,6 +2141,7 @@ async function recordTurntable() {
   grid.visible = gridWas;
   controls.enabled = true; controls.autoRotate = spinOn; controls.update();
   recording = false;
+  attachGizmo();
   document.body.classList.remove('recording');
   setControlsEnabled(entries().length > 0);
   const ext = mime.includes('mp4') ? 'mp4' : 'webm';
@@ -1633,7 +2152,8 @@ async function recordTurntable() {
 function updateHint() {
   const parts = [];
   if (realSize) parts.push(calibrated ? '<span class="badge"><i></i>Taille réelle</span>' : '<span class="badge warn"><i></i>Taille réelle, écran non calibré</span>');
-  if (measuring) parts.push('<span class="badge accent"><i></i>Mesure</span><span>Cliquez deux points sur le modèle. Échap pour effacer.</span>');
+  if (placing) parts.push('<span class="badge accent"><i></i>Tige</span><span>Cliquez sur la figurine à l\'endroit où placer la tige. Échap pour annuler.</span>');
+  else if (measuring) parts.push('<span class="badge accent"><i></i>Mesure</span><span>Cliquez deux points sur le modèle. Échap pour effacer.</span>');
   else parts.push(realSize ? '<span>Faites glisser pour tourner, clic droit pour déplacer.</span>' : '<span>Faites glisser pour tourner, molette pour zoomer, clic droit pour déplacer.</span>');
   if (lineup) parts.push('<span>Cliquez une étiquette pour afficher ses informations.</span>');
   else if (items.length > 1 && !measuring) parts.push('<span>Flèches du clavier pour changer de fichier.</span>');
@@ -1713,7 +2233,7 @@ function addFiles(list) {
     const dup = items.find(it => it.name === f.name && it.size === f.size && it.file.lastModified === f.lastModified);
     if (dup) { firstExisting = firstExisting || dup; continue; }
     if (items.length >= MAX_FILES) { tooMany++; continue; }
-    const it = { id: ++seq, file: f, name: f.name, size: f.size, status: 'queued', progress: 0, data: null, stats: null, check: null, thumb: null, zen: null, scale: keptScale(f.name, f.size) || 1, secs: 0, error: null, lastUsed: 0, el: null };
+    const it = { id: ++seq, file: f, name: f.name, size: f.size, status: 'queued', progress: 0, data: null, stats: null, check: null, thumb: null, scale: keptScale(f.name, f.size) || 1, edit: { cut: keptCut(f.name, f.size), repair: false }, orig: null, offset: null, rods: [], secs: 0, error: null, lastUsed: 0, el: null };
     items.push(it);
     firstNew = firstNew || it;
   }
@@ -1728,7 +2248,8 @@ function addFiles(list) {
   pump();
 }
 
-function bytesOf(it) { return it.data ? it.data.pos.byteLength + it.data.idx.byteLength + it.data.nrm.byteLength + (it.zen ? it.zen.byteLength : 0) : 0; }
+const dataBytes = (d) => (d ? d.pos.byteLength + d.idx.byteLength + d.nrm.byteLength : 0);
+function bytesOf(it) { return dataBytes(it.data) + (it.orig ? dataBytes(it.orig.data) : 0); }
 
 function enforceBudget() {
   let total = items.reduce((s, it) => s + bytesOf(it), 0);
@@ -1738,7 +2259,7 @@ function enforceBudget() {
   for (const it of candidates) {
     if (total <= MEMORY_BUDGET) break;
     total -= bytesOf(it);
-    it.data = null; it.zen = null;
+    it.data = null; it.orig = null; it.offset = null;
     it.status = 'sleeping';     // mesures, contrôle et vignette gardés, relu si on le rouvre
   }
 }
@@ -1770,17 +2291,11 @@ function startParse(it) {
       it.data = { pos: m.pos, idx: m.idx, nrm: m.nrm };
       it.stats = m.stats;
       it.check = m.check;
+      it.orig = null; it.offset = null;
       if (!it.secs) it.secs = (performance.now() - t0) / 1000;
-      it.status = 'ready';
-      if (!it.thumb) makeThumb(it);
-      updateCard(it);
-      if (sortEl.value === 'height') applyListView();
-      if (lineup) {
-        if (canAddToLineup(it)) { addToLineup(it, true); frame(currentDir(), 600, easeOut); }
-        if (it.id === activeId) showModelUI(it);
-      } else if (it.id === activeId) showItem(it);
-      enforceBudget();
       finish();
+      if (needsEdit(it)) runEdit(it, true);     // socle coupé gardé avec la taille, ou retouche faite avant la mise en veille
+      else onReady(it);
     } else if (m.type === 'error') {
       it.status = 'error'; it.error = m.message;
       updateCard(it);
@@ -1796,6 +2311,18 @@ function startParse(it) {
     finish();
   };
   w.postMessage({ name: it.name, file: it.file });
+}
+
+function onReady(it) {
+  it.status = 'ready';
+  if (!it.thumb) makeThumb(it);
+  updateCard(it);
+  if (sortEl.value === 'height') applyListView();
+  if (lineup) {
+    if (canAddToLineup(it)) { addToLineup(it, true); frame(currentDir(), 600, easeOut); }
+    if (it.id === activeId) showModelUI(it);
+  } else if (it.id === activeId) showItem(it);
+  enforceBudget();
 }
 
 function markSelectedRows() {
@@ -1896,6 +2423,8 @@ function showModelUI(it) {
   setScale(it.scale, null, false);
   renderCheck(it);
   updateMarks();
+  if (rodSel && rodSel.it !== it) rodSel = null;
+  updateCutUI(); renderRods(); attachGizmo(); renderEditBusy();
 }
 
 function showItem(it) {
@@ -1916,6 +2445,8 @@ function closeItem(id) {
   const it = items[i];
   const w = running.get(id);
   if (w) { w.terminate(); running.delete(id); }
+  if (it.editWorker) { it.editWorker.terminate(); it.editWorker = null; }
+  if (rodSel && rodSel.it === it) { rodSel = null; gizmo.detach(); }
   if (it.el) {
     const node = it.el.root;
     if (reduceMotion.matches) node.remove();
@@ -2149,6 +2680,8 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (e.key === 'Escape') {
+    if (placing) { setPlacing(null); return; }
+    if (rodSel) { const it = rodSel.it; rodSel = null; refreshRods(it); return; }
     if (measuring && measPts.length) { clearMeasure(); return; }
     if (measuring) { setMeasuring(false); return; }
     closeHelp(); return;
@@ -2652,8 +3185,8 @@ async function paintTile(m, t) {
   tm.append(tag);
   if (m.level) { const d = document.createElement('span'); d.className = 'dot ' + m.level; tm.append(d); }
   const parts = [];
-  const ks = m.size ? keptScale(m.name, m.size) : null;
-  if (m.stats) parts.push(fmt(m.stats.h * (ks || 1)) + ' mm' + (ks && Math.abs(ks - 1) > 1e-6 ? ', ' + pctText(ks) : ''));
+  const ks = m.size ? keptScale(m.name, m.size) : null, kc = m.size ? keptCut(m.name, m.size) : 0;
+  if (m.stats) parts.push(fmt(Math.max(0, m.stats.h - kc) * (ks || 1)) + ' mm' + (ks && Math.abs(ks - 1) > 1e-6 ? ', ' + pctText(ks) : ''));
   else if (m.size) parts.push(fmt(m.size / 1048576, m.size < 10485760 ? 1 : 0) + ' Mo');
   if (t._showCol) parts.push(m.col.name);
   else if (m.sub) parts.push(m.sub);
@@ -2797,6 +3330,12 @@ renderer.setAnimationLoop(() => {
   stepTweens(performance.now());
   if (view === 'library') return;
   controls.update();
+  for (const e of entries()) {
+    const pc = e.previewCut != null ? e.previewCut : 0;
+    e.mesh.position.y = -pc * e.mesh.scale.x;
+    if (e.mesh.userData.contactMesh) e.mesh.userData.contactMesh.position.y = pc + 0.02;   // l'ombre reste au sol
+  }
+  updateLightRig();
   renderer.render(scene, camera);
   if (lineup) positionLabels();
   if (measPts.length) updateMeasure();

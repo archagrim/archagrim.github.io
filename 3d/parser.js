@@ -334,22 +334,41 @@ export function readSTL(buf, progress = () => {}) {
 // ---------- Mise en place et mesures ----------
 
 export function finish(mesh) {
-  const { pos, idx } = mesh;
+  const { pos } = mesh;
   // Z vers le haut (impression 3D) → Y vers le haut (affichage) : (x, y, z) → (x, z, -y)
+  for (let i = 0; i < pos.length; i += 3) { const y = pos[i + 1], z = pos[i + 2]; pos[i + 1] = z; pos[i + 2] = -y; }
+  place(pos);
+  return measure(pos, mesh.idx, mesh.objects);
+}
+
+// Pose le modèle au sol, centré : renvoie le déplacement appliqué
+export function place(pos) {
+  let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
+  for (let i = 0; i < pos.length; i += 3) {
+    const x = pos[i], y = pos[i + 1], z = pos[i + 2];
+    if (x < minX) minX = x; if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+  }
+  if (!Number.isFinite(minX)) return [0, 0, 0];
+  const dx = -(minX + maxX) / 2, dy = -minY, dz = -(minZ + maxZ) / 2;
+  for (let i = 0; i < pos.length; i += 3) { pos[i] += dx; pos[i + 1] += dy; pos[i + 2] += dz; }
+  return [dx, dy, dz];
+}
+
+// Dimensions, empreinte au sol, normales lissées et volume d'un modèle déjà posé au sol
+export function measure(pos, idx, objects = 1) {
   let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
   for (let i = 0; i < pos.length; i += 3) {
-    const x = pos[i], y = pos[i + 2], z = -pos[i + 1];
-    pos[i] = x; pos[i + 1] = y; pos[i + 2] = z;
+    const x = pos[i], y = pos[i + 1], z = pos[i + 2];
     if (x < minX) minX = x; if (x > maxX) maxX = x;
     if (y < minY) minY = y; if (y > maxY) maxY = y;
     if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
   }
-  const cx = (minX + maxX) / 2, cz = (minZ + maxZ) / 2;
-  for (let i = 0; i < pos.length; i += 3) { pos[i] -= cx; pos[i + 1] -= minY; pos[i + 2] -= cz; }
   const w = maxX - minX, h = maxY - minY, d = maxZ - minZ;
 
   // Empreinte au sol : étendue des sommets dans le premier demi-millimètre
-  const band = Math.min(0.5, h * 0.02);
+  const band = minY + Math.min(0.5, h * 0.02);
   let fx0 = Infinity, fx1 = -Infinity, fz0 = Infinity, fz1 = -Infinity;
   for (let i = 0; i < pos.length; i += 3) {
     if (pos[i + 1] <= band) {
@@ -384,7 +403,7 @@ export function finish(mesh) {
   }
   return {
     pos, idx, nrm: n16,
-    stats: { tris: idx.length / 3, verts: pos.length / 3, objects: mesh.objects, w, h, d, footprint, volume: Math.abs(vol) / 6 },
+    stats: { tris: idx.length / 3, verts: pos.length / 3, objects, w, h, d, footprint, volume: Math.abs(vol) / 6 },
   };
 }
 
@@ -470,6 +489,410 @@ export function analyzeMesh(pos, idx) {
   };
 }
 
+// ---------- Réparation ----------
+// Soudure des sommets, triangles dégénérés ou en double, faces remises dans le même sens que leurs voisines,
+// petits trous bouchés, modèles retournés remis à l'endroit, poussières isolées retirées.
+// Les arêtes partagées par plus de deux faces sont laissées telles quelles (les slicers s'en accommodent).
+export const REPAIR_MAX_TRIS = 6e6;
+
+function weldIndexed(pos, idx) {
+  const V = pos.length / 3;
+  const bits = new Uint32Array(pos.buffer, pos.byteOffset, pos.length);
+  let cap = 1; while (cap < V * 2) cap <<= 1;
+  const mask = cap - 1, table = new Int32Array(cap).fill(-1), map = new Uint32Array(V);
+  const out = new Float32Array(pos.length), ob = new Uint32Array(out.buffer);
+  let n = 0;
+  for (let i = 0; i < V; i++) {
+    const a = bits[i * 3], b = bits[i * 3 + 1], c = bits[i * 3 + 2];
+    let h = (Math.imul(a, 73856093) ^ Math.imul(b, 19349663) ^ Math.imul(c, 83492791)) & mask;
+    for (;;) {
+      const e = table[h];
+      if (e < 0) { table[h] = n; ob[n * 3] = a; ob[n * 3 + 1] = b; ob[n * 3 + 2] = c; map[i] = n++; break; }
+      if (ob[e * 3] === a && ob[e * 3 + 1] === b && ob[e * 3 + 2] === c) { map[i] = e; break; }
+      h = (h + 1) & mask;
+    }
+  }
+  const ni = new Uint32Array(idx.length);
+  for (let i = 0; i < idx.length; i++) ni[i] = map[idx[i]];
+  return { pos: out.slice(0, n * 3), idx: ni, merged: V - n };
+}
+
+// Table des arêtes : pour chaque arête, combien de faces la partagent et les deux premières
+function edgeTable(idx) {
+  const T = idx.length / 3;
+  let cap = 1; while (cap < T * 2.4) cap <<= 1;
+  const mask = cap - 1;
+  const ka = new Int32Array(cap).fill(-1), kb = new Int32Array(cap), t1 = new Int32Array(cap), t2 = new Int32Array(cap).fill(-1), cnt = new Uint8Array(cap);
+  const slot = new Int32Array(T * 3).fill(-1);
+  for (let t = 0; t < T; t++) {
+    for (let j = 0; j < 3; j++) {
+      const u = idx[t * 3 + j], v = idx[t * 3 + (j + 1) % 3];
+      if (u === v) continue;
+      const a = u < v ? u : v, b = u < v ? v : u;
+      let h = (Math.imul(a, 0x9E3779B1) ^ Math.imul(b, 0x85EBCA77)) & mask;
+      for (;;) {
+        if (ka[h] < 0) { ka[h] = a; kb[h] = b; t1[h] = t; cnt[h] = 1; break; }
+        if (ka[h] === a && kb[h] === b) { if (cnt[h] < 255) cnt[h]++; if (cnt[h] === 2) t2[h] = t; break; }
+        h = (h + 1) & mask;
+      }
+      slot[t * 3 + j] = h;
+    }
+  }
+  return { slot, t1, t2, cnt };
+}
+
+// Triangule un contour (indices de sommets, dans l'ordre) en gardant son sens de parcours
+function fillLoop(pos, loop, extra, V) {
+  const n = loop.length, out = [];
+  if (n === 3) return [loop[0], loop[1], loop[2]];
+  if (n > 400) {
+    // grand trou : éventail autour d'un nouveau sommet central
+    let cx = 0, cy = 0, cz = 0;
+    for (const i of loop) { cx += pos[i * 3]; cy += pos[i * 3 + 1]; cz += pos[i * 3 + 2]; }
+    const c = V + extra.length / 3;
+    extra.push(cx / n, cy / n, cz / n);
+    for (let i = 0; i < n; i++) out.push(loop[i], loop[(i + 1) % n], c);
+    return out;
+  }
+  // projection sur le plan le plus proche du contour (normale de Newell)
+  let nx = 0, ny = 0, nz = 0;
+  for (let i = 0; i < n; i++) {
+    const a = loop[i] * 3, b = loop[(i + 1) % n] * 3;
+    nx += (pos[a + 1] - pos[b + 1]) * (pos[a + 2] + pos[b + 2]);
+    ny += (pos[a + 2] - pos[b + 2]) * (pos[a] + pos[b]);
+    nz += (pos[a] - pos[b]) * (pos[a + 1] + pos[b + 1]);
+  }
+  const ax = Math.abs(nx), ay = Math.abs(ny), az = Math.abs(nz);
+  const [u, v] = ax >= ay && ax >= az ? [1, 2] : ay >= az ? [2, 0] : [0, 1];
+  const P = loop.map(i => [pos[i * 3 + u], pos[i * 3 + v]]);
+  let area = 0;
+  for (let i = 0; i < n; i++) { const p = P[i], q = P[(i + 1) % n]; area += p[0] * q[1] - q[0] * p[1]; }
+  const o = area >= 0 ? 1 : -1;
+  const list = [...Array(n).keys()];
+  const crs = (a, b, c) => (P[b][0] - P[a][0]) * (P[c][1] - P[b][1]) - (P[b][1] - P[a][1]) * (P[c][0] - P[b][0]);
+  const inside = (p, a, b, c) => {
+    const d1 = (P[b][0] - P[a][0]) * (p[1] - P[a][1]) - (P[b][1] - P[a][1]) * (p[0] - P[a][0]);
+    const d2 = (P[c][0] - P[b][0]) * (p[1] - P[b][1]) - (P[c][1] - P[b][1]) * (p[0] - P[b][0]);
+    const d3 = (P[a][0] - P[c][0]) * (p[1] - P[c][1]) - (P[a][1] - P[c][1]) * (p[0] - P[c][0]);
+    return d1 * o > 0 && d2 * o > 0 && d3 * o > 0;
+  };
+  let guard = n * n;
+  while (list.length > 3 && guard-- > 0) {
+    let clipped = false;
+    for (let k = 0; k < list.length; k++) {
+      const a = list[(k + list.length - 1) % list.length], b = list[k], c = list[(k + 1) % list.length];
+      if (crs(a, b, c) * o <= 0) continue;
+      let ok = true;
+      for (const m of list) { if (m !== a && m !== b && m !== c && inside(P[m], a, b, c)) { ok = false; break; } }
+      if (!ok) continue;
+      out.push(loop[a], loop[b], loop[c]);
+      list.splice(k, 1);
+      clipped = true;
+      break;
+    }
+    if (!clipped) break;
+  }
+  // contour tordu : on finit en éventail
+  for (let k = 1; k + 1 < list.length; k++) out.push(loop[list[0]], loop[list[k]], loop[list[k + 1]]);
+  return out;
+}
+
+export function repairMesh(pos0, idx0) {
+  const report = { merged: 0, degenerate: 0, duplicates: 0, flipped: 0, inverted: 0, holes: 0, bigHoles: 0, fragments: 0 };
+  const wld = weldIndexed(pos0, idx0);
+  const pos = wld.pos, src = wld.idx;
+  report.merged = wld.merged;
+  const V = pos.length / 3;
+
+  // 1. triangles dégénérés et en double
+  const T0 = src.length / 3, keep = new Uint8Array(T0);
+  let cap = 1; while (cap < T0 * 2) cap <<= 1;
+  const tmask = cap - 1, ttab = new Int32Array(cap).fill(-1);
+  const sorted3 = (a, b, c) => { if (a > b) [a, b] = [b, a]; if (b > c) [b, c] = [c, b]; if (a > b) [a, b] = [b, a]; return [a, b, c]; };
+  for (let t = 0; t < T0; t++) {
+    const a = src[t * 3], b = src[t * 3 + 1], c = src[t * 3 + 2];
+    if (a === b || b === c || a === c) { report.degenerate++; continue; }
+    const [x, y, z] = sorted3(a, b, c);
+    let h = (Math.imul(x, 73856093) ^ Math.imul(y, 19349663) ^ Math.imul(z, 83492791)) & tmask, dup = -1;
+    for (;;) {
+      const e = ttab[h];
+      if (e < 0) { ttab[h] = t; break; }
+      const [ex, ey, ez] = sorted3(src[e * 3], src[e * 3 + 1], src[e * 3 + 2]);
+      if (ex === x && ey === y && ez === z) { dup = e; break; }
+      h = (h + 1) & tmask;
+    }
+    if (dup < 0) { keep[t] = 1; continue; }
+    report.duplicates++;
+    const ea = src[dup * 3], eb = src[dup * 3 + 1], ec = src[dup * 3 + 2];
+    const same = (ea === a && eb === b) || (ea === b && eb === c) || (ea === c && eb === a);
+    if (!same && keep[dup]) { keep[dup] = 0; report.duplicates++; }   // double paroi d'épaisseur nulle : les deux s'en vont
+  }
+  let T = 0;
+  for (let t = 0; t < T0; t++) T += keep[t];
+  const idx = new Uint32Array(T * 3);
+  for (let t = 0, k = 0; t < T0; t++) if (keep[t]) { idx[k++] = src[t * 3]; idx[k++] = src[t * 3 + 1]; idx[k++] = src[t * 3 + 2]; }
+
+  // 2. même sens que les voisines, de proche en proche (arêtes partagées par exactement deux faces)
+  const { slot, t1, t2, cnt } = edgeTable(idx);
+  const flip = new Uint8Array(T), comp = new Int32Array(T).fill(-1), queue = new Int32Array(T);
+  let ncomp = 0;
+  for (let s = 0; s < T; s++) {
+    if (comp[s] >= 0) continue;
+    comp[s] = ncomp;
+    let qh = 0, qt = 0; queue[qt++] = s;
+    while (qh < qt) {
+      const t = queue[qh++];
+      for (let j = 0; j < 3; j++) {
+        const h = slot[t * 3 + j];
+        if (h < 0 || cnt[h] !== 2) continue;
+        const n = t1[h] === t ? t2[h] : t1[h];
+        if (n < 0 || n === t || comp[n] >= 0) continue;
+        const u = idx[t * 3 + j], v = idx[t * 3 + (j + 1) % 3];
+        let sameDir = 0;
+        for (let k = 0; k < 3; k++) if (idx[n * 3 + k] === u && idx[n * 3 + (k + 1) % 3] === v) sameDir = 1;
+        flip[n] = flip[t] ^ sameDir;
+        comp[n] = ncomp;
+        queue[qt++] = n;
+      }
+    }
+    ncomp++;
+  }
+
+  // 3. trous : contours d'arêtes qui n'appartiennent qu'à une face
+  const out = new Map();
+  for (let t = 0; t < T; t++) {
+    for (let j = 0; j < 3; j++) {
+      const h = slot[t * 3 + j];
+      if (h < 0 || cnt[h] !== 1) continue;
+      let p = idx[t * 3 + j], q = idx[t * 3 + (j + 1) % 3];
+      if (flip[t]) [p, q] = [q, p];
+      // le bouchon parcourt l'arête dans l'autre sens : q → p
+      if (!out.has(q)) out.set(q, []);
+      out.get(q).push(p, t);
+    }
+  }
+  const extra = [], fillIdx = [], fillComp = [];
+  for (const start of out.keys()) {
+    while (out.get(start).length) {
+      const loop = [start];
+      let lst = out.get(start), owner = lst[lst.length - 1], next = lst[lst.length - 2];
+      lst.length -= 2;
+      let closed = false;
+      while (loop.length < 20000) {
+        if (next === start) { closed = true; break; }
+        loop.push(next);
+        lst = out.get(next);
+        if (!lst || !lst.length) break;
+        next = lst[lst.length - 2]; lst.length -= 2;
+      }
+      if (!closed || loop.length < 3) continue;
+      if (loop.length > 5000) { report.bigHoles++; continue; }
+      const tris = fillLoop(pos, loop, extra, V);
+      for (let i = 0; i < tris.length; i += 3) { fillIdx.push(tris[i], tris[i + 1], tris[i + 2]); fillComp.push(comp[owner]); }
+      report.holes++;
+    }
+  }
+  const allPos = extra.length ? (() => { const a = new Float32Array(pos.length + extra.length); a.set(pos); a.set(extra, pos.length); return a; })() : pos;
+
+  // 4. volume signé de chaque pièce : une pièce négative est retournée, on la remet à l'endroit
+  const vol = new Float64Array(ncomp);
+  const tet = (a, b, c) => {
+    const A = a * 3, B = b * 3, C = c * 3, p = allPos;
+    return p[A] * (p[B + 1] * p[C + 2] - p[B + 2] * p[C + 1]) - p[A + 1] * (p[B] * p[C + 2] - p[B + 2] * p[C]) + p[A + 2] * (p[B] * p[C + 1] - p[B + 1] * p[C]);
+  };
+  for (let t = 0; t < T; t++) {
+    const a = idx[t * 3], b = idx[t * 3 + 1], c = idx[t * 3 + 2];
+    vol[comp[t]] += flip[t] ? tet(a, c, b) : tet(a, b, c);
+  }
+  for (let i = 0; i < fillComp.length; i++) vol[fillComp[i]] += tet(fillIdx[i * 3], fillIdx[i * 3 + 1], fillIdx[i * 3 + 2]);
+  const inv = new Uint8Array(ncomp);
+  for (let c = 0; c < ncomp; c++) if (vol[c] < -1e-3) { inv[c] = 1; report.inverted++; }
+
+  // 5. assemblage, en remettant chaque face dans le bon sens
+  const N = T + fillComp.length;
+  let res = new Uint32Array(N * 3);
+  let k = 0;
+  for (let t = 0; t < T; t++) {
+    const a = idx[t * 3], b = idx[t * 3 + 1], c = idx[t * 3 + 2];
+    if (flip[t] ^ inv[comp[t]]) { res[k++] = a; res[k++] = c; res[k++] = b; report.flipped++; }
+    else { res[k++] = a; res[k++] = b; res[k++] = c; }
+  }
+  for (let i = 0; i < fillComp.length; i++) {
+    const a = fillIdx[i * 3], b = fillIdx[i * 3 + 1], c = fillIdx[i * 3 + 2];
+    if (inv[fillComp[i]]) { res[k++] = a; res[k++] = c; res[k++] = b; } else { res[k++] = a; res[k++] = b; res[k++] = c; }
+  }
+
+  // 6. poussières : très petites pièces isolées (moins de 2 mm et peu de faces)
+  const VA = allPos.length / 3;
+  const parent = new Int32Array(VA);
+  for (let i = 0; i < VA; i++) parent[i] = i;
+  const find = (x) => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
+  for (let t = 0; t < N; t++) {
+    const a = find(res[t * 3]), b = find(res[t * 3 + 1]), c = find(res[t * 3 + 2]);
+    if (a !== b) parent[b] = a;
+    const a2 = find(a);
+    if (a2 !== c) parent[c] = a2;
+  }
+  const tc = new Int32Array(VA), bb = new Float32Array(VA * 6);
+  for (let i = 0; i < VA; i++) { bb[i * 6] = bb[i * 6 + 1] = bb[i * 6 + 2] = Infinity; bb[i * 6 + 3] = bb[i * 6 + 4] = bb[i * 6 + 5] = -Infinity; }
+  for (let t = 0; t < N; t++) {
+    const r = find(res[t * 3]);
+    tc[r]++;
+    for (let j = 0; j < 3; j++) {
+      const v = res[t * 3 + j] * 3;
+      for (let d = 0; d < 3; d++) { const x = allPos[v + d]; if (x < bb[r * 6 + d]) bb[r * 6 + d] = x; if (x > bb[r * 6 + 3 + d]) bb[r * 6 + 3 + d] = x; }
+    }
+  }
+  let largest = 0;
+  for (let i = 0; i < VA; i++) if (tc[i] > tc[largest]) largest = i;
+  const thr = Math.max(1, Math.min(5000, Math.floor(N * 0.001)));
+  const dust = new Uint8Array(VA);
+  for (let i = 0; i < VA; i++) {
+    if (!tc[i] || i === largest || tc[i] >= thr) continue;
+    const dg = Math.hypot(bb[i * 6 + 3] - bb[i * 6], bb[i * 6 + 4] - bb[i * 6 + 1], bb[i * 6 + 5] - bb[i * 6 + 2]);
+    if (dg < 2) { dust[i] = 1; report.fragments++; }
+  }
+  if (report.fragments) {
+    const kept = new Uint32Array(N * 3);
+    let m = 0;
+    for (let t = 0; t < N; t++) if (!dust[find(res[t * 3])]) { kept[m++] = res[t * 3]; kept[m++] = res[t * 3 + 1]; kept[m++] = res[t * 3 + 2]; }
+    res = kept.slice(0, m);
+  }
+  return compact(allPos, res, report);
+}
+
+// Retire les sommets inutilisés
+function compact(pos, idx, report) {
+  const V = pos.length / 3, map = new Int32Array(V).fill(-1);
+  let n = 0;
+  for (let i = 0; i < idx.length; i++) if (map[idx[i]] < 0) map[idx[i]] = n++;
+  const np = new Float32Array(n * 3), ni = new Uint32Array(idx.length);
+  for (let v = 0; v < V; v++) { const m = map[v]; if (m >= 0) { np[m * 3] = pos[v * 3]; np[m * 3 + 1] = pos[v * 3 + 1]; np[m * 3 + 2] = pos[v * 3 + 2]; } }
+  for (let i = 0; i < idx.length; i++) ni[i] = map[idx[i]];
+  return { pos: np, idx: ni, report };
+}
+
+// ---------- Coupe du socle ----------
+// Garde ce qui est au-dessus de la hauteur y0 et referme la coupe par une face plane (le dessous de la figurine).
+export async function cutMesh(pos, idx, y0) {
+  const V = pos.length / 3, T = idx.length / 3;
+  // aucun sommet pile sur le plan, pour que chaque point de coupe soit unique
+  for (let g = 0; g < 50; g++) {
+    let hit = false;
+    for (let i = 1; i < pos.length; i += 3) if (pos[i] === y0) { hit = true; break; }
+    if (!hit) break;
+    y0 += 1e-4;
+  }
+  const above = new Uint8Array(V);
+  for (let i = 0; i < V; i++) above[i] = pos[i * 3 + 1] > y0 ? 1 : 0;
+  const tri = new Grow(Uint32Array, Math.max(1024, T * 3));
+  const extra = [], cutAt = new Map(), seg = new Map();
+  const cross = (i, j) => {
+    const key = i < j ? i * V + j : j * V + i;
+    let id = cutAt.get(key);
+    if (id !== undefined) return id;
+    const t = (y0 - pos[i * 3 + 1]) / (pos[j * 3 + 1] - pos[i * 3 + 1]);
+    id = V + extra.length / 3;
+    extra.push(pos[i * 3] + t * (pos[j * 3] - pos[i * 3]), y0, pos[i * 3 + 2] + t * (pos[j * 3 + 2] - pos[i * 3 + 2]));
+    cutAt.set(key, id);
+    return id;
+  };
+  const addSeg = (from, to) => { if (from === to) return; if (!seg.has(from)) seg.set(from, []); seg.get(from).push(to); };
+  for (let t = 0; t < T; t++) {
+    const v = [idx[t * 3], idx[t * 3 + 1], idx[t * 3 + 2]];
+    const s = above[v[0]] + above[v[1]] + above[v[2]];
+    if (s === 3) { tri.push3(v[0], v[1], v[2]); continue; }
+    if (s === 0) continue;
+    // le sommet « seul de son côté » en premier, en gardant le sens de parcours
+    const lone = s === 1 ? v.findIndex(x => above[x]) : v.findIndex(x => !above[x]);
+    const p = v[lone], q = v[(lone + 1) % 3], r = v[(lone + 2) % 3];
+    if (s === 1) {
+      const pq = cross(p, q), pr = cross(p, r);
+      tri.push3(p, pq, pr);
+      addSeg(pr, pq);
+    } else {
+      const qp = cross(q, p), rp = cross(r, p);
+      tri.push3(q, r, rp); tri.push3(q, rp, qp);
+      addSeg(qp, rp);
+    }
+  }
+  // contours de la coupe
+  const loops = [];
+  let open = 0;
+  for (const start of seg.keys()) {
+    while (seg.get(start).length) {
+      const loop = [start];
+      let next = seg.get(start).pop(), closed = false;
+      while (loop.length < 1e6) {
+        if (next === start) { closed = true; break; }
+        loop.push(next);
+        const l = seg.get(next);
+        if (!l || !l.length) break;
+        next = l.pop();
+      }
+      if (closed && loop.length >= 3) loops.push(loop); else open++;
+    }
+  }
+  const allPos = new Float32Array(pos.length + extra.length);
+  allPos.set(pos); allPos.set(extra, pos.length);
+  let capped = 0;
+  if (loops.length) {
+    const { ShapeUtils, Vector2 } = await import('./lib/three.module.js');
+    const pts = loops.map(l => l.map(i => new Vector2(allPos[i * 3], allPos[i * 3 + 2])));
+    const areas = pts.map(p => ShapeUtils.area(p));
+    let big = 0;
+    for (let i = 1; i < areas.length; i++) if (Math.abs(areas[i]) > Math.abs(areas[big])) big = i;
+    const sign = Math.sign(areas[big]) || 1;
+    const outers = [], holes = [];
+    loops.forEach((l, i) => (Math.sign(areas[i]) === sign ? outers : holes).push(i));
+    const inPoly = (pt, poly) => {
+      let c = false;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const a = poly[i], b = poly[j];
+        if ((a.y > pt.y) !== (b.y > pt.y) && pt.x < (b.x - a.x) * (pt.y - a.y) / (b.y - a.y) + a.x) c = !c;
+      }
+      return c;
+    };
+    const holesOf = new Map(outers.map(o => [o, []]));
+    for (const h of holes) {
+      let best = -1;
+      for (const o of outers) if (inPoly(pts[h][0], pts[o]) && (best < 0 || Math.abs(areas[o]) < Math.abs(areas[best]))) best = o;
+      if (best >= 0) holesOf.get(best).push(h);
+    }
+    for (const o of outers) {
+      const hs = holesOf.get(o);
+      const ids = [...loops[o], ...hs.flatMap(h => loops[h])];
+      let faces;
+      try { faces = ShapeUtils.triangulateShape(pts[o].slice(), hs.map(h => pts[h].slice())); } catch (e) { continue; }
+      for (const f of faces) {
+        let a = ids[f[0]], b = ids[f[1]], c = ids[f[2]];
+        if (a === undefined || b === undefined || c === undefined) continue;
+        // la face du dessous regarde vers le bas
+        const ny = (allPos[b * 3 + 2] - allPos[a * 3 + 2]) * (allPos[c * 3] - allPos[a * 3]) - (allPos[b * 3] - allPos[a * 3]) * (allPos[c * 3 + 2] - allPos[a * 3 + 2]);
+        if (ny > 0) [b, c] = [c, b];
+        tri.push3(a, b, c);
+      }
+      capped++;
+    }
+  }
+  const r = compact(allPos, tri.view, null);
+  return { pos: r.pos, idx: r.idx, loops: loops.length, capped, open };
+}
+
+// Retouches demandées depuis la page : réparation, puis coupe du socle ; renvoie un modèle posé au sol
+export async function editModel(pos, idx, opts) {
+  let report = null, cut = null;
+  if (opts.repair) { const r = repairMesh(pos, idx); pos = r.pos; idx = r.idx; report = r.report; }
+  if (opts.cut > 0) { const r = await cutMesh(pos, idx, opts.cut); pos = r.pos; idx = r.idx; cut = { loops: r.loops, capped: r.capped, open: r.open }; }
+  const offset = place(pos);
+  const out = measure(pos, idx, opts.objects || 1);
+  out.offset = offset;
+  out.report = report;
+  out.cut = cut;
+  out.check = out.stats.tris <= CHECK_MAX_TRIS ? analyzeMesh(out.pos, out.idx) : { skipped: true };
+  return out;
+}
+
 export function readModel(name, buf, progress) {
   const is3mf = /\.3mf$/i.test(name) || (new Uint8Array(buf, 0, 2)[0] === 0x50 && new Uint8Array(buf, 0, 2)[1] === 0x4b);
   const mesh = is3mf ? read3MF(buf, (p) => progress('lecture', p)) : readSTL(buf, (p) => progress('lecture', p));
@@ -482,6 +905,17 @@ export function readModel(name, buf, progress) {
 // ---------- Point d'entrée du worker ----------
 if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope) {
   self.onmessage = async (e) => {
+    if (e.data.op === 'edit') {
+      try {
+        const r = await editModel(e.data.pos, e.data.idx, e.data);
+        const transfer = [r.pos.buffer, r.idx.buffer, r.nrm.buffer];
+        if (r.check.red) transfer.push(r.check.red.buffer, r.check.orange.buffer);
+        self.postMessage({ type: 'edited', pos: r.pos, idx: r.idx, nrm: r.nrm, stats: r.stats, check: r.check, offset: r.offset, report: r.report, cut: r.cut }, transfer);
+      } catch (err) {
+        self.postMessage({ type: 'error', message: String(err && err.message || err) });
+      }
+      return;
+    }
     const { name, file } = e.data;
     try {
       const buf = await file.arrayBuffer();
