@@ -603,8 +603,8 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
         <div class="row-btns"><button class="btn" id="rodMove" type="button">Replacer</button><button class="btn plain" id="rodDel" type="button">Supprimer</button><button class="btn plain" id="rodDone" type="button">Terminé</button></div>
       </div>
       <p class="foot" id="rodNote">Cliquez sur la figurine pour placer la tige, puis faites-la glisser avec les flèches. Une tige verticale part du sol ; elle reste visible en transparence dans la figurine.</p>
-      <div class="stack"><button class="btn wide" id="stlBtn" type="button" disabled><svg aria-hidden="true"><use href="#i-download"/></svg><span>Exporter en STL</span></button></div>
-      <p class="foot">Le modèle tel qu'il est affiché : à l'échelle choisie, socle coupé, tiges et réparations comprises, prêt pour votre slicer (Chitubox, Lychee…).</p>
+      <div class="stack"><button class="btn wide" id="stlBtn" type="button" disabled><svg aria-hidden="true"><use href="#i-download"/></svg><span>Exporter en STL</span></button><button class="btn wide" id="mfBtn" type="button" disabled><svg aria-hidden="true"><use href="#i-download"/></svg><span>Exporter en 3MF</span></button></div>
+      <p class="foot">Le modèle tel qu'il est affiché : à l'échelle choisie, socle coupé, tiges et réparations comprises, prêt pour votre slicer. Le 3MF est plus léger que le STL et garde la figurine et ses tiges en un seul objet.</p>
     </section>
 
     <section class="group">
@@ -1224,6 +1224,7 @@ function setControlsEnabled(on) {
   scaleInput.disabled = !on;
   $('keepBtn').disabled = !on;
   $('stlBtn').disabled = !on;
+  $('mfBtn').disabled = !on;
   $('shotBtn').disabled = !on || recording;
   $('videoBtn').disabled = !on || recording;
 }
@@ -1951,13 +1952,58 @@ function exportSTL() {
     for (let j = 0; j < 3; j++) set(j * 3, a[i + j * 3], a[i + j * 3 + 1], a[i + j * 3 + 2]);
     put();
   }
+  saveBlob(new Blob([buf], { type: 'model/stl' }), exportFileName(it) + '.stl', 'Modèle STL', 'model/stl', 'stl');
+}
+$('stlBtn').addEventListener('click', exportSTL);
+
+// Tige en maillage fermé (deux anneaux et deux centres), dans le repère du modèle affiché
+function rodMeshData(r, off) {
+  const N = 32, pos = new Float32Array((N * 2 + 2) * 3), idx = new Uint32Array(N * 12);
+  const m = new THREE.Matrix4().compose(new THREE.Vector3(r.x + off[0], r.y + off[1], r.z + off[2]), new THREE.Quaternion().setFromUnitVectors(UP, rodDir(r)), new THREE.Vector3(1, 1, 1));
+  const v = new THREE.Vector3();
+  const set = (k, x, y, z) => { v.set(x, y, z).applyMatrix4(m); pos[k * 3] = v.x; pos[k * 3 + 1] = v.y; pos[k * 3 + 2] = v.z; };
+  for (let i = 0; i < N; i++) {
+    const a = i / N * Math.PI * 2, x = Math.cos(a) * r.d / 2, z = Math.sin(a) * r.d / 2;
+    set(i * 2, x, -r.len / 2, z); set(i * 2 + 1, x, r.len / 2, z);
+  }
+  const cb = N * 2, ct = N * 2 + 1;
+  set(cb, 0, -r.len / 2, 0); set(ct, 0, r.len / 2, 0);
+  for (let i = 0, o = 0; i < N; i++) {
+    const b0 = i * 2, t0 = b0 + 1, b1 = ((i + 1) % N) * 2, t1 = b1 + 1;
+    idx.set([b0, t0, b1, b1, t0, t1, ct, t1, t0, cb, b0, b1], o); o += 12;
+  }
+  return { pos, idx };
+}
+function exportFileName(it) {
   const parts = [baseName(it.name)];
   if (it.edit.cut) parts.push('sans socle');
   if (it.rods.length) parts.push(pl(it.rods.length, 'tige', 'tiges'));
-  if (Math.abs(s - 1) > 1e-6) parts.push(pctText(s).replace(/\s/g, ''));
-  saveBlob(new Blob([buf], { type: 'model/stl' }), parts.join(' - ') + '.stl', 'Modèle STL', 'model/stl', 'stl');
+  if (Math.abs(it.scale - 1) > 1e-6) parts.push(pctText(it.scale).replace(/\s/g, ''));
+  return parts.join(' - ');
 }
-$('stlBtn').addEventListener('click', exportSTL);
+// Export 3MF : écrit en arrière-plan (le fichier est compressé), à l'échelle, Z vers le haut
+function export3MF() {
+  const it = shownItem();
+  if (!it || !it.data || it.editing || it.exporting) return;
+  const off = it.orig && it.offset ? it.offset : [0, 0, 0];
+  const parts = [{ pos: it.data.pos.slice(), idx: it.data.idx.slice() }, ...it.rods.map(r => rodMeshData(r, off))];
+  const label = $('mfBtn').querySelector('span');
+  it.exporting = true;
+  label.textContent = 'Préparation du 3MF…';
+  const ready = new Promise((resolve, reject) => {
+    const w = new Worker('./parser.js', { type: 'module' });
+    const done = () => { w.terminate(); it.exporting = false; label.textContent = 'Exporter en 3MF'; };
+    w.onmessage = (e) => {
+      if (e.data.type === 'exported') { done(); resolve(new Blob([e.data.zip], { type: 'model/3mf' })); }
+      else if (e.data.type === 'error') { done(); reject(new Error(e.data.message)); }
+    };
+    w.onerror = (e) => { e.preventDefault(); done(); reject(new Error('le fichier n\'a pas pu être préparé')); };
+    w.postMessage({ op: 'export3mf', parts, scale: it.scale, title: baseName(it.name) }, parts.flatMap(p => [p.pos.buffer, p.idx.buffer]));
+  });
+  ready.catch(() => {});
+  saveBlob(ready, exportFileName(it) + '.3mf', 'Modèle 3MF', 'model/3mf', '3mf');
+}
+$('mfBtn').addEventListener('click', export3MF);
 
 // ---------- Côte à côte ----------
 const labelsEl = $('labels');
@@ -2061,20 +2107,26 @@ function exitLineup() {
 $('t-line').addEventListener('click', () => lineup ? exitLineup() : enterLineup());
 
 // ---------- Capture et vidéo ----------
+// blob : un Blob, ou une promesse de Blob (l'emplacement se choisit alors tout de suite, pendant que le fichier se prépare)
 async function saveBlob(blob, name, desc, mime, ext) {
   if (desktop) {
-    try { const saved = await desktop.save(blob, name, desc, ext); if (saved) toast('<strong>Enregistré :</strong> ' + esc(saved)); }
-    catch (e) { toast('<strong>Enregistrement impossible.</strong> ' + esc(String(e))); }
+    try { const saved = await desktop.save(await blob, name, desc, ext); if (saved) toast('<strong>Enregistré :</strong> ' + esc(saved)); }
+    catch (e) { toast('<strong>Enregistrement impossible.</strong> ' + esc(String(e && e.message || e))); }
     return;
   }
   if (window.showSaveFilePicker) {
-    try {
-      const h = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: desc, accept: { [mime]: ['.' + ext] } }] });
-      const w = await h.createWritable(); await w.write(blob); await w.close();
-      toast('<strong>Enregistré :</strong> ' + esc(h.name));
+    let h = null;
+    try { h = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: desc, accept: { [mime]: ['.' + ext] } }] }); }
+    catch (e) { if (e && e.name === 'AbortError') return; }
+    if (h) {
+      try {
+        const w = await h.createWritable(); await w.write(await blob); await w.close();
+        toast('<strong>Enregistré :</strong> ' + esc(h.name));
+      } catch (e) { toast('<strong>Enregistrement impossible.</strong> ' + esc(String(e && e.message || e))); }
       return;
-    } catch (e) { if (e && e.name === 'AbortError') return; }
+    }
   }
+  try { blob = await blob; } catch (e) { toast('<strong>Enregistrement impossible.</strong> ' + esc(String(e && e.message || e))); return; }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = name;
   document.body.append(a); a.click(); a.remove();

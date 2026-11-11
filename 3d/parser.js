@@ -1,7 +1,7 @@
 // Atelier 3D : lecture des fichiers .3mf et .stl en arrière-plan (Web Worker).
 // Le fichier reste sur l'ordinateur : tout est lu ici, rien n'est envoyé en ligne.
 // Sortie : sommets (Y vers le haut, centrés, posés à y = 0), indices, normales et quelques mesures.
-import { Unzip, UnzipInflate, Inflate } from './lib/fflate.module.js';
+import { Unzip, UnzipInflate, Inflate, Zip, ZipDeflate } from './lib/fflate.module.js';
 
 const UNIT = { micron: 0.001, millimeter: 1, centimeter: 10, inch: 25.4, foot: 304.8, meter: 1000 };
 
@@ -893,6 +893,54 @@ export async function editModel(pos, idx, opts) {
   return out;
 }
 
+// ---------- Écriture d'un 3MF ----------
+// parts : maillages { pos, idx } dans le repère d'affichage (Y vers le haut) ; écrits en millimètres, Z vers le haut,
+// à l'échelle demandée. Plusieurs maillages (figurine et tiges) sont réunis en un seul objet composé.
+export function write3MF(parts, scale, title) {
+  const chunks = [];
+  const zip = new Zip((err, data) => { if (err) throw err; chunks.push(data); });
+  const enc = new TextEncoder();
+  const file = (name, level) => { const f = new ZipDeflate(name, { level }); zip.add(f); return f; };
+  const xml = (t) => String(t).replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' }[c]));
+  let f = file('[Content_Types].xml', 6);
+  f.push(enc.encode('<?xml version="1.0" encoding="UTF-8"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>'), true);
+  f = file('_rels/.rels', 6);
+  f.push(enc.encode('<?xml version="1.0" encoding="UTF-8"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>'), true);
+  f = file('3D/3dmodel.model', 4);
+  const put = (str) => f.push(enc.encode(str), false);
+  const num = (v) => String(Math.round(v * 1e4) / 1e4);
+  put('<?xml version="1.0" encoding="UTF-8"?>\n<model unit="millimeter" xml:lang="fr-FR" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">\n <metadata name="Title">' + xml(title) + '</metadata>\n <metadata name="Application">Atelier 3D</metadata>\n <resources>\n');
+  parts.forEach((p, k) => {
+    put('  <object id="' + (k + 1) + '" type="model">\n   <mesh>\n    <vertices>\n');
+    const { pos, idx } = p;
+    let buf = [];
+    for (let i = 0; i < pos.length; i += 3) {
+      // affichage (x, y, z) → impression (x, −z, y)
+      buf.push('     <vertex x="' + num(pos[i] * scale) + '" y="' + num(-pos[i + 2] * scale) + '" z="' + num(pos[i + 1] * scale) + '"/>\n');
+      if (buf.length >= 20000) { put(buf.join('')); buf = []; }
+    }
+    put(buf.join('') + '    </vertices>\n    <triangles>\n'); buf = [];
+    for (let i = 0; i < idx.length; i += 3) {
+      buf.push('     <triangle v1="' + idx[i] + '" v2="' + idx[i + 1] + '" v3="' + idx[i + 2] + '"/>\n');
+      if (buf.length >= 20000) { put(buf.join('')); buf = []; }
+    }
+    put(buf.join('') + '    </triangles>\n   </mesh>\n  </object>\n');
+  });
+  let item = 1;
+  if (parts.length > 1) {
+    item = parts.length + 1;
+    put('  <object id="' + item + '" type="model">\n   <components>\n' + parts.map((p, k) => '    <component objectid="' + (k + 1) + '"/>\n').join('') + '   </components>\n  </object>\n');
+  }
+  f.push(enc.encode(' </resources>\n <build>\n  <item objectid="' + item + '"/>\n </build>\n</model>\n'), true);
+  zip.end();
+  let n = 0;
+  for (const c of chunks) n += c.length;
+  const out = new Uint8Array(n);
+  let o = 0;
+  for (const c of chunks) { out.set(c, o); o += c.length; }
+  return out;
+}
+
 export function readModel(name, buf, progress) {
   const is3mf = /\.3mf$/i.test(name) || (new Uint8Array(buf, 0, 2)[0] === 0x50 && new Uint8Array(buf, 0, 2)[1] === 0x4b);
   const mesh = is3mf ? read3MF(buf, (p) => progress('lecture', p)) : readSTL(buf, (p) => progress('lecture', p));
@@ -905,6 +953,15 @@ export function readModel(name, buf, progress) {
 // ---------- Point d'entrée du worker ----------
 if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope) {
   self.onmessage = async (e) => {
+    if (e.data.op === 'export3mf') {
+      try {
+        const zip = write3MF(e.data.parts, e.data.scale, e.data.title);
+        self.postMessage({ type: 'exported', zip }, [zip.buffer]);
+      } catch (err) {
+        self.postMessage({ type: 'error', message: String(err && err.message || err) });
+      }
+      return;
+    }
     if (e.data.op === 'edit') {
       try {
         const r = await editModel(e.data.pos, e.data.idx, e.data);
