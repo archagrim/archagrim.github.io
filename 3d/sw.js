@@ -1,5 +1,5 @@
 // Atelier 3D hors ligne : la page, le lecteur de fichiers et three.js restent disponibles sans connexion.
-const CACHE = "atelier-3d-v19";
+const CACHE = "atelier-3d-v20";
 const FILES = [
   "./", "./index.html", "./manifest.webmanifest", "./parser.js", "./formats.js",
   "./fonts/inter.woff2", "./lib/three.module.js", "./lib/OrbitControls.js", "./lib/TransformControls.js", "./lib/fflate.module.js",

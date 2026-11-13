@@ -227,12 +227,25 @@ dd.warn{color:var(--warn)}
 .segfull button[aria-pressed="true"]{background:var(--panel);box-shadow:0 1px 3px rgba(0,0,0,.12),0 0 0 .5px rgba(0,0,0,.04)}
 .segfull button:disabled{opacity:.45}
 .segfull.seg3{grid-template-columns:repeat(3,minmax(0,1fr))}
-.palette{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin:12px 0 4px}
-.swatch{position:relative;aspect-ratio:1;width:100%;border-radius:50%;border:0;padding:0;background:var(--c);box-shadow:inset 0 0 0 1px rgba(0,0,0,.14);cursor:pointer;transition:transform .15s}
-.swatch:hover{transform:scale(1.08)}
-.swatch[aria-pressed="true"]{box-shadow:inset 0 0 0 1px rgba(0,0,0,.14),0 0 0 2px var(--panel),0 0 0 4px var(--accent)}
-.swatch.custom{display:grid;place-items:center;background:conic-gradient(#f33,#fd3,#3d3,#3dd,#33f,#d3d,#f33);overflow:hidden}
-.swatch.custom input{position:absolute;inset:-8px;width:calc(100% + 16px);height:calc(100% + 16px);opacity:0;cursor:pointer}
+.picker{margin:12px 0 6px;display:flex;flex-direction:column;gap:10px}
+.sv{position:relative;height:150px;border-radius:10px;overflow:hidden;cursor:crosshair;touch-action:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.sv canvas{width:100%;height:100%;display:block}
+.sv-thumb{position:absolute;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.45),0 1px 4px rgba(0,0,0,.4);pointer-events:none}
+.hue{-webkit-appearance:none;appearance:none;width:100%;height:14px;border-radius:7px;background:linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00);outline-offset:3px}
+.hue::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.35),0 1px 4px rgba(0,0,0,.35);cursor:pointer}
+.hue::-moz-range-thumb{width:18px;height:18px;border:0;border-radius:50%;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.35);cursor:pointer}
+.pick-row{display:flex;align-items:center;gap:8px}
+.cur-color{width:34px;height:34px;border-radius:8px;flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
+.hex{flex:1;min-width:0;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--fill);color:inherit;font:500 14px/1 ui-monospace,SFMono-Regular,Consolas,monospace;padding:0 10px;text-transform:uppercase}
+.btn.small{height:34px;padding:0 12px;font-size:13px}
+.saved{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px}
+.saved:empty{display:none}
+.saved button{aspect-ratio:1;width:100%;border:0;border-radius:50%;padding:0;background:var(--c);box-shadow:inset 0 0 0 1px rgba(0,0,0,.15);cursor:pointer;transition:transform .15s}
+.saved button:hover{transform:scale(1.1)}
+.saved button[aria-pressed="true"]{box-shadow:inset 0 0 0 1px rgba(0,0,0,.15),0 0 0 2px var(--panel),0 0 0 4px var(--accent)}
+.foot.tight{margin-top:0}
+.size-bubble{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:8px 14px;border-radius:999px;background:rgba(0,0,0,.72);color:#fff;font:600 15px/1 inherit;pointer-events:none;opacity:0;transition:opacity .25s;z-index:5}
+.size-bubble.show{opacity:1}
 .stage.painting canvas{cursor:crosshair}
 .state{display:flex;align-items:flex-start;gap:7px;margin:12px 0 0;font-size:12.5px;color:var(--ink-2)}
 .state i{width:8px;height:8px;border-radius:50%;background:var(--warn);flex:none;margin-top:5px}
@@ -500,6 +513,7 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
   </nav>
 
   <main class="stage" id="stage">
+    <span class="size-bubble" id="sizeBubble" aria-hidden="true"></span>
     <div class="labels" id="labels"></div>
     <div class="mlabel" id="mlabel" hidden></div>
     <div class="hint" id="hint" hidden></div>
@@ -602,16 +616,29 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
       <h2>Peinture</h2>
       <div class="row-btns"><button class="btn" id="paintBtn" type="button" aria-pressed="false" disabled><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.4 2.6a2 2 0 0 1 2.9 2.9L10 16.8 7.2 14Z"/><path d="M7 14c-2 0-3.5 1.5-3.5 3.5 0 1.3-.6 2.4-1.5 3 1 .6 2.4 1 3.7 1A4.3 4.3 0 0 0 10 17.2"/></svg>Peindre</button><button class="btn plain" id="paintUndo" type="button" disabled>Annuler</button></div>
       <div id="paintTools" hidden>
-        <div class="segfull seg3" role="group" aria-label="Outil de peinture">
+        <div class="segfull" role="group" aria-label="Outil de peinture">
           <button type="button" data-ptool="brush" aria-pressed="true">Pinceau</button>
+          <button type="button" data-ptool="airbrush" aria-pressed="false">Aérographe</button>
           <button type="button" data-ptool="eraser" aria-pressed="false">Gomme</button>
           <button type="button" data-ptool="picker" aria-pressed="false">Pipette</button>
         </div>
-        <div class="palette" role="group" aria-label="Palette"><button type="button" class="swatch" data-color="#F4F1EA" style="--c:#F4F1EA" aria-label="Blanc os" title="Blanc os"></button><button type="button" class="swatch" data-color="#E9D3B0" style="--c:#E9D3B0" aria-label="Parchemin" title="Parchemin"></button><button type="button" class="swatch" data-color="#E8B796" style="--c:#E8B796" aria-label="Chair claire" title="Chair claire"></button><button type="button" class="swatch" data-color="#C4835E" style="--c:#C4835E" aria-label="Chair" title="Chair"></button><button type="button" class="swatch" data-color="#7A1712" style="--c:#7A1712" aria-label="Rouge sang" title="Rouge sang"></button><button type="button" class="swatch" data-color="#C8261E" style="--c:#C8261E" aria-label="Rouge vif" title="Rouge vif"></button><button type="button" class="swatch" data-color="#E2771F" style="--c:#E2771F" aria-label="Orange" title="Orange"></button><button type="button" class="swatch" data-color="#F2C230" style="--c:#F2C230" aria-label="Jaune" title="Jaune"></button><button type="button" class="swatch" data-color="#2F4D2A" style="--c:#2F4D2A" aria-label="Vert forêt" title="Vert forêt"></button><button type="button" class="swatch" data-color="#4E8A35" style="--c:#4E8A35" aria-label="Vert vif" title="Vert vif"></button><button type="button" class="swatch" data-color="#1F8A82" style="--c:#1F8A82" aria-label="Turquoise" title="Turquoise"></button><button type="button" class="swatch" data-color="#1D4FA0" style="--c:#1D4FA0" aria-label="Bleu roi" title="Bleu roi"></button><button type="button" class="swatch" data-color="#18233F" style="--c:#18233F" aria-label="Bleu nuit" title="Bleu nuit"></button><button type="button" class="swatch" data-color="#5B3485" style="--c:#5B3485" aria-label="Violet" title="Violet"></button><button type="button" class="swatch" data-color="#6B4024" style="--c:#6B4024" aria-label="Cuir" title="Cuir"></button><button type="button" class="swatch" data-color="#3E2B1E" style="--c:#3E2B1E" aria-label="Bois sombre" title="Bois sombre"></button><button type="button" class="swatch" data-color="#8C8A84" style="--c:#8C8A84" aria-label="Pierre" title="Pierre"></button><button type="button" class="swatch" data-color="#B9BEC6" style="--c:#B9BEC6" aria-label="Acier" title="Acier"></button><button type="button" class="swatch" data-color="#B88A2E" style="--c:#B88A2E" aria-label="Or" title="Or"></button><button type="button" class="swatch" data-color="#151515" style="--c:#151515" aria-label="Noir" title="Noir"></button><label class="swatch custom" title="Autre couleur"><input type="color" id="paintColor" value="#C8261E" aria-label="Autre couleur"></label></div>
+        <div class="picker">
+          <div class="sv" id="svPad" role="slider" tabindex="0" aria-label="Saturation et luminosité" aria-valuetext=""><canvas id="svCanvas" width="256" height="160"></canvas><span class="sv-thumb" id="svThumb"></span></div>
+          <input class="hue" id="hueBar" type="range" min="0" max="360" step="1" aria-label="Teinte">
+          <div class="pick-row">
+            <span class="cur-color" id="curColor" aria-hidden="true"></span>
+            <input class="hex" id="hexInput" type="text" maxlength="7" spellcheck="false" aria-label="Couleur en hexadécimal">
+            <button class="btn plain small" id="saveColor" type="button">Enregistrer</button>
+          </div>
+          <div class="saved" id="savedColors" role="group" aria-label="Couleurs enregistrées"></div>
+          <p class="foot tight" id="savedNote">Enregistrez vos couleurs pour les retrouver d'un clic. Clic droit sur une couleur pour la retirer.</p>
+        </div>
         <label class="slider"><span>Taille</span><input id="brushSize" type="range" min="0" max="100" step="1" value="45"><output id="brushSizeOut"></output></label>
-        <label class="slider"><span>Dureté</span><input id="brushHard" type="range" min="0" max="100" step="1" value="55"><output id="brushHardOut"></output></label>
-        <label class="slider"><span>Opacité</span><input id="brushOpacity" type="range" min="5" max="100" step="1" value="100"><output id="brushOpacityOut"></output></label>
+        <label class="slider" id="hardRow"><span>Dureté</span><input id="brushHard" type="range" min="0" max="100" step="1" value="55"><output id="brushHardOut"></output></label>
+        <label class="slider" id="opacityRow"><span>Opacité</span><input id="brushOpacity" type="range" min="5" max="100" step="1" value="100"><output id="brushOpacityOut"></output></label>
+        <label class="slider" id="flowRow" hidden><span>Débit</span><input id="brushFlow" type="range" min="2" max="100" step="1" value="35"><output id="brushFlowOut"></output></label>
         <div class="row-btns"><button class="btn plain" id="paintFill" type="button">Tout peindre</button><button class="btn plain" id="paintClear" type="button">Tout effacer</button></div>
+        <p class="foot">Taille du pinceau : touches [ et ], ou Alt + molette sur la figurine. L'aérographe dépose la couleur peu à peu tant que le bouton reste appuyé : passez plusieurs fois pour faire des dégradés.</p>
       </div>
       <p class="foot" id="paintNote">Peignez la figurine au pinceau, comme une vraie, pour une imprimante couleur. Les couleurs partent dans l'export 3MF ; le STL, lui, ne garde pas les couleurs.</p>
     </section>
@@ -1160,30 +1187,128 @@ brushRing.renderOrder = 30; brushDot.renderOrder = 29; brushRing.visible = false
 scene.add(brushRing);
 const hexToRGB = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 const rgbToHex = (c) => '#' + c.map(v => v.toString(16).padStart(2, '0')).join('').toUpperCase();
-function setPaintColor(rgb, fromInput) {
-  paintRGB = rgb;
-  const hex = rgbToHex(rgb);
-  if (!fromInput) $('paintColor').value = hex.toLowerCase();
-  document.querySelectorAll('.swatch[data-color]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.color.toUpperCase() === hex)));
-  updateBrushLook();
+// Sélecteur de couleur toujours affiché : teinte, saturation, luminosité
+let hsv = [0, 0.85, 0.78];
+function hsvToRgb(h, s, v) {
+  const f = (n) => { const k = (n + h / 60) % 6; return Math.round((v - v * s * Math.max(0, Math.min(k, 4 - k, 1))) * 255); };
+  return [f(5), f(3), f(1)];
 }
+function rgbToHsv(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  let h = 0;
+  if (d) h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [(h * 60 + 360) % 360, mx ? d / mx : 0, mx];
+}
+const svCanvas = $('svCanvas'), svCtx = svCanvas.getContext('2d');
+function drawSV() {
+  const w = svCanvas.width, h = svCanvas.height;
+  svCtx.fillStyle = rgbToHex(hsvToRgb(hsv[0], 1, 1)); svCtx.fillRect(0, 0, w, h);
+  const gw = svCtx.createLinearGradient(0, 0, w, 0); gw.addColorStop(0, '#fff'); gw.addColorStop(1, 'rgba(255,255,255,0)');
+  svCtx.fillStyle = gw; svCtx.fillRect(0, 0, w, h);
+  const gb = svCtx.createLinearGradient(0, 0, 0, h); gb.addColorStop(0, 'rgba(0,0,0,0)'); gb.addColorStop(1, '#000');
+  svCtx.fillStyle = gb; svCtx.fillRect(0, 0, w, h);
+}
+function showColorUI(skip) {
+  const hex = rgbToHex(paintRGB);
+  $('svThumb').style.left = (hsv[1] * 100) + '%';
+  $('svThumb').style.top = ((1 - hsv[2]) * 100) + '%';
+  $('svThumb').style.background = hex;
+  $('svPad').setAttribute('aria-valuetext', hex);
+  if (skip !== 'hue') $('hueBar').value = String(Math.round(hsv[0]));
+  if (skip !== 'hex') $('hexInput').value = hex;
+  $('curColor').style.background = hex;
+  document.querySelectorAll('#savedColors button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.color === hex)));
+}
+function setPaintColor(rgb, skip) {
+  paintRGB = rgb.slice();
+  if (skip !== 'sv' && skip !== 'hue') hsv = rgbToHsv(rgb[0], rgb[1], rgb[2]);
+  drawSV(); showColorUI(skip); updateBrushLook();
+  if (paintTool === 'eraser' || paintTool === 'picker') setPaintTool('brush');
+}
+const svPick = (ev) => {
+  const r = $('svPad').getBoundingClientRect();
+  hsv[1] = Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width));
+  hsv[2] = Math.min(1, Math.max(0, 1 - (ev.clientY - r.top) / r.height));
+  setPaintColor(hsvToRgb(hsv[0], hsv[1], hsv[2]), 'sv');
+};
+$('svPad').addEventListener('pointerdown', (ev) => { $('svPad').setPointerCapture(ev.pointerId); svPick(ev); });
+$('svPad').addEventListener('pointermove', (ev) => { if (ev.buttons & 1) svPick(ev); });
+$('svPad').addEventListener('keydown', (ev) => {
+  const k = { ArrowLeft: [-0.02, 0], ArrowRight: [0.02, 0], ArrowUp: [0, 0.02], ArrowDown: [0, -0.02] }[ev.key];
+  if (!k) return;
+  ev.preventDefault();
+  hsv[1] = Math.min(1, Math.max(0, hsv[1] + k[0])); hsv[2] = Math.min(1, Math.max(0, hsv[2] + k[1]));
+  setPaintColor(hsvToRgb(hsv[0], hsv[1], hsv[2]), 'sv');
+});
+$('hueBar').addEventListener('input', () => { hsv[0] = +$('hueBar').value; setPaintColor(hsvToRgb(hsv[0], hsv[1], hsv[2]), 'hue'); });
+$('hexInput').addEventListener('input', () => {
+  let v = $('hexInput').value.trim(); if (v[0] !== '#') v = '#' + v;
+  if (/^#[0-9a-f]{6}$/i.test(v)) setPaintColor(hexToRGB(v), 'hex');
+});
+$('hexInput').addEventListener('change', () => showColorUI());
+// Couleurs enregistrées : gardées dans ce navigateur (ou ce programme)
+const COLORS_KEY = 'atelier3d.colors';
+let savedColors = [];
+try { savedColors = JSON.parse(localStorage.getItem(COLORS_KEY) || '[]').filter(c => /^#[0-9A-F]{6}$/i.test(c)).slice(0, 48); } catch (e) { savedColors = []; }
+function renderSaved() {
+  const box = $('savedColors');
+  box.textContent = '';
+  for (const c of savedColors) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.dataset.color = c; b.style.setProperty('--c', c);
+    b.title = c + ' (clic droit pour retirer)'; b.setAttribute('aria-label', 'Couleur ' + c);
+    b.addEventListener('click', () => setPaintColor(hexToRGB(c)));
+    b.addEventListener('contextmenu', (ev) => { ev.preventDefault(); savedColors = savedColors.filter(x => x !== c); storeSaved(); renderSaved(); });
+    box.appendChild(b);
+  }
+  $('savedNote').textContent = savedColors.length ? 'Clic droit sur une couleur pour la retirer.' : 'Enregistrez vos couleurs pour les retrouver d\'un clic.';
+  showColorUI();
+}
+const storeSaved = () => { try { localStorage.setItem(COLORS_KEY, JSON.stringify(savedColors)); } catch (e) { /* stockage indisponible */ } };
+$('saveColor').addEventListener('click', () => {
+  const hex = rgbToHex(paintRGB);
+  if (!savedColors.includes(hex)) { savedColors.push(hex); if (savedColors.length > 48) savedColors.shift(); storeSaved(); }
+  renderSaved();
+});
 function updateBrushLook() {
-  const c = paintTool === 'eraser' ? new THREE.Color(0xffffff) : new THREE.Color(rgbToHex(paintRGB));
+  const c = new THREE.Color(rgbToHex(paintRGB));
   brushRing.material.color.copy(paintTool === 'eraser' ? new THREE.Color(0x111111) : c);
-  brushDot.material.color.copy(c);
+  brushDot.material.color.copy(paintTool === 'eraser' ? new THREE.Color(0xffffff) : c);
+  brushDot.material.opacity = paintTool === 'airbrush' ? 0.12 : 0.22;
+  brushRing.scale.setScalar(brushMM());
   $('brushSizeOut').textContent = String(brushMM()).replace('.', ',') + ' mm';
   $('brushHardOut').textContent = $('brushHard').value + ' %';
   $('brushOpacityOut').textContent = $('brushOpacity').value + ' %';
+  $('brushFlowOut').textContent = $('brushFlow').value + ' %';
 }
-document.querySelectorAll('.swatch[data-color]').forEach(b => b.addEventListener('click', () => { setPaintColor(hexToRGB(b.dataset.color)); if (paintTool !== 'brush') setPaintTool('brush'); }));
-$('paintColor').addEventListener('input', () => { setPaintColor(hexToRGB($('paintColor').value), true); if (paintTool !== 'brush') setPaintTool('brush'); });
-for (const id of ['brushSize', 'brushHard', 'brushOpacity']) $(id).addEventListener('input', updateBrushLook);
-function setPaintTool(t) {
+for (const id of ['brushSize', 'brushHard', 'brushOpacity', 'brushFlow']) $(id).addEventListener('input', updateBrushLook);
+function setPaintTool(t, quiet) {
   paintTool = t;
   document.querySelectorAll('[data-ptool]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ptool === t)));
-  updateBrushLook(); updateHint();
+  $('hardRow').hidden = t === 'airbrush' || t === 'picker';
+  $('opacityRow').hidden = t !== 'brush';
+  $('flowRow').hidden = t !== 'airbrush';
+  updateBrushLook();
+  if (!quiet) updateHint();
 }
 document.querySelectorAll('[data-ptool]').forEach(b => b.addEventListener('click', () => setPaintTool(b.dataset.ptool)));
+// Taille du pinceau au clavier ([ et ]) ou avec Alt + molette ; une bulle affiche la taille
+let bubbleTimer = 0;
+function nudgeBrush(steps) {
+  const el = $('brushSize');
+  el.value = String(Math.min(100, Math.max(0, +el.value + steps)));
+  updateBrushLook();
+  const bub = $('sizeBubble');
+  bub.textContent = 'Pinceau ' + String(brushMM()).replace('.', ',') + ' mm';
+  bub.classList.add('show');
+  clearTimeout(bubbleTimer); bubbleTimer = setTimeout(() => bub.classList.remove('show'), 900);
+}
+stage.addEventListener('wheel', (ev) => {
+  if (!painting || !ev.altKey) return;
+  ev.preventDefault(); ev.stopPropagation();
+  nudgeBrush(ev.deltaY < 0 ? 3 : -3);
+}, { capture: true, passive: false });
 
 // la figurine affichée reçoit une couche de couleur (blanche au départ)
 function paintEntry() { return lineup ? null : single; }
@@ -1270,6 +1395,23 @@ function dab(e, worldPt) {
   });
   if (hi >= 0) { attr.addUpdateRange(lo * 3, (hi - lo + 1) * 3); attr.needsUpdate = true; }
 }
+// Aérographe : un nuage de couleur doux (gaussien) déposé un peu à chaque passage
+function airDab(e, worldPt, amount) {
+  if (amount <= 0) return;
+  const it = e.it, g = e.mesh.geometry, col = it.data.col, attr = g.getAttribute('color'), F = stroke.f, lin = attr.array;
+  e.mesh.worldToLocal(tmpLocal.copy(worldPt));
+  const R = brushMM() / e.mesh.scale.x;
+  let lo = Infinity, hi = -1;
+  forNear(g, tmpLocal, R, (i, d) => {
+    const t = d / R, w = Math.exp(-4.5 * t * t) * amount;
+    for (let k = 0; k < 3; k++) {
+      const j = i * 3 + k, v = F[j] + (paintRGB[k] - F[j]) * w;
+      F[j] = v; const b = Math.round(v); col[j] = b; lin[j] = SRGB2LIN[b];
+    }
+    if (i < lo) lo = i; if (i > hi) hi = i;
+  });
+  if (hi >= 0) { attr.addUpdateRange(lo * 3, (hi - lo + 1) * 3); attr.needsUpdate = true; }
+}
 function pushUndo(it) {
   if (!it.paintUndo) it.paintUndo = [];
   it.paintUndo.push(it.data.col.slice());
@@ -1315,9 +1457,15 @@ renderer.domElement.addEventListener('pointerdown', (ev) => {
   }
   pushUndo(e.it);
   const n = e.it.data.col.length / 3;
-  stroke = { e, start: e.it.data.col.slice(), w: new Float32Array(n), last: h.point.clone() };
   renderer.domElement.setPointerCapture(ev.pointerId);
-  dab(e, h.point);
+  if (paintTool === 'airbrush') {
+    // aérographe : couleur accumulée en nombres décimaux pour des dégradés sans paliers
+    stroke = { e, air: true, f: Float32Array.from(e.it.data.col), last: h.point.clone(), t: performance.now() };
+    airDab(e, h.point, $('brushFlow').value / 100 * 0.12);
+  } else {
+    stroke = { e, start: e.it.data.col.slice(), w: new Float32Array(n), last: h.point.clone() };
+    dab(e, h.point);
+  }
   e.it.painted = true;
 });
 renderer.domElement.addEventListener('pointermove', (ev) => { if (painting) paintPtr = { x: ev.clientX, y: ev.clientY, down: !!stroke }; });
@@ -1328,23 +1476,40 @@ renderer.domElement.addEventListener('pointercancel', endStroke);
 // à chaque image : curseur du pinceau et traits entre deux positions de la souris
 const brushStep = new THREE.Vector3();
 function paintFrame() {
-  if (!painting || !paintPtr) return;
+  if (!painting) return;
   const e = paintEntry(); if (!e) return;
-  const p = paintPtr; paintPtr = null;
-  const h = pick(p.x, p.y);
-  if (!h || h.mesh !== e.mesh) { brushRing.visible = false; return; }
-  brushRing.visible = paintTool !== 'picker';
-  brushRing.position.copy(h.point);
-  brushRing.quaternion.copy(camera.quaternion);
-  brushRing.scale.setScalar(brushMM());
-  if (stroke && stroke.e === e) {
-    const dist = stroke.last.distanceTo(h.point), stepL = Math.max(brushMM() * 0.3, 0.05);
+  let hit = null;
+  if (paintPtr) {
+    const p = paintPtr; paintPtr = null;
+    const h = pick(p.x, p.y);
+    if (h && h.mesh === e.mesh) {
+      hit = h.point;
+      brushRing.visible = paintTool !== 'picker';
+      brushRing.position.copy(h.point);
+      brushRing.scale.setScalar(brushMM());
+    } else if (!stroke) { brushRing.visible = false; return; }
+  }
+  if (brushRing.visible) brushRing.quaternion.copy(camera.quaternion);
+  if (!stroke || stroke.e !== e) return;
+  if (stroke.air) {
+    const now = performance.now(), dt = Math.min(0.1, (now - stroke.t) / 1000), flow = $('brushFlow').value / 100;
+    stroke.t = now;
+    if (hit) {
+      const dist = stroke.last.distanceTo(hit), stepL = Math.max(brushMM() * 0.25, 0.05);
+      const nSteps = Math.min(64, Math.ceil(dist / stepL));
+      for (let k = 1; k <= nSteps; k++) airDab(e, brushStep.copy(stroke.last).lerp(hit, k / nSteps), flow * 0.06);
+      stroke.last.copy(hit);
+    }
+    // tant que le bouton reste appuyé, la couleur continue de se déposer
+    airDab(e, stroke.last, 1 - Math.exp(-flow * 3 * dt));
+  } else if (hit) {
+    const dist = stroke.last.distanceTo(hit), stepL = Math.max(brushMM() * 0.3, 0.05);
     const nSteps = Math.min(64, Math.ceil(dist / stepL));
-    for (let k = 1; k <= nSteps; k++) dab(e, brushStep.copy(stroke.last).lerp(h.point, k / nSteps));
-    stroke.last.copy(h.point);
+    for (let k = 1; k <= nSteps; k++) dab(e, brushStep.copy(stroke.last).lerp(hit, k / nSteps));
+    stroke.last.copy(hit);
   }
 }
-setPaintColor(paintRGB);
+setPaintColor(paintRGB); renderSaved(); setPaintTool('brush', true);
 
 // Ombre de contact douce sous le modèle
 const shadowTex = (() => {
@@ -2828,7 +2993,7 @@ function updateHint() {
   if (placing === 'face') parts.push('<span class="badge accent"><i></i>Orientation</span><span>Cliquez sur la face qui doit toucher le sol. Échap pour annuler.</span>');
   else if (placing) parts.push('<span class="badge accent"><i></i>Tige</span><span>Cliquez sur la figurine à l\'endroit où placer la tige. Échap pour annuler.</span>');
   else if (measuring) parts.push('<span class="badge accent"><i></i>Mesure</span><span>Cliquez deux points sur le modèle. Échap pour effacer.</span>');
-  else if (painting) parts.push(paintTool === 'picker' ? '<span class="badge accent"><i></i>Pipette</span><span>Cliquez sur la figurine pour reprendre sa couleur.</span>' : '<span class="badge accent"><i></i>' + (paintTool === 'eraser' ? 'Gomme' : 'Peinture') + '</span><span>Clic gauche pour peindre. Clic molette maintenu pour tourner autour de la figurine, clic droit (ou Maj + clic molette) pour la déplacer, molette pour zoomer. Ctrl+Z pour annuler.</span>');
+  else if (painting) parts.push(paintTool === 'picker' ? '<span class="badge accent"><i></i>Pipette</span><span>Cliquez sur la figurine pour reprendre sa couleur.</span>' : '<span class="badge accent"><i></i>' + (paintTool === 'eraser' ? 'Gomme' : paintTool === 'airbrush' ? 'Aérographe' : 'Peinture') + '</span><span>Clic gauche pour peindre, [ et ] pour la taille. Clic molette maintenu pour tourner autour de la figurine, clic droit (ou Maj + clic molette) pour la déplacer, molette pour zoomer. Ctrl+Z pour annuler.</span>');
   else if (sunOn) parts.push('<span class="badge accent"><i></i>Soleil</span><span>Faites glisser la boule jaune pour choisir d\'où vient la lumière. Échap pour la ranger.</span>');
   else parts.push(realSize ? '<span>Faites glisser pour tourner, clic droit pour déplacer.</span>' : '<span>Faites glisser pour tourner, molette pour zoomer, clic droit pour déplacer.</span>');
   if (lineup) parts.push('<span>Cliquez une étiquette pour afficher ses informations.</span>');
@@ -3369,6 +3534,7 @@ document.addEventListener('keydown', (e) => {
     closeHelp(); return;
   }
   if (painting && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undoPaint(); return; }
+  if (painting && !e.ctrlKey && !e.metaKey && (e.key === '[' || e.key === ']')) { e.preventDefault(); nudgeBrush(e.key === ']' ? 4 : -4); return; }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') { e.preventDefault(); if (e.shiftKey) pickFolder(); else pickFiles(); return; }
   if (view === 'library') return;
   const tag = (e.target && e.target.tagName) || '';
