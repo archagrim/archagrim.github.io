@@ -39,6 +39,36 @@
         ],
         "application/vnd.ms-pki.stl": [
           ".stl"
+        ],
+        "model/obj": [
+          ".obj"
+        ],
+        "model/gltf-binary": [
+          ".glb"
+        ],
+        "model/gltf+json": [
+          ".gltf"
+        ],
+        "application/octet-stream": [
+          ".ply",
+          ".fbx",
+          ".3ds"
+        ],
+        "text/plain": [
+          ".off"
+        ],
+        "model/vnd.collada+xml": [
+          ".dae"
+        ],
+        "application/x-amf": [
+          ".amf"
+        ],
+        "model/vrml": [
+          ".wrl",
+          ".vrml"
+        ],
+        "model/x3d+xml": [
+          ".x3d"
         ]
       }
     }

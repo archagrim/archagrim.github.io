@@ -1,7 +1,8 @@
-// Atelier 3D : lecture des fichiers .3mf et .stl en arrière-plan (Web Worker).
+// Atelier 3D : lecture des fichiers 3D (.3mf, .stl et les formats de formats.js) en arrière-plan (Web Worker).
 // Le fichier reste sur l'ordinateur : tout est lu ici, rien n'est envoyé en ligne.
 // Sortie : sommets (Y vers le haut, centrés, posés à y = 0), indices, normales et quelques mesures.
 import { Unzip, UnzipInflate, Inflate, Zip, ZipDeflate } from './lib/fflate.module.js';
+import { readerFor } from './formats.js';
 
 const UNIT = { micron: 0.001, millimeter: 1, centimeter: 10, inch: 25.4, foot: 304.8, meter: 1000 };
 
@@ -43,6 +44,8 @@ const TAG = /<(\/?)([A-Za-z_][\w:.-]*)([^>]*)>/g;
 const ATTR = /([A-Za-z_][\w:.-]*)\s*=\s*"([^"]*)"/g;
 const VERTEX = /\bx="([^"]*)"\s+y="([^"]*)"\s+z="([^"]*)"/;
 const TRI = /\bv1="(\d+)"\s+v2="(\d+)"\s+v3="(\d+)"/;
+// couleur 3MF « #RRGGBB » ou « #RRGGBBAA »
+function hexRGB(h) { const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i.exec(h || ''); return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : null; }
 
 function attrs(s) {
   const o = {}; let m; ATTR.lastIndex = 0;
@@ -55,7 +58,8 @@ function attrs(s) {
 }
 
 export function makeModelParser(path) {
-  const st = { path, unit: 1, objects: new Map(), build: [], hasBuild: false };
+  const st = { path, unit: 1, objects: new Map(), build: [], hasBuild: false, props: new Map() };
+  let group = null;
   const dec = new TextDecoder();
   let carry = '';
   let cur = null;
@@ -73,17 +77,44 @@ export function makeModelParser(path) {
     if (tag === 'triangle') {
       if (!cur) return;
       const m = TRI.exec(rest);
-      if (m) cur.idx.push3(+m[1], +m[2], +m[3]);
-      else { const a = attrs(rest); cur.idx.push3(+a.v1, +a.v2, +a.v3); }
+      let v1, v2, v3;
+      if (m) { v1 = +m[1]; v2 = +m[2]; v3 = +m[3]; }
+      else { const a = attrs(rest); v1 = +a.v1; v2 = +a.v2; v3 = +a.v3; }
+      cur.idx.push3(v1, v2, v3);
+      // couleur de la face (propriétés 3MF) : par sommet de triangle, ou celle de l'objet
+      const hasP = rest.indexOf('p1=') >= 0 || rest.indexOf('pid=') >= 0;
+      if (hasP || cur.pid) {
+        const a = hasP ? attrs(rest) : {};
+        const g = st.props.get(a.pid || cur.pid);
+        if (g) {
+          const p1 = a.p1 != null ? +a.p1 : +(cur.pindex || 0), p2 = a.p2 != null ? +a.p2 : p1, p3 = a.p3 != null ? +a.p3 : p1;
+          if (!cur.col) cur.col = new Map();
+          const c1 = g[p1], c2 = g[p2], c3 = g[p3];
+          if (c1) cur.col.set(v1, c1); if (c2) cur.col.set(v2, c2); if (c3) cur.col.set(v3, c3);
+        }
+      }
       return;
     }
-    if (close) { if (tag === 'object') cur = null; return; }
+    if (tag === 'color' || tag === 'base') {
+      if (!group) return;
+      const a = attrs(rest);
+      group.push(hexRGB(tag === 'color' ? a.color : a.displaycolor) || [255, 255, 255]);
+      return;
+    }
+    if (close) { if (tag === 'object') cur = null; else if (tag === 'colorgroup' || tag === 'basematerials') group = null; return; }
+    if (tag === 'colorgroup' || tag === 'basematerials') {
+      const a = attrs(rest);
+      group = [];
+      st.props.set(a.id, group);
+      if (/\/\s*$/.test(rest)) group = null;
+      return;
+    }
     if (tag === 'model') {
       const u = attrs(rest).unit;
       if (u && UNIT[u]) st.unit = UNIT[u];
     } else if (tag === 'object') {
       const a = attrs(rest);
-      cur = { id: a.id, pos: new Grow(Float32Array), idx: new Grow(Uint32Array, 1 << 17), comps: [] };
+      cur = { id: a.id, pos: new Grow(Float32Array), idx: new Grow(Uint32Array, 1 << 17), comps: [], pid: a.pid, pindex: a.pindex, col: null };
       st.objects.set(a.id, cur);
       if (/\/\s*$/.test(rest)) cur = null;
     } else if (tag === 'component') {
@@ -235,6 +266,7 @@ export function read3MF(buf, progress = () => {}) {
   const pos = new Grow(Float32Array, 1 << 20);
   const idx = new Grow(Uint32Array, 1 << 21);
   let objects = 0;
+  const colorAt = [];      // [{ base, map }] : couleurs des sommets, par objet émis
 
   function emit(path, id, T, depth) {
     if (depth > 16) return;
@@ -258,6 +290,7 @@ export function read3MF(buf, progress = () => {}) {
           pos.a[pos.n++] = x * u; pos.a[pos.n++] = y * u; pos.a[pos.n++] = z * u;
         }
       }
+      if (o.col && o.col.size) colorAt.push({ base, map: o.col });
       idx.need(I.length);
       for (let i = 0; i < I.length; i += 3) {
         const a = I[i], b = I[i + 1], c = I[i + 2];
@@ -275,7 +308,12 @@ export function read3MF(buf, progress = () => {}) {
     for (const [id] of root.objects) if (!used.has(root.path + '#' + id)) emit(root.path, id, null, 0);
   }
   if (!idx.n) throw new Error("le fichier ne contient aucun triangle");
-  return { pos: pos.view.slice(), idx: idx.view.slice(), objects };
+  let col = null;
+  if (colorAt.length) {
+    col = new Uint8Array(pos.n).fill(255);
+    for (const { base, map } of colorAt) for (const [v, c] of map) { const k = (base + v) * 3; col[k] = c[0]; col[k + 1] = c[1]; col[k + 2] = c[2]; }
+  }
+  return { pos: pos.view.slice(), idx: idx.view.slice(), objects, col };
 }
 
 // ---------- STL ----------
@@ -335,10 +373,13 @@ export function readSTL(buf, progress = () => {}) {
 
 export function finish(mesh) {
   const { pos } = mesh;
-  // Z vers le haut (impression 3D) → Y vers le haut (affichage) : (x, y, z) → (x, z, -y)
-  for (let i = 0; i < pos.length; i += 3) { const y = pos[i + 1], z = pos[i + 2]; pos[i + 1] = z; pos[i + 2] = -y; }
+  // Z vers le haut (impression 3D : 3MF, STL, PLY…) → Y vers le haut (affichage) : (x, y, z) → (x, z, -y)
+  // OBJ, glTF, FBX, VRML et X3D sont déjà en Y vers le haut
+  if (!mesh.yUp) for (let i = 0; i < pos.length; i += 3) { const y = pos[i + 1], z = pos[i + 2]; pos[i + 1] = z; pos[i + 2] = -y; }
   place(pos);
-  return measure(pos, mesh.idx, mesh.objects);
+  const r = measure(pos, mesh.idx, mesh.objects);
+  r.col = mesh.col && mesh.col.length === pos.length ? mesh.col : null;
+  return r;
 }
 
 // Pose le modèle au sol, centré : renvoie le déplacement appliqué
@@ -880,6 +921,37 @@ export async function cutMesh(pos, idx, y0) {
 }
 
 // Retouches demandées depuis la page : réparation, puis coupe du socle ; renvoie un modèle posé au sol
+// Reporte les couleurs d'un maillage (refPos, décalé de off) sur un autre : sommet le plus proche, grille de 0,6 mm
+function transferColors(refPos, off, refCol, pos) {
+  const ox = off ? off[0] : 0, oy = off ? off[1] : 0, oz = off ? off[2] : 0;
+  const C = 0.6, n = refPos.length / 3;
+  let cap = 1; while (cap < n * 2) cap <<= 1;
+  const mask = cap - 1;
+  const head = new Int32Array(cap).fill(-1), next = new Int32Array(n);
+  const key = (x, y, z) => (Math.imul(x, 73856093) ^ Math.imul(y, 19349663) ^ Math.imul(z, 83492791)) & mask;
+  for (let i = 0; i < n; i++) {
+    const h = key(Math.floor((refPos[i * 3] - ox) / C), Math.floor((refPos[i * 3 + 1] - oy) / C), Math.floor((refPos[i * 3 + 2] - oz) / C));
+    next[i] = head[h]; head[h] = i;
+  }
+  const out = new Uint8Array(pos.length).fill(255);
+  for (let v = 0; v < pos.length; v += 3) {
+    const x = pos[v], y = pos[v + 1], z = pos[v + 2];
+    const cx = Math.floor(x / C), cy = Math.floor(y / C), cz = Math.floor(z / C);
+    let best = -1, bd = Infinity;
+    for (let r = 1; r <= 4 && best < 0; r++) {
+      for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) for (let dz = -r; dz <= r; dz++) {
+        for (let i = head[key(cx + dx, cy + dy, cz + dz)]; i >= 0; i = next[i]) {
+          const ex = refPos[i * 3] - ox - x, ey = refPos[i * 3 + 1] - oy - y, ez = refPos[i * 3 + 2] - oz - z;
+          const d = ex * ex + ey * ey + ez * ez;
+          if (d < bd) { bd = d; best = i; }
+        }
+      }
+    }
+    if (best >= 0) { out[v] = refCol[best * 3]; out[v + 1] = refCol[best * 3 + 1]; out[v + 2] = refCol[best * 3 + 2]; }
+  }
+  return out;
+}
+
 export async function editModel(pos, idx, opts) {
   let report = null, cut = null;
   if (opts.rot) {
@@ -894,10 +966,18 @@ export async function editModel(pos, idx, opts) {
     }
     place(pos);
   }
+  const nv0 = pos.length;
   if (opts.repair) { const r = repairMesh(pos, idx); pos = r.pos; idx = r.idx; report = r.report; }
   if (opts.cut > 0) { const r = await cutMesh(pos, idx, opts.cut); pos = r.pos; idx = r.idx; cut = { loops: r.loops, capped: r.capped, open: r.open }; }
+  // couleurs (peinture ou fichier) : même maillage → telles quelles ; sinon, celle du sommet le plus proche
+  let col = null;
+  if (opts.ref && opts.ref.col) {
+    if (!opts.repair && !(opts.cut > 0) && opts.ref.col.length === nv0) col = opts.ref.col;
+    else col = transferColors(opts.ref.pos, opts.ref.off, opts.ref.col, pos);
+  }
   const offset = place(pos);
   const out = measure(pos, idx, opts.objects || 1);
+  out.col = col;
   out.offset = offset;
   out.report = report;
   out.cut = cut;
@@ -921,9 +1001,35 @@ export function write3MF(parts, scale, title) {
   f = file('3D/3dmodel.model', 4);
   const put = (str) => f.push(enc.encode(str), false);
   const num = (v) => String(Math.round(v * 1e4) / 1e4);
-  put('<?xml version="1.0" encoding="UTF-8"?>\n<model unit="millimeter" xml:lang="fr-FR" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">\n <metadata name="Title">' + xml(title) + '</metadata>\n <metadata name="Application">Atelier 3D</metadata>\n <resources>\n');
+  const colored = parts.some(p => p.col);
+  put('<?xml version="1.0" encoding="UTF-8"?>\n<model unit="millimeter" xml:lang="fr-FR" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02"' + (colored ? ' xmlns:m="http://schemas.microsoft.com/3dmanufacturing/material/2015/02"' : '') + '>\n <metadata name="Title">' + xml(title) + '</metadata>\n <metadata name="Application">Atelier 3D</metadata>\n <resources>\n');
+  const hex2 = (v) => (v < 16 ? '0' : '') + v.toString(16).toUpperCase();
   parts.forEach((p, k) => {
-    put('  <object id="' + (k + 1) + '" type="model">\n   <mesh>\n    <vertices>\n');
+    // couleurs par sommet → groupe de couleurs 3MF (extension « matériaux et propriétés »), lu par les logiciels d'impression couleur
+    let vIdx = null, gid = 0;
+    if (p.col) {
+      const map = new Map(), list = [];
+      const nv = p.pos.length / 3;
+      vIdx = new Uint32Array(nv);
+      // plus de 65 000 teintes : on arrondit à 5 bits par canal pour garder un fichier raisonnable
+      let shift = 0;
+      for (;;) {
+        map.clear(); list.length = 0;
+        let ok = true;
+        for (let v = 0; v < nv; v++) {
+          const r = p.col[v * 3] >> shift << shift, g = p.col[v * 3 + 1] >> shift << shift, b = p.col[v * 3 + 2] >> shift << shift;
+          const key = (r << 16) | (g << 8) | b;
+          let c = map.get(key);
+          if (c === undefined) { c = list.length; map.set(key, c); list.push(key); if (list.length > 65000) { ok = false; break; } }
+          vIdx[v] = c;
+        }
+        if (ok) break;
+        shift += 1;
+      }
+      gid = 10000 + k;
+      put('  <m:colorgroup id="' + gid + '">\n' + list.map(c => '   <m:color color="#' + hex2(c >> 16) + hex2((c >> 8) & 255) + hex2(c & 255) + '"/>\n').join('') + '  </m:colorgroup>\n');
+    }
+    put('  <object id="' + (k + 1) + '" type="model"' + (vIdx ? ' pid="' + gid + '" pindex="0"' : '') + '>\n   <mesh>\n    <vertices>\n');
     const { pos, idx } = p;
     let buf = [];
     for (let i = 0; i < pos.length; i += 3) {
@@ -933,7 +1039,9 @@ export function write3MF(parts, scale, title) {
     }
     put(buf.join('') + '    </vertices>\n    <triangles>\n'); buf = [];
     for (let i = 0; i < idx.length; i += 3) {
-      buf.push('     <triangle v1="' + idx[i] + '" v2="' + idx[i + 1] + '" v3="' + idx[i + 2] + '"/>\n');
+      buf.push(vIdx
+        ? '     <triangle v1="' + idx[i] + '" v2="' + idx[i + 1] + '" v3="' + idx[i + 2] + '" pid="' + gid + '" p1="' + vIdx[idx[i]] + '" p2="' + vIdx[idx[i + 1]] + '" p3="' + vIdx[idx[i + 2]] + '"/>\n'
+        : '     <triangle v1="' + idx[i] + '" v2="' + idx[i + 1] + '" v3="' + idx[i + 2] + '"/>\n');
       if (buf.length >= 20000) { put(buf.join('')); buf = []; }
     }
     put(buf.join('') + '    </triangles>\n   </mesh>\n  </object>\n');
@@ -954,8 +1062,11 @@ export function write3MF(parts, scale, title) {
 }
 
 export function readModel(name, buf, progress) {
-  const is3mf = /\.3mf$/i.test(name) || (new Uint8Array(buf, 0, 2)[0] === 0x50 && new Uint8Array(buf, 0, 2)[1] === 0x4b);
-  const mesh = is3mf ? read3MF(buf, (p) => progress('lecture', p)) : readSTL(buf, (p) => progress('lecture', p));
+  const head = new Uint8Array(buf, 0, Math.min(2, buf.byteLength));
+  const other = readerFor(name);
+  const is3mf = /\.3mf$/i.test(name) || (!other && head[0] === 0x50 && head[1] === 0x4b);
+  const prog = (p) => progress('lecture', p);
+  const mesh = is3mf ? read3MF(buf, prog) : other ? other(buf, prog) : readSTL(buf, prog);
   progress('mesures', 1);
   const r = finish(mesh);
   r.check = r.stats.tris <= CHECK_MAX_TRIS ? analyzeMesh(r.pos, r.idx) : { skipped: true };
@@ -979,7 +1090,8 @@ if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScop
         const r = await editModel(e.data.pos, e.data.idx, e.data);
         const transfer = [r.pos.buffer, r.idx.buffer, r.nrm.buffer];
         if (r.check.red) transfer.push(r.check.red.buffer, r.check.orange.buffer);
-        self.postMessage({ type: 'edited', pos: r.pos, idx: r.idx, nrm: r.nrm, stats: r.stats, check: r.check, offset: r.offset, report: r.report, cut: r.cut }, transfer);
+        if (r.col && r.col !== e.data.ref?.col) transfer.push(r.col.buffer);
+        self.postMessage({ type: 'edited', pos: r.pos, idx: r.idx, nrm: r.nrm, col: r.col, stats: r.stats, check: r.check, offset: r.offset, report: r.report, cut: r.cut }, transfer);
       } catch (err) {
         self.postMessage({ type: 'error', message: String(err && err.message || err) });
       }
@@ -995,7 +1107,8 @@ if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScop
       });
       const transfer = [r.pos.buffer, r.idx.buffer, r.nrm.buffer];
       if (r.check.red) transfer.push(r.check.red.buffer, r.check.orange.buffer);
-      self.postMessage({ type: 'done', pos: r.pos, idx: r.idx, nrm: r.nrm, stats: r.stats, check: r.check }, transfer);
+      if (r.col) transfer.push(r.col.buffer);
+      self.postMessage({ type: 'done', pos: r.pos, idx: r.idx, nrm: r.nrm, col: r.col, stats: r.stats, check: r.check }, transfer);
     } catch (err) {
       self.postMessage({ type: 'error', message: String(err && err.message || err) });
     }

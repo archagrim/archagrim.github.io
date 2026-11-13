@@ -12,7 +12,7 @@ use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 
-/// Fichiers reçus au lancement (double-clic sur un .3mf ou un .stl), remis une seule fois à la page.
+/// Fichiers reçus au lancement (double-clic sur un fichier 3D), remis une seule fois à la page.
 struct Launch(Mutex<Vec<String>>);
 
 #[derive(Serialize)]
@@ -52,7 +52,7 @@ fn is_model(p: &Path) -> bool {
     p.extension()
         .map(|e| {
             let e = e.to_string_lossy().to_lowercase();
-            e == "3mf" || e == "stl"
+            matches!(e.as_str(), "3mf" | "stl" | "obj" | "ply" | "off" | "glb" | "gltf" | "fbx" | "dae" | "3ds" | "amf" | "wrl" | "vrml" | "x3d")
         })
         .unwrap_or(false)
 }

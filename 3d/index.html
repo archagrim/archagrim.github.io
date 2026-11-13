@@ -215,6 +215,8 @@ dd.warn{color:var(--warn)}
 .state i.spin,.state.muted i.spin{width:10px;height:10px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--accent);background:none;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .stage.placing canvas,.stage.placing canvas:active{cursor:crosshair}
+.stage.sun-hover canvas{cursor:grab}
+.stage.sun-drag canvas,.stage.sun-drag canvas:active{cursor:grabbing}
 .keep{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:6px;margin-top:10px;font-size:13px;color:var(--ink-2);font-variant-numeric:tabular-nums}
 .keep span{margin-right:auto}
 .keep span:empty{display:none}
@@ -224,6 +226,14 @@ dd.warn{color:var(--warn)}
 .segfull button{height:28px;border:0;border-radius:7px;background:transparent;font-size:12px;font-weight:500;color:var(--ink);padding:0 4px;white-space:nowrap;transition:background-color .15s}
 .segfull button[aria-pressed="true"]{background:var(--panel);box-shadow:0 1px 3px rgba(0,0,0,.12),0 0 0 .5px rgba(0,0,0,.04)}
 .segfull button:disabled{opacity:.45}
+.segfull.seg3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.palette{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin:12px 0 4px}
+.swatch{position:relative;aspect-ratio:1;width:100%;border-radius:50%;border:0;padding:0;background:var(--c);box-shadow:inset 0 0 0 1px rgba(0,0,0,.14);cursor:pointer;transition:transform .15s}
+.swatch:hover{transform:scale(1.08)}
+.swatch[aria-pressed="true"]{box-shadow:inset 0 0 0 1px rgba(0,0,0,.14),0 0 0 2px var(--panel),0 0 0 4px var(--accent)}
+.swatch.custom{display:grid;place-items:center;background:conic-gradient(#f33,#fd3,#3d3,#3dd,#33f,#d3d,#f33);overflow:hidden}
+.swatch.custom input{position:absolute;inset:-8px;width:calc(100% + 16px);height:calc(100% + 16px);opacity:0;cursor:pointer}
+.stage.painting canvas{cursor:crosshair}
 .state{display:flex;align-items:flex-start;gap:7px;margin:12px 0 0;font-size:12.5px;color:var(--ink-2)}
 .state i{width:8px;height:8px;border-radius:50%;background:var(--warn);flex:none;margin-top:5px}
 .state.ok i{background:var(--ok)}
@@ -437,7 +447,7 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
   </div>
 </header>
 
-<input id="fileInput" type="file" accept=".3mf,.stl,model/3mf,model/stl" multiple hidden>
+<input id="fileInput" type="file" accept=".3mf,.stl,.obj,.ply,.off,.glb,.gltf,.fbx,.dae,.3ds,.amf,.wrl,.vrml,.x3d,model/3mf,model/stl,model/obj,model/gltf-binary,model/gltf+json" multiple hidden>
 <input id="dirInput" type="file" webkitdirectory multiple hidden>
 <input id="coverInput" type="file" accept="image/*" hidden>
 
@@ -498,7 +508,7 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
       <div class="hero">
         <svg class="cube" viewBox="0 0 64 64" aria-hidden="true"><path pathLength="1" d="M32 6 55 19v26L32 58 9 45V19z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path pathLength="1" d="M9 19l23 13 23-13M32 32v26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
         <h1>Vos modèles 3D, en taille réelle.</h1>
-        <p class="lede">Ouvrez jusqu'à 60 fichiers .3mf ou .stl, ou tout un dossier. Dimensions, échelle par socle et volume de résine, d'un coup d'œil.</p>
+        <p class="lede">Ouvrez jusqu'à 60 fichiers 3D (3MF, STL, OBJ, PLY, GLB, FBX et d'autres), ou tout un dossier. Dimensions, échelle par socle et volume de résine, d'un coup d'œil.</p>
         <div class="cta">
           <button class="btn primary large" id="openBtn2" type="button">Choisir des fichiers</button>
           <button class="btn large" id="openDirBtn2" type="button">Ouvrir un dossier</button>
@@ -563,18 +573,46 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
     </section>
 
     <section class="group">
-      <h2>Sous-couche</h2>
+      <h2>Sous-couche et lumière</h2>
       <div class="segfull" role="group" aria-label="Aperçu de sous-couche">
         <button type="button" data-primer="resin" aria-pressed="true">Résine</button>
         <button type="button" data-primer="black" aria-pressed="false">Noire</button>
         <button type="button" data-primer="white" aria-pressed="false">Blanche</button>
         <button type="button" data-primer="zenithal" aria-pressed="false">Zénithale</button>
       </div>
+      <h3 class="sub">Métal (pour le NMM)</h3>
+      <div class="segfull" role="group" aria-label="Aperçu en métal">
+        <button type="button" data-metal="none" aria-pressed="true">Aucun</button>
+        <button type="button" data-metal="steel" aria-pressed="false">Acier</button>
+        <button type="button" data-metal="gold" aria-pressed="false">Or</button>
+        <button type="button" data-metal="copper" aria-pressed="false">Cuivre</button>
+      </div>
+      <label class="slider" id="glossRow" hidden><span>Brillance</span><input id="metalGloss" type="range" min="0" max="100" step="1"><output id="metalGlossOut"></output></label>
+      <h3 class="sub">Soleil</h3>
+      <div class="row-btns"><button class="btn" id="sunBtn" type="button" aria-pressed="false"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>Placer le soleil</button><button class="btn plain" id="lightReset" type="button">Lumière par défaut</button></div>
       <label class="slider"><span>Direction</span><input id="lightAz" type="range" min="0" max="359" step="1"><output id="lightAzOut"></output></label>
       <label class="slider"><span>Hauteur</span><input id="lightEl" type="range" min="5" max="90" step="1"><output id="lightElOut"></output></label>
       <label class="slider"><span>Intensité</span><input id="lightK" type="range" min="20" max="200" step="5"><output id="lightKOut"></output></label>
-      <div class="row-btns"><button class="btn plain" id="lightReset" type="button">Lumière par défaut</button></div>
       <p class="foot" id="primerNote">Aperçu de la figurine imprimée, en résine grise.</p>
+      <p class="foot">« Placer le soleil » le montre dans la vue : faites-le glisser pour choisir d'où vient la lumière. L'intensité règle la force du soleil face à la lumière ambiante : plus elle est haute, plus les ombres portées sont sombres et nettes. Plus le soleil est bas, plus elles sont longues.</p>
+    </section>
+
+    <section class="group" id="paintGroup">
+      <h2>Peinture</h2>
+      <div class="row-btns"><button class="btn" id="paintBtn" type="button" aria-pressed="false" disabled><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.4 2.6a2 2 0 0 1 2.9 2.9L10 16.8 7.2 14Z"/><path d="M7 14c-2 0-3.5 1.5-3.5 3.5 0 1.3-.6 2.4-1.5 3 1 .6 2.4 1 3.7 1A4.3 4.3 0 0 0 10 17.2"/></svg>Peindre</button><button class="btn plain" id="paintUndo" type="button" disabled>Annuler</button></div>
+      <div id="paintTools" hidden>
+        <div class="segfull seg3" role="group" aria-label="Outil de peinture">
+          <button type="button" data-ptool="brush" aria-pressed="true">Pinceau</button>
+          <button type="button" data-ptool="eraser" aria-pressed="false">Gomme</button>
+          <button type="button" data-ptool="picker" aria-pressed="false">Pipette</button>
+        </div>
+        <div class="palette" role="group" aria-label="Palette"><button type="button" class="swatch" data-color="#F4F1EA" style="--c:#F4F1EA" aria-label="Blanc os" title="Blanc os"></button><button type="button" class="swatch" data-color="#E9D3B0" style="--c:#E9D3B0" aria-label="Parchemin" title="Parchemin"></button><button type="button" class="swatch" data-color="#E8B796" style="--c:#E8B796" aria-label="Chair claire" title="Chair claire"></button><button type="button" class="swatch" data-color="#C4835E" style="--c:#C4835E" aria-label="Chair" title="Chair"></button><button type="button" class="swatch" data-color="#7A1712" style="--c:#7A1712" aria-label="Rouge sang" title="Rouge sang"></button><button type="button" class="swatch" data-color="#C8261E" style="--c:#C8261E" aria-label="Rouge vif" title="Rouge vif"></button><button type="button" class="swatch" data-color="#E2771F" style="--c:#E2771F" aria-label="Orange" title="Orange"></button><button type="button" class="swatch" data-color="#F2C230" style="--c:#F2C230" aria-label="Jaune" title="Jaune"></button><button type="button" class="swatch" data-color="#2F4D2A" style="--c:#2F4D2A" aria-label="Vert forêt" title="Vert forêt"></button><button type="button" class="swatch" data-color="#4E8A35" style="--c:#4E8A35" aria-label="Vert vif" title="Vert vif"></button><button type="button" class="swatch" data-color="#1F8A82" style="--c:#1F8A82" aria-label="Turquoise" title="Turquoise"></button><button type="button" class="swatch" data-color="#1D4FA0" style="--c:#1D4FA0" aria-label="Bleu roi" title="Bleu roi"></button><button type="button" class="swatch" data-color="#18233F" style="--c:#18233F" aria-label="Bleu nuit" title="Bleu nuit"></button><button type="button" class="swatch" data-color="#5B3485" style="--c:#5B3485" aria-label="Violet" title="Violet"></button><button type="button" class="swatch" data-color="#6B4024" style="--c:#6B4024" aria-label="Cuir" title="Cuir"></button><button type="button" class="swatch" data-color="#3E2B1E" style="--c:#3E2B1E" aria-label="Bois sombre" title="Bois sombre"></button><button type="button" class="swatch" data-color="#8C8A84" style="--c:#8C8A84" aria-label="Pierre" title="Pierre"></button><button type="button" class="swatch" data-color="#B9BEC6" style="--c:#B9BEC6" aria-label="Acier" title="Acier"></button><button type="button" class="swatch" data-color="#B88A2E" style="--c:#B88A2E" aria-label="Or" title="Or"></button><button type="button" class="swatch" data-color="#151515" style="--c:#151515" aria-label="Noir" title="Noir"></button><label class="swatch custom" title="Autre couleur"><input type="color" id="paintColor" value="#C8261E" aria-label="Autre couleur"></label></div>
+        <label class="slider"><span>Taille</span><input id="brushSize" type="range" min="0" max="100" step="1" value="45"><output id="brushSizeOut"></output></label>
+        <label class="slider"><span>Dureté</span><input id="brushHard" type="range" min="0" max="100" step="1" value="55"><output id="brushHardOut"></output></label>
+        <label class="slider"><span>Opacité</span><input id="brushOpacity" type="range" min="5" max="100" step="1" value="100"><output id="brushOpacityOut"></output></label>
+        <div class="row-btns"><button class="btn plain" id="paintFill" type="button">Tout peindre</button><button class="btn plain" id="paintClear" type="button">Tout effacer</button></div>
+      </div>
+      <p class="foot" id="paintNote">Peignez la figurine au pinceau, comme une vraie, pour une imprimante couleur. Les couleurs partent dans l'export 3MF ; le STL, lui, ne garde pas les couleurs.</p>
     </section>
 
     <section class="group">
@@ -689,7 +727,8 @@ const fmtInt = (v) => v.toLocaleString('fr-CH');
 const pl = (n, one, many) => fmtInt(n) + ' ' + (n > 1 ? many : one);
 const icon = (id) => `<svg aria-hidden="true"><use href="#${id}"/></svg>`;
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const baseName = (n) => n.replace(/\.(3mf|stl)$/i, '');
+const MODEL_RE = /\.(3mf|stl|obj|ply|off|glb|gltf|fbx|dae|3ds|amf|wrl|vrml|x3d)$/i;
+const baseName = (n) => n.replace(MODEL_RE, '');
 
 // ---------- Version programme Windows (dossier desktop/ du dépôt, emballée avec Tauri) ----------
 // Même page ; seuls l'accès au disque, l'enregistrement et l'ouverture par double-clic passent par le programme.
@@ -793,6 +832,7 @@ const persp = new THREE.PerspectiveCamera(32, 1, 1, 5000);
 const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 5000);
 let realSize = true;
 let spinOn = false;
+let painting = false;          // mode peinture : le clic gauche peint, le clic droit tourne la vue
 let recording = false;
 let camera = ortho;
 let controls = makeControls(camera);
@@ -806,6 +846,7 @@ function makeControls(cam, prevTarget) {
   c.enableZoom = !realSize;           // en taille réelle, le zoom est fixé par le calibrage
   if (prevTarget) c.target.copy(prevTarget);
   c.addEventListener('start', () => tweens.delete('cam'));   // la main reprend la caméra
+  if (painting) { c.mouseButtons.LEFT = -1; c.mouseButtons.RIGHT = THREE.MOUSE.ROTATE; c.touches.ONE = -1; c.touches.TWO = THREE.TOUCH.DOLLY_ROTATE; }
   return c;
 }
 
@@ -843,69 +884,454 @@ scene.add(lineGroup);
 const entries = () => lineup ? lineModels : (single ? [single] : []);
 const activeEntry = () => entries().find(e => e.it.id === activeId) || null;
 
-// ---------- Sous-couche ----------
+// ---------- Sous-couche et métal ----------
 let primer = 'resin';
+let metal = 'none';          // aperçu en métal pour peindre le métal non métallique (NMM)
 const PRIMERS = {
   resin: { note: 'Aperçu de la figurine imprimée, en résine grise.' },
   black: { color: '#2A2A2D', rough: 0.86, note: 'Sous-couche noire : les ombres restent profondes, idéal pour les couleurs sombres et le métal.' },
   white: { color: '#ECECEE', rough: 0.86, note: 'Sous-couche blanche : couleurs vives et lumineuses, mais les creux ressortent moins.' },
   zenithal: { color: '#FFFFFF', rough: 0.95, note: 'Zénithale : noir partout, puis blanc vaporisé depuis la lumière. Les ombres portées montrent les creux que la peinture n\'atteindra pas ; tournez la lumière pour choisir l\'angle du pinceau.' },
 };
+const METALS = {
+  steel: { color: '#C9CDD3', name: 'acier' },
+  gold: { color: '#E3B85C', name: 'or' },
+  copper: { color: '#C98A5E', name: 'cuivre' },
+};
+const METAL_NOTE = 'Métal : le haut des surfaces reflète le ciel, le bas reflète le sol sombre, avec une ligne d\'horizon nette entre les deux, et le soleil fait un point de lumière. Placez le soleil, puis reproduisez ces reflets au pinceau pour un métal non métallique (NMM).';
+
+// Ciel et sol reflétés par le métal : ciel clair, horizon lumineux et net, sol sombre
+function makeMetalEnv() {
+  const envScene = new THREE.Scene();
+  const geo = new THREE.SphereGeometry(100, 64, 32);
+  const mat = new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false,
+    vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `varying vec3 vP;
+      void main(){
+        float y = vP.y;
+        vec3 zenith = vec3(0.50, 0.58, 0.72), sky = vec3(0.86, 0.90, 0.96), horizon = vec3(1.25, 1.22, 1.16);
+        vec3 ground = vec3(0.16, 0.145, 0.13), nadir = vec3(0.035, 0.035, 0.04);
+        vec3 c = y > 0.0 ? mix(sky, zenith, pow(y, 0.6)) : mix(ground, nadir, pow(-y, 0.5));
+        c = mix(c, horizon, exp(-abs(y) * 26.0) * (y > 0.0 ? 1.0 : 0.55));
+        gl_FragColor = vec4(c, 1.0);
+      }`,
+  });
+  envScene.add(new THREE.Mesh(geo, mat));
+  const pm = new THREE.PMREMGenerator(renderer);
+  const tex = pm.fromScene(envScene, 0, 0.1, 1000).texture;
+  pm.dispose(); geo.dispose(); mat.dispose();
+  return tex;
+}
+let metalEnv = null;
+
 function applyPrimer() {
-  const p = PRIMERS[primer];
-  material.color.set(p.color || css('--model') || '#B2B4BA');
-  material.roughness = p.rough || 0.52;
+  const p = PRIMERS[primer], m = METALS[metal];
+  if (m) {
+    if (!metalEnv) metalEnv = makeMetalEnv();
+    material.color.set(m.color);
+    material.metalness = 1;
+    material.envMap = metalEnv;
+  } else {
+    material.color.set(p.color || css('--model') || '#B2B4BA');
+    material.roughness = p.rough || 0.52;
+    material.metalness = 0;
+    material.envMap = null;
+  }
   material.needsUpdate = true;
-  $('primerNote').textContent = p.note;
-  document.querySelectorAll('[data-primer]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.primer === primer)));
+  $('primerNote').textContent = m ? METAL_NOTE : p.note;
+  $('glossRow').hidden = !m;
+  document.querySelectorAll('[data-primer]').forEach(b => b.setAttribute('aria-pressed', String(!m && b.dataset.primer === primer)));
+  document.querySelectorAll('[data-metal]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.metal === metal)));
+  if (typeof refreshMaterials === 'function') refreshMaterials();
   applyLight();
 }
 
-// ---------- Lumière : direction, hauteur et intensité (réglages séparés pour le studio et la zénithale) ----------
+// ---------- Lumière : le soleil (direction, hauteur), son intensité face à la lumière ambiante, et ses ombres portées ----------
 const LIGHT_KEY = 'atelier3d.light';
-const LIGHT_DEF = { studio: { az: 323, el: 43, k: 100 }, zenith: { az: 0, el: 70, k: 100 } };
+const LIGHT_DEF = { studio: { az: 323, el: 43, k: 100 }, zenith: { az: 0, el: 70, k: 100 }, metal: { az: 323, el: 50, k: 100, gloss: 80 } };
 let lightCfg = JSON.parse(JSON.stringify(LIGHT_DEF));
-try { const v = JSON.parse(localStorage.getItem(LIGHT_KEY) || 'null'); if (v && v.studio && v.zenith) lightCfg = v; } catch (e) { /* stockage indisponible */ }
+try {
+  const v = JSON.parse(localStorage.getItem(LIGHT_KEY) || 'null');
+  if (v && v.studio && v.zenith) lightCfg = { ...lightCfg, ...v, metal: { ...LIGHT_DEF.metal, ...(v.metal || {}) } };
+} catch (e) { /* stockage indisponible */ }
 const lightDir = new THREE.Vector3();
-const lightMode = () => (primer === 'zenithal' ? 'zenith' : 'studio');
+const lightMode = () => (metal !== 'none' ? 'metal' : primer === 'zenithal' ? 'zenith' : 'studio');
+// Ombres : toujours actives ; la carte d'ombre n'est recalculée que si la lumière ou les modèles changent
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.autoUpdate = false;
+L.key.castShadow = true;
+// Sol qui reçoit l'ombre portée de la figurine
+const groundMat = new THREE.ShadowMaterial({ opacity: 0.35, depthWrite: false });
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), groundMat);
+ground.rotation.x = -Math.PI / 2; ground.position.y = 0.01; ground.receiveShadow = true; ground.renderOrder = 1; ground.raycast = () => {};
+scene.add(ground);
 function applyLight(save) {
-  const zen = lightMode() === 'zenith', c = lightCfg[lightMode()], k = c.k / 100;
+  const mode = lightMode(), c = lightCfg[mode], f = c.k / 100;
   const az = THREE.MathUtils.degToRad(c.az), el = THREE.MathUtils.degToRad(c.el);
   lightDir.set(Math.cos(el) * Math.sin(az), Math.sin(el), Math.cos(el) * Math.cos(az));
-  // zénithale : une seule lumière, comme la bombe de blanc ; le reste du modèle reste presque noir
-  L.hemi.intensity = zen ? 0.08 : 1.15 * k;
-  L.key.intensity = (zen ? 3.4 : 1.9) * k;
-  L.rim.intensity = zen ? 0 : 0.9 * k;
-  L.fill.intensity = zen ? 0 : 0.4 * k;
-  L.key.castShadow = zen;
-  if (renderer.shadowMap.enabled !== zen) { renderer.shadowMap.enabled = zen; material.needsUpdate = true; rodMat.needsUpdate = true; rodSelMat.needsUpdate = true; }
+  // plus l'intensité est haute, plus le soleil domine la lumière ambiante : les ombres deviennent sombres et nettes
+  const amb = THREE.MathUtils.clamp(1.9 - 0.9 * f, 0.1, 1.75);
+  if (mode === 'zenith') {
+    // une seule lumière, comme la bombe de blanc ; le reste du modèle reste presque noir
+    L.hemi.intensity = 0.08; L.key.intensity = 3.4 * f; L.rim.intensity = 0; L.fill.intensity = 0;
+    groundMat.opacity = 0.75;
+  } else if (mode === 'metal') {
+    L.hemi.intensity = 0.15 * amb; L.key.intensity = 2.4 + 1.3 * (f - 1); L.rim.intensity = 0.25 * amb; L.fill.intensity = 0;
+    material.envMapIntensity = THREE.MathUtils.clamp(1.5 - 0.55 * f, 0.3, 1.4);
+    material.roughness = 0.55 - (c.gloss / 100) * 0.5;
+    groundMat.opacity = THREE.MathUtils.clamp(0.15 + 0.3 * f, 0.12, 0.75);
+  } else {
+    L.hemi.intensity = 1.15 * amb; L.key.intensity = 1.9 + 0.9 * (f - 1); L.rim.intensity = 0.9 * amb * 0.8; L.fill.intensity = 0.4 * amb;
+    groundMat.opacity = THREE.MathUtils.clamp(0.15 + 0.3 * f, 0.12, 0.75);
+  }
   updateLightRig();
+  updateSun();
   $('lightAz').value = String(c.az); $('lightAzOut').textContent = c.az + '°';
   $('lightEl').value = String(c.el); $('lightElOut').textContent = c.el + '°';
   $('lightK').value = String(c.k); $('lightKOut').textContent = c.k + ' %';
+  if (mode === 'metal') { $('metalGloss').value = String(c.gloss); $('metalGlossOut').textContent = c.gloss + ' %'; }
   if (save) { try { localStorage.setItem(LIGHT_KEY, JSON.stringify(lightCfg)); } catch (e) { /* ignoré */ } }
 }
 // Place la lumière autour de ce qui est affiché et cadre ses ombres au plus juste
 const rigBox = new THREE.Box3(), rigC = new THREE.Vector3(), rigS = new THREE.Vector3();
+let rigR = 50;
 function updateLightRig() {
   rigBox.makeEmpty();
   if (entries().length) rigBox.copy(contentBox());
   if (rigBox.isEmpty()) rigBox.set(new THREE.Vector3(-40, 0, -40), new THREE.Vector3(40, 80, 40));
   rigBox.getCenter(rigC);
-  const r = Math.max(rigBox.getSize(rigS).length() / 2, 10);
+  rigBox.getSize(rigS);
+  const r = rigR = Math.max(rigS.length() / 2, 10);
   L.key.target.position.copy(rigC);
   L.key.position.copy(rigC).addScaledVector(lightDir, r * 4);
   const cam = L.key.shadow.camera;
   cam.left = -r * 1.1; cam.right = r * 1.1; cam.top = r * 1.1; cam.bottom = -r * 1.1;
-  cam.near = r * 2; cam.far = r * 6.5;
+  // l'ombre au sol s'étire quand le soleil est bas : la profondeur de la carte doit aller jusqu'au bout
+  const sinEl = Math.max(lightDir.y, 0.08);
+  cam.near = r * 2; cam.far = r * 5.3 + rigS.y / sinEl;
   cam.updateProjectionMatrix();
   L.key.shadow.normalBias = r * 2.2 / L.key.shadow.mapSize.x * 1.6;
+  // le sol récepteur couvre l'ombre la plus longue
+  const reach = r * 2 + Math.min(rigS.y / Math.tan(Math.max(Math.asin(sinEl), 0.12)), r * 10);
+  ground.scale.set(reach * 2, reach * 2, 1);
+  ground.position.x = rigC.x; ground.position.z = rigC.z;
+}
+// Signature de la scène : la carte d'ombre n'est refaite que si quelque chose a bougé
+let shadowSig = '';
+function refreshShadows() {
+  let sig = lightDir.x.toFixed(4) + lightDir.y.toFixed(4) + lightDir.z.toFixed(4) + '|' + clipPlane.constant.toFixed(2);
+  for (const e of entries()) {
+    e.mesh.updateMatrixWorld();
+    const m = e.mesh.matrixWorld.elements;
+    sig += '|' + e.mesh.geometry.id + ':' + m[0].toFixed(4) + m[5].toFixed(4) + m[10].toFixed(4) + m[2].toFixed(4) + m[12].toFixed(2) + m[13].toFixed(2) + m[14].toFixed(2) + ':' + e.mesh.children.length;
+  }
+  if (sig !== shadowSig) { shadowSig = sig; renderer.shadowMap.needsUpdate = true; }
 }
 for (const [id, key] of [['lightAz', 'az'], ['lightEl', 'el'], ['lightK', 'k']]) {
   $(id).addEventListener('input', () => { lightCfg[lightMode()][key] = Number($(id).value); applyLight(true); });
 }
+$('metalGloss').addEventListener('input', () => { lightCfg.metal.gloss = Number($('metalGloss').value); applyLight(true); });
 $('lightReset').addEventListener('click', () => { lightCfg[lightMode()] = { ...LIGHT_DEF[lightMode()] }; applyLight(true); });
-document.querySelectorAll('[data-primer]').forEach(b => b.addEventListener('click', () => { primer = b.dataset.primer; applyPrimer(); }));
+document.querySelectorAll('[data-primer]').forEach(b => b.addEventListener('click', () => { primer = b.dataset.primer; metal = 'none'; applyPrimer(); }));
+document.querySelectorAll('[data-metal]').forEach(b => b.addEventListener('click', () => { metal = b.dataset.metal; applyPrimer(); }));
+
+// ---------- Le soleil dans la vue : une boule à faire glisser autour de la figurine ----------
+let sunOn = false, sunDrag = null;
+const sunGroup = new THREE.Group(); sunGroup.visible = false; scene.add(sunGroup);
+const sunTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d'), grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grad.addColorStop(0, 'rgba(255,214,90,.75)'); grad.addColorStop(0.35, 'rgba(255,190,60,.28)'); grad.addColorStop(1, 'rgba(255,170,40,0)');
+  g.fillStyle = grad; g.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
+})();
+const sunBall = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 16), new THREE.MeshBasicMaterial({ color: '#FFD45A', depthTest: false, transparent: true }));
+const sunGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: sunTex, depthTest: false, transparent: true }));
+const sunLineGeo = new THREE.BufferGeometry(); sunLineGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+const sunLine = new THREE.Line(sunLineGeo, new THREE.LineDashedMaterial({ color: '#FFB020', dashSize: 3, gapSize: 3, depthTest: false, transparent: true, opacity: 0.8 }));
+// trajet possible du soleil : le cercle de sa hauteur actuelle
+const sunRingGeo = new THREE.BufferGeometry(); sunRingGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(97 * 3), 3));
+const sunRing = new THREE.Line(sunRingGeo, new THREE.LineBasicMaterial({ color: '#FFB020', depthTest: false, transparent: true, opacity: 0.35 }));
+for (const o of [sunBall, sunGlow, sunLine, sunRing]) { o.renderOrder = 20; o.frustumCulled = false; o.castShadow = false; sunGroup.add(o); }
+const sunR = () => rigR * 1.45;
+function updateSun() {
+  if (!sunOn) return;
+  const R = sunR(), p = rigC.clone().addScaledVector(lightDir, R), size = Math.max(rigR * 0.075, 2.5);
+  sunBall.position.copy(p); sunBall.scale.setScalar(size);
+  sunGlow.position.copy(p); sunGlow.scale.setScalar(size * 7);
+  const la = sunLineGeo.attributes.position.array; la.set([p.x, p.y, p.z, rigC.x, rigC.y, rigC.z]); sunLineGeo.attributes.position.needsUpdate = true; sunLine.computeLineDistances();
+  const ra = sunRingGeo.attributes.position.array, ry = rigC.y + lightDir.y * R, rr = Math.sqrt(Math.max(0, 1 - lightDir.y * lightDir.y)) * R;
+  for (let i = 0; i <= 96; i++) { const a = i / 96 * Math.PI * 2; ra[i * 3] = rigC.x + Math.sin(a) * rr; ra[i * 3 + 1] = ry; ra[i * 3 + 2] = rigC.z + Math.cos(a) * rr; }
+  sunRingGeo.attributes.position.needsUpdate = true;
+}
+function setSun(on) {
+  sunOn = on; sunGroup.visible = on;
+  $('sunBtn').setAttribute('aria-pressed', String(on));
+  stage.classList.toggle('sun-on', on);
+  updateSun(); updateHint();
+}
+$('sunBtn').addEventListener('click', () => setSun(!sunOn));
+const sunRay = new THREE.Raycaster(), sunNdc = new THREE.Vector2(), sunSphere = new THREE.Sphere(), sunHit = new THREE.Vector3();
+function sunRayAt(x, y) {
+  const r = renderer.domElement.getBoundingClientRect();
+  sunNdc.set((x - r.left) / r.width * 2 - 1, -((y - r.top) / r.height) * 2 + 1);
+  sunRay.setFromCamera(sunNdc, camera);
+  return sunRay.ray;
+}
+// Prise du soleil : écouté avant la caméra pour qu'un glisser sur la boule ne fasse pas tourner la vue
+stage.addEventListener('pointerdown', (e) => {
+  if (!sunOn || e.button !== 0 || e.target !== renderer.domElement) return;
+  const ray = sunRayAt(e.clientX, e.clientY);
+  sunSphere.set(sunBall.position, sunBall.scale.x * 2.4);
+  if (!ray.intersectsSphere(sunSphere)) return;
+  e.stopPropagation(); e.preventDefault();
+  sunDrag = { id: e.pointerId };
+  stage.setPointerCapture(e.pointerId);
+  stage.classList.add('sun-drag');
+}, true);
+stage.addEventListener('pointermove', (e) => {
+  if (!sunOn) return;
+  if (!sunDrag) {   // survol : la main indique que la boule se prend
+    const ray = sunRayAt(e.clientX, e.clientY);
+    sunSphere.set(sunBall.position, sunBall.scale.x * 2.4);
+    stage.classList.toggle('sun-hover', ray.intersectsSphere(sunSphere));
+    return;
+  }
+  e.stopPropagation();
+  const ray = sunRayAt(e.clientX, e.clientY);
+  sunSphere.set(rigC, sunR());
+  // le point visé sur la sphère du soleil ; à côté, le point de la sphère le plus proche du rayon
+  if (!ray.intersectSphere(sunSphere, sunHit)) { ray.closestPointToPoint(rigC, sunHit); }
+  const d = sunHit.sub(rigC);
+  if (d.lengthSq() < 1e-6) return;
+  d.normalize();
+  const el = THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(Math.asin(THREE.MathUtils.clamp(d.y, -1, 1))), 5, 90);
+  let az = THREE.MathUtils.radToDeg(Math.atan2(d.x, d.z)); if (az < 0) az += 360;
+  const c = lightCfg[lightMode()];
+  c.az = Math.round(az) % 360; c.el = Math.round(el);
+  applyLight(false);
+}, true);
+function endSunDrag(e) {
+  if (!sunDrag) return;
+  e.stopPropagation();
+  try { stage.releasePointerCapture(sunDrag.id); } catch (err) { /* déjà relâché */ }
+  sunDrag = null; down = null;
+  stage.classList.remove('sun-drag');
+  applyLight(true);
+}
+stage.addEventListener('pointerup', endSunDrag, true);
+stage.addEventListener('pointercancel', endSunDrag, true);
+
+// ---------- Couleurs des sommets : sRGB gardé pour l'export, linéaire pour l'affichage ----------
+const SRGB2LIN = new Uint16Array(256);
+for (let i = 0; i < 256; i++) { const c = i / 255; SRGB2LIN[i] = Math.round((c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)) * 65535); }
+function colorAttribute(col) {
+  const lin = new Uint16Array(col.length);
+  for (let i = 0; i < col.length; i++) lin[i] = SRGB2LIN[col[i]];
+  return new THREE.BufferAttribute(lin, 3, true);
+}
+// matériau des modèles colorés : mêmes plans de coupe que le matériau commun
+const paintMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55, metalness: 0, vertexColors: true });
+paintMat.clippingPlanes = material.clippingPlanes; paintMat.clipShadows = true;
+const showPaint = () => metal === 'none' && primer === 'resin';
+const matFor = (it) => (it && it.data && it.data.col && showPaint() ? paintMat : material);
+function refreshMaterials() { for (const e of entries()) e.mesh.material = matFor(e.it); }
+
+// ---------- Peinture : pinceau, gomme, pipette, palette ----------
+let paintTool = 'brush', paintRGB = [200, 38, 30], stroke = null;
+const brushMM = () => +(0.2 * Math.pow(100, $('brushSize').value / 100)).toFixed(2);    // 0,2 à 20 mm
+const brushRing = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 64), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false, transparent: true, opacity: 0.9 }));
+const brushDot = new THREE.Mesh(new THREE.CircleGeometry(1, 48), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false, transparent: true, opacity: 0.22 }));
+brushRing.add(brushDot);
+brushRing.renderOrder = 30; brushDot.renderOrder = 29; brushRing.visible = false; brushRing.raycast = () => {}; brushRing.frustumCulled = false;
+scene.add(brushRing);
+const hexToRGB = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+const rgbToHex = (c) => '#' + c.map(v => v.toString(16).padStart(2, '0')).join('').toUpperCase();
+function setPaintColor(rgb, fromInput) {
+  paintRGB = rgb;
+  const hex = rgbToHex(rgb);
+  if (!fromInput) $('paintColor').value = hex.toLowerCase();
+  document.querySelectorAll('.swatch[data-color]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.color.toUpperCase() === hex)));
+  updateBrushLook();
+}
+function updateBrushLook() {
+  const c = paintTool === 'eraser' ? new THREE.Color(0xffffff) : new THREE.Color(rgbToHex(paintRGB));
+  brushRing.material.color.copy(paintTool === 'eraser' ? new THREE.Color(0x111111) : c);
+  brushDot.material.color.copy(c);
+  $('brushSizeOut').textContent = String(brushMM()).replace('.', ',') + ' mm';
+  $('brushHardOut').textContent = $('brushHard').value + ' %';
+  $('brushOpacityOut').textContent = $('brushOpacity').value + ' %';
+}
+document.querySelectorAll('.swatch[data-color]').forEach(b => b.addEventListener('click', () => { setPaintColor(hexToRGB(b.dataset.color)); if (paintTool !== 'brush') setPaintTool('brush'); }));
+$('paintColor').addEventListener('input', () => { setPaintColor(hexToRGB($('paintColor').value), true); if (paintTool !== 'brush') setPaintTool('brush'); });
+for (const id of ['brushSize', 'brushHard', 'brushOpacity']) $(id).addEventListener('input', updateBrushLook);
+function setPaintTool(t) {
+  paintTool = t;
+  document.querySelectorAll('[data-ptool]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ptool === t)));
+  updateBrushLook(); updateHint();
+}
+document.querySelectorAll('[data-ptool]').forEach(b => b.addEventListener('click', () => setPaintTool(b.dataset.ptool)));
+
+// la figurine affichée reçoit une couche de couleur (blanche au départ)
+function paintEntry() { return lineup ? null : single; }
+function ensureColors(it) {
+  if (!it.data) return false;
+  if (!it.data.col) it.data.col = new Uint8Array(it.data.pos.length).fill(255);
+  for (const e of entries()) if (e.it === it) {
+    const g = e.mesh.geometry;
+    if (!g.getAttribute('color') || g.getAttribute('color').count * 3 !== it.data.col.length) g.setAttribute('color', colorAttribute(it.data.col));
+  }
+  refreshMaterials();
+  return true;
+}
+function setPainting(on) {
+  const e = paintEntry();
+  if (on && (!e || !e.it.data || e.it.editing)) return;
+  painting = on;
+  $('paintBtn').setAttribute('aria-pressed', String(on));
+  $('paintTools').hidden = !on;
+  stage.classList.toggle('painting', on);
+  if (on) {
+    setMeasuring(false); setPlacing(null); setSun(false);
+    if (rodSel) { const it = rodSel.it; rodSel = null; refreshRods(it); }
+    gizmo.detach();
+    if (!showPaint()) { primer = 'resin'; metal = 'none'; applyPrimer(); }
+    ensureColors(e.it);
+  } else { brushRing.visible = false; stroke = null; attachGizmo(); }
+  // la vue : clic gauche pour peindre, clic droit pour tourner
+  controls.mouseButtons.LEFT = on ? -1 : THREE.MOUSE.ROTATE;
+  controls.mouseButtons.RIGHT = on ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN;
+  controls.touches.ONE = on ? -1 : THREE.TOUCH.ROTATE;
+  controls.touches.TWO = on ? THREE.TOUCH.DOLLY_ROTATE : THREE.TOUCH.DOLLY_PAN;
+  updatePaintUI(); updateHint();
+}
+$('paintBtn').addEventListener('click', () => setPainting(!painting));
+function updatePaintUI() {
+  const e = paintEntry(), it = e && e.it;
+  $('paintBtn').disabled = !it || !it.data || lineup;
+  $('paintUndo').disabled = !it || !it.paintUndo || !it.paintUndo.length;
+}
+
+// Grille de voisinage des sommets (coordonnées du modèle), refaite si le maillage change
+function vertexHash(g) {
+  if (g.userData.vhash) return g.userData.vhash;
+  const P = g.getAttribute('position').array, n = P.length / 3, C = 1.2;
+  let cap = 1; while (cap < n) cap <<= 1;
+  const mask = cap - 1, head = new Int32Array(cap).fill(-1), next = new Int32Array(n);
+  const key = (x, y, z) => (Math.imul(x, 73856093) ^ Math.imul(y, 19349663) ^ Math.imul(z, 83492791)) & mask;
+  for (let i = 0; i < n; i++) { const h = key(Math.floor(P[i * 3] / C), Math.floor(P[i * 3 + 1] / C), Math.floor(P[i * 3 + 2] / C)); next[i] = head[h]; head[h] = i; }
+  return (g.userData.vhash = { C, head, next, key, P });
+}
+function forNear(g, p, R, fn) {
+  const H = vertexHash(g), { C, head, next, key, P } = H;
+  const x0 = Math.floor((p.x - R) / C), x1 = Math.floor((p.x + R) / C), y0 = Math.floor((p.y - R) / C), y1 = Math.floor((p.y + R) / C), z0 = Math.floor((p.z - R) / C), z1 = Math.floor((p.z + R) / C);
+  const R2 = R * R;
+  for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) {
+    for (let i = head[key(x, y, z)]; i >= 0; i = next[i]) {
+      const dx = P[i * 3] - p.x, dy = P[i * 3 + 1] - p.y, dz = P[i * 3 + 2] - p.z, d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 <= R2) {
+        // deux cellules peuvent partager une case de la table : on ignore les sommets hors de la cellule visitée
+        if (Math.floor(P[i * 3] / C) !== x || Math.floor(P[i * 3 + 1] / C) !== y || Math.floor(P[i * 3 + 2] / C) !== z) continue;
+        fn(i, Math.sqrt(d2));
+      }
+    }
+  }
+}
+const tmpLocal = new THREE.Vector3();
+function dab(e, worldPt) {
+  const it = e.it, g = e.mesh.geometry, col = it.data.col, attr = g.getAttribute('color');
+  e.mesh.worldToLocal(tmpLocal.copy(worldPt));
+  const R = brushMM() / e.mesh.scale.x, hard = $('brushHard').value / 100 * 0.95, op = $('brushOpacity').value / 100;
+  const tgt = paintTool === 'eraser' ? [255, 255, 255] : paintRGB;
+  const W = stroke.w, S0 = stroke.start, lin = attr.array;
+  let lo = Infinity, hi = -1;
+  forNear(g, tmpLocal, R, (i, d) => {
+    const t = d / R;
+    let w = t <= hard ? 1 : 1 - (t - hard) / (1 - hard);
+    w = w * w * (3 - 2 * w) * op;
+    if (w <= W[i]) return;
+    W[i] = w;
+    for (let k = 0; k < 3; k++) { const v = Math.round(S0[i * 3 + k] + (tgt[k] - S0[i * 3 + k]) * w); col[i * 3 + k] = v; lin[i * 3 + k] = SRGB2LIN[v]; }
+    if (i < lo) lo = i; if (i > hi) hi = i;
+  });
+  if (hi >= 0) { attr.addUpdateRange(lo * 3, (hi - lo + 1) * 3); attr.needsUpdate = true; }
+}
+function pushUndo(it) {
+  if (!it.paintUndo) it.paintUndo = [];
+  it.paintUndo.push(it.data.col.slice());
+  if (it.paintUndo.length > 15) it.paintUndo.shift();
+  updatePaintUI();
+}
+function setAllColors(it, col) {
+  it.data.col = col;
+  for (const e of entries()) if (e.it === it) e.mesh.geometry.setAttribute('color', colorAttribute(col));
+  refreshMaterials();
+}
+function undoPaint() {
+  const e = paintEntry(); if (!e || !e.it.paintUndo || !e.it.paintUndo.length) return;
+  setAllColors(e.it, e.it.paintUndo.pop());
+  updatePaintUI();
+}
+$('paintUndo').addEventListener('click', undoPaint);
+$('paintFill').addEventListener('click', () => {
+  const e = paintEntry(); if (!e || !ensureColors(e.it)) return;
+  pushUndo(e.it);
+  const c = new Uint8Array(e.it.data.col.length);
+  for (let i = 0; i < c.length; i += 3) { c[i] = paintRGB[0]; c[i + 1] = paintRGB[1]; c[i + 2] = paintRGB[2]; }
+  setAllColors(e.it, c); e.it.painted = true;
+});
+$('paintClear').addEventListener('click', () => {
+  const e = paintEntry(); if (!e || !ensureColors(e.it)) return;
+  pushUndo(e.it);
+  setAllColors(e.it, new Uint8Array(e.it.data.col.length).fill(255));
+});
+// glisser pour peindre : écouté sur la vue, après la caméra (qui ignore le clic gauche en mode peinture)
+let paintPtr = null;
+renderer.domElement.addEventListener('pointerdown', (ev) => {
+  if (!painting || ev.button !== 0) return;
+  const e = paintEntry(); if (!e || !e.it.data || !e.it.data.col) return;
+  const h = pick(ev.clientX, ev.clientY);
+  if (!h || h.mesh !== e.mesh) return;
+  if (paintTool === 'picker') {
+    let best = -1, bd = Infinity;
+    e.mesh.worldToLocal(tmpLocal.copy(h.point));
+    forNear(e.mesh.geometry, tmpLocal, Math.max(1.5, 2 / e.mesh.scale.x), (i, d) => { if (d < bd) { bd = d; best = i; } });
+    if (best >= 0) { const c = e.it.data.col; setPaintColor([c[best * 3], c[best * 3 + 1], c[best * 3 + 2]]); setPaintTool('brush'); }
+    return;
+  }
+  pushUndo(e.it);
+  const n = e.it.data.col.length / 3;
+  stroke = { e, start: e.it.data.col.slice(), w: new Float32Array(n), last: h.point.clone() };
+  renderer.domElement.setPointerCapture(ev.pointerId);
+  dab(e, h.point);
+  e.it.painted = true;
+});
+renderer.domElement.addEventListener('pointermove', (ev) => { if (painting) paintPtr = { x: ev.clientX, y: ev.clientY, down: !!stroke }; });
+renderer.domElement.addEventListener('pointerleave', () => { if (!stroke) { paintPtr = null; brushRing.visible = false; } });
+const endStroke = () => { if (stroke) { stroke = null; updatePaintUI(); } };
+renderer.domElement.addEventListener('pointerup', endStroke);
+renderer.domElement.addEventListener('pointercancel', endStroke);
+// à chaque image : curseur du pinceau et traits entre deux positions de la souris
+const brushStep = new THREE.Vector3();
+function paintFrame() {
+  if (!painting || !paintPtr) return;
+  const e = paintEntry(); if (!e) return;
+  const p = paintPtr; paintPtr = null;
+  const h = pick(p.x, p.y);
+  if (!h || h.mesh !== e.mesh) { brushRing.visible = false; return; }
+  brushRing.visible = paintTool !== 'picker';
+  brushRing.position.copy(h.point);
+  brushRing.quaternion.copy(camera.quaternion);
+  brushRing.scale.setScalar(brushMM());
+  if (stroke && stroke.e === e) {
+    const dist = stroke.last.distanceTo(h.point), stepL = Math.max(brushMM() * 0.3, 0.05);
+    const nSteps = Math.min(64, Math.ceil(dist / stepL));
+    for (let k = 1; k <= nSteps; k++) dab(e, brushStep.copy(stroke.last).lerp(h.point, k / nSteps));
+    stroke.last.copy(h.point);
+  }
+}
+setPaintColor(paintRGB);
 
 // Ombre de contact douce sous le modèle
 const shadowTex = (() => {
@@ -1020,6 +1446,7 @@ function makeGeometry(data) {
   g.setAttribute('position', new THREE.BufferAttribute(data.pos, 3));
   g.setAttribute('normal', new THREE.BufferAttribute(data.nrm, 3, true));
   g.setIndex(new THREE.BufferAttribute(data.idx, 1));
+  if (data.col && data.col.length === data.pos.length) g.setAttribute('color', colorAttribute(data.col));
   g.computeBoundingBox();
   g.computeBoundingSphere();
   return g;
@@ -1065,7 +1492,7 @@ const VIEWS = {
 function buildModelMesh(it, useOrig = false) {
   const src = useOrig && it.orig ? it.orig : it;
   const g = makeGeometry(src.data);
-  const m = new THREE.Mesh(g, material);
+  const m = new THREE.Mesh(g, useOrig ? material : matFor(it));
   m.castShadow = true; m.receiveShadow = true;
   m.userData.orig = useOrig && !!it.orig;
   const sh = new THREE.Mesh(shadowGeo, shadowMat);
@@ -1230,6 +1657,8 @@ function setControlsEnabled(on) {
   $('keepBtn').disabled = !on;
   $('stlBtn').disabled = !on;
   $('mfBtn').disabled = !on;
+  if (!on && painting) setPainting(false);
+  updatePaintUI();
   $('shotBtn').disabled = !on || recording;
   $('videoBtn').disabled = !on || recording;
 }
@@ -1507,6 +1936,7 @@ function updateMeasure() {
 let down = null;
 renderer.domElement.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, t: e.timeStamp, b: e.button }; });
 renderer.domElement.addEventListener('pointerup', (e) => {
+  if (painting) return;
   if (!down || down.b !== 0) return;
   if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) return;   // un clic, pas un glisser
   if (gizmo.dragging || gizmo.axis) return;                              // les flèches d'une tige
@@ -1752,13 +2182,21 @@ function renderEditBusy() { const it = shownItem(); $('editBusy').hidden = !(it 
 function runEdit(it, initial = false) {
   if (it.editWorker) { it.editWorker.terminate(); it.editWorker = null; }
   const base = origOf(it);
-  if (!needsEdit(it)) {
+  const D = it.data;
+  // couleurs à reporter (peinture ou fichier) : depuis le modèle affiché, ou depuis la base après un changement d'orientation
+  let ref = null;
+  if (it.colFromBase) { if (base.data && base.data.col) ref = { pos: base.data.pos.slice(), col: base.data.col.slice(), off: null }; }
+  else if (D && D.col && base.data) ref = { pos: D.pos.slice(), col: D.col.slice(), off: D !== base.data ? it.offset || null : null };
+  it.colFromBase = false;
+  // sans retouche et déjà sur la base : rien à recalculer
+  if (!needsEdit(it) && (!ref || D === base.data)) {
     if (it.orig) { it.data = it.orig.data; it.stats = it.orig.stats; it.check = it.orig.check; it.orig = null; }
     it.offset = null; it.editing = false;
     editDone(it, initial, null);
     return;
   }
   if (!base.data) return;     // modèle libéré de la mémoire : la retouche sera refaite à la relecture
+  const undoOnly = !needsEdit(it);      // retouches retirées : on revient à la base, en gardant la peinture
   it.orig = { data: base.data, stats: base.stats, check: base.check };
   it.editing = true;
   renderEditBusy();
@@ -1777,14 +2215,17 @@ function runEdit(it, initial = false) {
     if (m.type === 'error') { fail(m.message); return; }
     if (m.type !== 'edited' || it.editWorker !== w) return;
     w.terminate(); it.editWorker = null; it.editing = false;
-    it.data = { pos: m.pos, idx: m.idx, nrm: m.nrm };
+    it.data = { pos: m.pos, idx: m.idx, nrm: m.nrm, col: m.col || null };
     it.stats = { ...m.stats, objects: it.orig.stats.objects };
     it.check = m.check;
     it.offset = m.offset;
+    if (undoOnly) { it.orig = null; it.offset = null; }
     editDone(it, initial, m);
   };
   w.onerror = (e) => { e.preventDefault(); fail('le calcul a échoué'); };
-  w.postMessage({ op: 'edit', pos, idx, cut: it.edit.cut, repair: it.edit.repair, objects: it.orig.stats.objects }, [pos.buffer, idx.buffer]);
+  const transfer = [pos.buffer, idx.buffer];
+  if (ref) transfer.push(ref.pos.buffer, ref.col.buffer);
+  w.postMessage({ op: 'edit', pos, idx, cut: undoOnly ? 0 : it.edit.cut, repair: undoOnly ? false : it.edit.repair, objects: it.orig.stats.objects, ref }, transfer);
 }
 function rebuildEntry(e) {
   const old = e.mesh, parent = old.parent;
@@ -1853,8 +2294,18 @@ function runRotate(it, initial = false) {
     toast('<strong>Tiges retirées</strong> : replacez-les une fois l\'orientation réglée.');
   }
   const q = rotQuat(it);
+  const prevCol = (it.data && it.data.col) || null, wasPainted = it.painted;
   const setBase = (b) => {
     it.appliedRot = q ? q.toArray() : null;
+    if (prevCol || src.data.col) {
+      const fileCol = src.data.col && src.data.col.length === b.data.pos.length ? src.data.col : null;
+      if (prevCol && !needsEdit(it) && prevCol.length === b.data.pos.length) b.data = { ...b.data, col: prevCol };   // même maillage tourné : couleurs gardées
+      else {
+        b.data = { ...b.data, col: fileCol };
+        it.colFromBase = true;
+        if (wasPainted) { it.painted = false; it.paintUndo = null; toast('<strong>Peinture retirée</strong> : réglez l\'orientation et la coupe du socle avant de peindre.'); }
+      }
+    }
     if (it.orig) it.orig = b; else { it.data = b.data; it.stats = b.stats; it.check = b.check; }
     it.offset = null;
     if (needsEdit(it)) runEdit(it, initial);
@@ -2142,7 +2593,7 @@ function export3MF() {
   const it = shownItem();
   if (!it || !it.data || it.editing || it.exporting) return;
   const off = it.orig && it.offset ? it.offset : [0, 0, 0];
-  const parts = [{ pos: it.data.pos.slice(), idx: it.data.idx.slice() }, ...it.rods.map(r => rodMeshData(r, off))];
+  const parts = [{ pos: it.data.pos.slice(), idx: it.data.idx.slice(), col: it.data.col ? it.data.col.slice() : undefined }, ...it.rods.map(r => rodMeshData(r, off))];
   const label = $('mfBtn').querySelector('span');
   it.exporting = true;
   label.textContent = 'Préparation du 3MF…';
@@ -2154,7 +2605,7 @@ function export3MF() {
       else if (e.data.type === 'error') { done(); reject(new Error(e.data.message)); }
     };
     w.onerror = (e) => { e.preventDefault(); done(); reject(new Error('le fichier n\'a pas pu être préparé')); };
-    w.postMessage({ op: 'export3mf', parts, scale: it.scale, title: baseName(it.name) }, parts.flatMap(p => [p.pos.buffer, p.idx.buffer]));
+    w.postMessage({ op: 'export3mf', parts, scale: it.scale, title: baseName(it.name) }, parts.flatMap(p => p.col ? [p.pos.buffer, p.idx.buffer, p.col.buffer] : [p.pos.buffer, p.idx.buffer]));
   });
   ready.catch(() => {});
   saveBlob(ready, exportFileName(it) + '.3mf', 'Modèle 3MF', 'model/3mf', '3mf');
@@ -2227,6 +2678,7 @@ function enterLineup() {
   const dir = single ? currentDir() : (savedDir || VIEWS.front);
   disposeSingle();
   clearMeasure();
+  if (painting) setPainting(false);
   lineup = true;
   $('t-line').setAttribute('aria-pressed', 'true');
   const act = items.find(i => i.id === activeId);
@@ -2296,12 +2748,12 @@ function exportName() {
 }
 $('shotBtn').addEventListener('click', async () => {
   if (!entries().length) return;
-  const gridWas = grid.visible;
-  grid.visible = false;
+  const gridWas = grid.visible, sunWas = sunGroup.visible, ringWas = brushRing.visible;
+  grid.visible = false; sunGroup.visible = false; brushRing.visible = false;
   gizmo.detach();
   renderer.render(scene, camera);
   const url = renderer.domElement.toDataURL('image/png');
-  grid.visible = gridWas;
+  grid.visible = gridWas; sunGroup.visible = sunWas; brushRing.visible = ringWas;
   attachGizmo();
   const blob = await (await fetch(url)).blob();
   saveBlob(blob, exportName() + '.png', 'Image PNG', 'image/png', 'png');
@@ -2319,8 +2771,8 @@ async function recordTurntable() {
   const label = $('videoBtn').querySelector('span');
   tweens.delete('cam');
   controls.enabled = false; controls.autoRotate = false;
-  const gridWas = grid.visible;
-  grid.visible = false;
+  const gridWas = grid.visible, sunWas = sunGroup.visible;
+  grid.visible = false; sunGroup.visible = false; brushRing.visible = false;
   scene.background = new THREE.Color(css('--stage-a'));
   const stream = renderer.domElement.captureStream(60);
   const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12e6 });
@@ -2346,7 +2798,7 @@ async function recordTurntable() {
   clearInterval(tick);
   label.textContent = 'Enregistrer une vidéo qui tourne';
   scene.background = null;
-  grid.visible = gridWas;
+  grid.visible = gridWas; sunGroup.visible = sunWas;
   controls.enabled = true; controls.autoRotate = spinOn; controls.update();
   recording = false;
   attachGizmo();
@@ -2363,6 +2815,8 @@ function updateHint() {
   if (placing === 'face') parts.push('<span class="badge accent"><i></i>Orientation</span><span>Cliquez sur la face qui doit toucher le sol. Échap pour annuler.</span>');
   else if (placing) parts.push('<span class="badge accent"><i></i>Tige</span><span>Cliquez sur la figurine à l\'endroit où placer la tige. Échap pour annuler.</span>');
   else if (measuring) parts.push('<span class="badge accent"><i></i>Mesure</span><span>Cliquez deux points sur le modèle. Échap pour effacer.</span>');
+  else if (painting) parts.push(paintTool === 'picker' ? '<span class="badge accent"><i></i>Pipette</span><span>Cliquez sur la figurine pour reprendre sa couleur.</span>' : '<span class="badge accent"><i></i>' + (paintTool === 'eraser' ? 'Gomme' : 'Peinture') + '</span><span>Clic gauche pour peindre, clic droit pour tourner, molette pour zoomer. Ctrl+Z pour annuler.</span>');
+  else if (sunOn) parts.push('<span class="badge accent"><i></i>Soleil</span><span>Faites glisser la boule jaune pour choisir d\'où vient la lumière. Échap pour la ranger.</span>');
   else parts.push(realSize ? '<span>Faites glisser pour tourner, clic droit pour déplacer.</span>' : '<span>Faites glisser pour tourner, molette pour zoomer, clic droit pour déplacer.</span>');
   if (lineup) parts.push('<span>Cliquez une étiquette pour afficher ses informations.</span>');
   else if (items.length > 1 && !measuring) parts.push('<span>Flèches du clavier pour changer de fichier.</span>');
@@ -2435,7 +2889,7 @@ function toast(html) {
 function addFiles(list) {
   if (view !== 'viewer') setView('viewer');
   const all = [...list];
-  const ok = all.filter(f => /\.(3mf|stl)$/i.test(f.name));
+  const ok = all.filter(f => MODEL_RE.test(f.name));
   const wrongType = all.length - ok.length;
   let firstNew = null, firstExisting = null, tooMany = 0;
   for (const f of ok) {
@@ -2448,7 +2902,7 @@ function addFiles(list) {
   }
   const msgs = [];
   if (tooMany) msgs.push(`<strong>${MAX_FILES} fichiers au maximum.</strong> ${tooMany} fichier${tooMany > 1 ? 's n\'ont' : ' n\'a'} pas été ouvert${tooMany > 1 ? 's' : ''}. Fermez des fichiers pour en ouvrir d'autres.`);
-  if (wrongType) msgs.push(`<strong>${wrongType} fichier${wrongType > 1 ? 's ignorés' : ' ignoré'}.</strong> Seuls les fichiers .3mf et .stl sont lus.`);
+  if (wrongType) msgs.push(`<strong>${wrongType} fichier${wrongType > 1 ? 's ignorés' : ' ignoré'}.</strong> Formats lus : 3MF, STL, OBJ, PLY, OFF, GLB, GLTF, FBX, DAE, 3DS, AMF, WRL et X3D.`);
   if (msgs.length) toast(msgs.join('<br>'));
   renderList();
   applyListView();
@@ -2457,14 +2911,14 @@ function addFiles(list) {
   pump();
 }
 
-const dataBytes = (d) => (d ? d.pos.byteLength + d.idx.byteLength + d.nrm.byteLength : 0);
+const dataBytes = (d) => (d ? d.pos.byteLength + d.idx.byteLength + d.nrm.byteLength + (d.col ? d.col.byteLength : 0) : 0);
 function bytesOf(it) { const src = it.src && it.src.data !== it.data && !(it.orig && it.src.data === it.orig.data) ? dataBytes(it.src.data) : 0; return dataBytes(it.data) + (it.orig ? dataBytes(it.orig.data) : 0) + src; }
 
 function enforceBudget() {
   let total = items.reduce((s, it) => s + bytesOf(it), 0);
   if (total <= MEMORY_BUDGET) return;
   const onScreen = new Set(entries().map(e => e.it));
-  const candidates = items.filter(it => it.data && it.id !== activeId && it.id !== shownId && !onScreen.has(it)).sort((a, b) => a.lastUsed - b.lastUsed);
+  const candidates = items.filter(it => it.data && !it.painted && it.id !== activeId && it.id !== shownId && !onScreen.has(it)).sort((a, b) => a.lastUsed - b.lastUsed);
   for (const it of candidates) {
     if (total <= MEMORY_BUDGET) break;
     total -= bytesOf(it);
@@ -2497,7 +2951,8 @@ function startParse(it) {
       updateCard(it);
       if (it.id === activeId && !lineup) renderActiveStatus();
     } else if (m.type === 'done') {
-      it.data = { pos: m.pos, idx: m.idx, nrm: m.nrm };
+      it.data = { pos: m.pos, idx: m.idx, nrm: m.nrm, col: m.col || null };
+      it.paintUndo = null; it.painted = false;
       it.stats = m.stats;
       it.check = m.check;
       it.orig = null; it.offset = null;
@@ -2603,7 +3058,7 @@ function renderActiveStatus() {
     statusText.innerHTML = '';
     const d = document.createElement('div'); d.className = 'err';
     const b = document.createElement('strong'); b.textContent = 'Lecture impossible';
-    d.append(b, document.createTextNode(it.name + ' n\'a pas pu être lu (' + it.error + '). Vérifiez qu\'il s\'agit bien d\'un fichier .3mf ou .stl.'));
+    d.append(b, document.createTextNode(it.name + ' n\'a pas pu être lu (' + it.error + '). Vérifiez qu\'il s\'agit bien d\'un fichier 3D valide.'));
     statusText.append(d);
     return;
   }
@@ -2639,6 +3094,7 @@ function showModelUI(it) {
 }
 
 function showItem(it) {
+  if (painting && (!single || single.it !== it)) setPainting(false);
   const first = !single;
   const dir = single ? currentDir() : (savedDir || VIEWS.front);
   disposeSingle();
@@ -2790,7 +3246,7 @@ $('openBtn').addEventListener('click', pickFiles);
 $('openBtn2').addEventListener('click', pickFiles);
 
 // Dossiers : sous-dossiers compris, les fichiers .3mf et .stl sont triés par nom
-const isModel = (n) => /\.(3mf|stl)$/i.test(n);
+const isModel = (n) => MODEL_RE.test(n);
 const MAX_SCAN = 10000;
 async function collectHandle(dir, out, depth) {
   for await (const h of dir.values()) {
@@ -2817,7 +3273,7 @@ async function collectEntry(entry, out, depth) {
 }
 async function openFolderFiles(files, folder) {
   files = files.filter(f => isModel(f.name)).sort((a, b) => collator.compare(a.webkitRelativePath || a.name, b.webkitRelativePath || b.name));
-  if (!files.length) { toast('<strong>Aucun modèle trouvé.</strong> Le dossier « ' + esc(folder) + ' » ne contient pas de fichier .3mf ou .stl.'); return; }
+  if (!files.length) { toast('<strong>Aucun modèle trouvé.</strong> Le dossier « ' + esc(folder) + ' » ne contient aucun fichier 3D lisible.'); return; }
   const room = MAX_FILES - items.length;
   const total = files.length;
   if (files.some(f => f.lazy)) {
@@ -2895,8 +3351,11 @@ document.addEventListener('keydown', (e) => {
     if (rodSel) { const it = rodSel.it; rodSel = null; refreshRods(it); return; }
     if (measuring && measPts.length) { clearMeasure(); return; }
     if (measuring) { setMeasuring(false); return; }
+    if (sunOn) { setSun(false); return; }
+    if (painting) { setPainting(false); return; }
     closeHelp(); return;
   }
+  if (painting && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undoPaint(); return; }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') { e.preventDefault(); if (e.shiftKey) pickFolder(); else pickFiles(); return; }
   if (view === 'library') return;
   const tag = (e.target && e.target.tagName) || '';
@@ -3253,7 +3712,7 @@ function rootHeader(r) {
   const sec = document.createElement('div'); sec.className = 'lib-sec';
   const h = document.createElement('h2'); h.textContent = r.h.name;
   const info = document.createElement('span');
-  if (r.state === 'ok') info.textContent = r.models ? pl(r.cols, 'collection', 'collections') + ', ' + pl(r.models, 'modèle', 'modèles') : 'Aucun fichier .3mf ou .stl dans ce dossier';
+  if (r.state === 'ok') info.textContent = r.models ? pl(r.cols, 'collection', 'collections') + ', ' + pl(r.models, 'modèle', 'modèles') : 'Aucun fichier 3D dans ce dossier';
   else { info.className = 'warn'; info.textContent = r.state === 'missing' ? 'Dossier introuvable' : 'Accès à autoriser'; }
   const acts = document.createElement('div'); acts.className = 'sec-actions';
   if (r.state === 'prompt') {
@@ -3547,6 +4006,9 @@ renderer.setAnimationLoop(() => {
     if (e.mesh.userData.contactMesh) e.mesh.userData.contactMesh.position.y = pc + 0.02;   // l'ombre reste au sol
   }
   updateLightRig();
+  updateSun();
+  paintFrame();
+  refreshShadows();
   renderer.render(scene, camera);
   if (lineup) positionLabels();
   if (measPts.length) updateMeasure();
