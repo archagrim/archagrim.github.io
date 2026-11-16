@@ -3,6 +3,7 @@
 // Sortie : sommets (Y vers le haut, centrés, posés à y = 0), indices, normales et quelques mesures.
 import { Unzip, UnzipInflate, Inflate, Zip, ZipDeflate } from './lib/fflate.module.js';
 import { readerFor } from './formats.js';
+import { splitMesh, toFileCoords, writeSTL } from './cut.js';
 
 const UNIT = { micron: 0.001, millimeter: 1, centimeter: 10, inch: 25.4, foot: 304.8, meter: 1000 };
 
@@ -376,9 +377,10 @@ export function finish(mesh) {
   // Z vers le haut (impression 3D : 3MF, STL, PLY…) → Y vers le haut (affichage) : (x, y, z) → (x, z, -y)
   // OBJ, glTF, FBX, VRML et X3D sont déjà en Y vers le haut
   if (!mesh.yUp) for (let i = 0; i < pos.length; i += 3) { const y = pos[i + 1], z = pos[i + 2]; pos[i + 1] = z; pos[i + 2] = -y; }
-  place(pos);
+  const home = place(pos);
   const r = measure(pos, mesh.idx, mesh.objects);
   r.col = mesh.col && mesh.col.length === pos.length ? mesh.col : null;
+  r.home = home;            // déplacement appliqué : le fichier d'origine est à (affichage − home)
   return r;
 }
 
@@ -1085,6 +1087,23 @@ if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScop
       }
       return;
     }
+    if (e.data.op === 'split') {
+      // découpe en pièces : chaque pièce est écrite comme un fichier, dans le repère du fichier d'origine
+      try {
+        const d = e.data;
+        const { ShapeUtils } = await import('./lib/three.module.js');
+        const r = splitMesh({ pos: d.pos, idx: d.idx, col: d.col }, d.plane, d.conns, d.opt, ShapeUtils);
+        const files = r.parts.map((p, k) => {
+          const fp = toFileCoords(p.pos, d.home, d.scale);
+          const bytes = p.col ? write3MF([{ pos: fp, idx: p.idx, col: p.col }], 1, d.titles[k]) : writeSTL(fp, p.idx, d.titles[k]);
+          return { bytes, ext: p.col ? '3mf' : 'stl', tris: p.idx.length / 3 };
+        });
+        self.postMessage({ type: 'split', files, warn: r.warn, placed: r.placed, asked: r.asked, open: r.open }, files.map(f => f.bytes.buffer));
+      } catch (err) {
+        self.postMessage({ type: 'error', message: String(err && err.message || err) });
+      }
+      return;
+    }
     if (e.data.op === 'edit') {
       try {
         const r = await editModel(e.data.pos, e.data.idx, e.data);
@@ -1108,7 +1127,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScop
       const transfer = [r.pos.buffer, r.idx.buffer, r.nrm.buffer];
       if (r.check.red) transfer.push(r.check.red.buffer, r.check.orange.buffer);
       if (r.col) transfer.push(r.col.buffer);
-      self.postMessage({ type: 'done', pos: r.pos, idx: r.idx, nrm: r.nrm, col: r.col, stats: r.stats, check: r.check }, transfer);
+      self.postMessage({ type: 'done', pos: r.pos, idx: r.idx, nrm: r.nrm, col: r.col, stats: r.stats, check: r.check, home: r.home }, transfer);
     } catch (err) {
       self.postMessage({ type: 'error', message: String(err && err.message || err) });
     }
