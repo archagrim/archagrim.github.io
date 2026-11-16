@@ -272,8 +272,33 @@ dd.warn{color:var(--warn)}
 }
 
 /* Bibliothèque : grille de couvertures façon iTunes, panneau déroulant à la couleur de la couverture */
-.library{min-height:0;overflow:auto;background:var(--panel);position:relative;
-  padding:0 max(28px,env(safe-area-inset-right)) calc(120px + env(safe-area-inset-bottom)) max(28px,env(safe-area-inset-left))}
+.library{display:flex;min-height:0;overflow:hidden;background:var(--panel)}
+.lib-main{flex:1;min-width:0;min-height:0;overflow:auto;position:relative;
+  padding:0 max(28px,env(safe-area-inset-right)) calc(120px + env(safe-area-inset-bottom)) 28px}
+.lib-tree[hidden] + .lib-main{padding-left:max(28px,env(safe-area-inset-left))}
+/* Arborescence des dossiers, comme le volet de navigation de l'Explorateur */
+.lib-tree{flex:none;width:252px;overflow:auto;background:var(--side);border-right:1px solid var(--line);
+  padding:20px 8px calc(40px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))}
+@media (max-width:900px){.lib-tree{display:none}.lib-main{padding-left:max(28px,env(safe-area-inset-left))}}
+.trow{display:flex;align-items:center;gap:0;border-radius:7px;padding-left:calc(var(--lvl,0) * 14px)}
+.trow:hover{background:var(--fill)}
+.trow[aria-current="true"]{background:var(--accent-tint)}
+.trow[aria-current="true"] .tname{color:var(--accent);font-weight:600}
+.tchev{flex:none;width:22px;height:28px;border:0;background:none;padding:0;color:var(--ink-3);display:grid;place-items:center;border-radius:6px}
+.tchev svg{width:10px;height:10px;transition:transform .18s}
+.tchev[aria-expanded="true"] svg{transform:rotate(90deg)}
+.tchev.none{visibility:hidden}
+.tname{flex:1;min-width:0;height:28px;display:flex;align-items:center;gap:7px;border:0;background:none;padding:0 8px 0 0;color:var(--ink);font:400 13px/1 var(--font);text-align:left;border-radius:6px}
+.tname svg{flex:none;width:16px;height:16px;color:var(--accent)}
+.tname .tl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tname .tc{color:var(--ink-3);font-size:12px;font-variant-numeric:tabular-nums}
+.trow.top .tname,.trow.root .tname{font-weight:600}
+.trow.top{margin-bottom:6px}
+.trow.off .tname{color:var(--ink-3)}
+.crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:0 2px;margin:0 0 4px -5px;font-size:13px;color:var(--ink-3)}
+.crumbs button{border:0;background:none;padding:2px 5px;border-radius:5px;color:var(--accent);font:inherit}
+.crumbs button:hover{background:var(--accent-tint)}
+.crumbs span{padding:0 1px}
 .lib-head{position:sticky;top:0;z-index:6;display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 20px;padding:26px 0 18px;background:var(--panel)}
 .lib-head h1{margin:0;font:700 34px/1.1 var(--font-display);letter-spacing:-.022em}
 .lib-head p{margin:4px 0 0;color:var(--ink-2);font-size:13px;font-variant-numeric:tabular-nums}
@@ -288,12 +313,18 @@ dd.warn{color:var(--warn)}
 .lib-sec span.warn{color:var(--warn)}
 .lib-sec .sec-actions{margin-left:auto;display:flex;gap:4px}
 .lib-sec + .lib-sec{margin-top:-14px}
-@media (max-width:520px){.library{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}.lib-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 14px}}
+@media (max-width:520px){.lib-main{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}.lib-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 14px}}
 .album{display:flex;flex-direction:column;gap:8px;border:0;background:none;padding:0;text-align:left;color:inherit;min-width:0}
 .cover{position:relative;width:100%;aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--fill);
   box-shadow:0 1px 2px rgba(0,0,0,.08),0 8px 24px rgba(0,0,0,.09);transition:transform .3s cubic-bezier(.2,.7,.2,1),box-shadow .3s}
 .album:hover .cover{transform:translateY(-3px);box-shadow:0 2px 4px rgba(0,0,0,.08),0 16px 34px rgba(0,0,0,.16)}
 .album[aria-expanded="true"] .cover{outline:3px solid var(--accent);outline-offset:3px}
+/* un dossier qui contient d'autres dossiers : couvertures empilées, comme un album de Photos */
+.lib-grid .cover{margin-top:8px}
+.album.branch .cover{box-shadow:0 -4px 0 -2px color-mix(in srgb,var(--ink) 26%,var(--panel)),0 -8px 0 -5px color-mix(in srgb,var(--ink) 15%,var(--panel)),0 1px 2px rgba(0,0,0,.08),0 8px 24px rgba(0,0,0,.09)}
+.album.branch:hover .cover{box-shadow:0 -4px 0 -2px color-mix(in srgb,var(--ink) 26%,var(--panel)),0 -8px 0 -5px color-mix(in srgb,var(--ink) 15%,var(--panel)),0 2px 4px rgba(0,0,0,.08),0 16px 34px rgba(0,0,0,.16)}
+.cbadge{position:absolute;left:8px;bottom:8px;display:flex;align-items:center;gap:4px;padding:3px 8px 3px 6px;border-radius:980px;background:rgba(0,0,0,.55);color:#fff;font:600 11px/1.3 var(--font);font-variant-numeric:tabular-nums;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.cbadge svg{width:13px;height:13px}
 .album.dropping .cover{outline:3px dashed var(--accent);outline-offset:3px}
 .cover>img{width:100%;height:100%;object-fit:cover;display:block}
 .mosaic{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;width:100%;height:100%;background:linear-gradient(180deg,#F4F4F7,#E2E2E8)}
@@ -438,6 +469,9 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
   <symbol id="i-image" viewBox="0 0 16 16"><rect x="1.5" y="2.5" width="13" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="5.5" cy="6.2" r="1.3" fill="currentColor"/><path d="M2 12l3.8-3.6 2.6 2.4 2.4-2.2L14 11.4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></symbol>
   <symbol id="i-video" viewBox="0 0 16 16"><rect x="1.5" y="3.5" width="9.5" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M11 7l3.5-2v6L11 9" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></symbol>
   <symbol id="i-check" viewBox="0 0 12 12"><path d="M2.5 6.3l2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-dir" viewBox="0 0 20 20"><path d="M2.5 5.5a1.5 1.5 0 0 1 1.5-1.5h3.6l1.6 1.8H16a1.5 1.5 0 0 1 1.5 1.5v7.7a1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5z" fill="currentColor" fill-opacity=".16" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 10 10"><path d="M3.5 1.5 7 5 3.5 8.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-lib" viewBox="0 0 20 20"><path d="M3 4.5h3.2v11H3zM7.7 4.5h3.2v11H7.7zM12.4 5.2l3-.8 2.6 10.6-3 .8z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></symbol>
   <symbol id="i-folder" viewBox="0 0 64 64"><path d="M8 18a4 4 0 0 1 4-4h13l5 6h22a4 4 0 0 1 4 4v24a4 4 0 0 1-4 4H12a4 4 0 0 1-4-4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M32 27l9 5v10l-9 5-9-5V32z M23 32l9 5 9-5 M32 37v10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></symbol>
   <symbol id="i-download" viewBox="0 0 16 16"><path d="M8 2v8.2M4.6 7l3.4 3.4L11.4 7M2.5 11.5v1.5a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-1.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="i-wrench" viewBox="0 0 16 16"><path d="M10.3 2.2a3.6 3.6 0 0 0-3.5 4.6L2.4 11.2a1.5 1.5 0 0 0 2.1 2.1l4.4-4.4a3.6 3.6 0 0 0 4.6-3.5l-2.1 2.1-2.1-.5-.5-2.1z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></symbol>
@@ -465,12 +499,16 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
 <input id="coverInput" type="file" accept="image/*" hidden>
 
 <section class="library" id="library" aria-label="Bibliothèque" hidden>
+  <nav class="lib-tree" id="libTree" aria-label="Dossiers" hidden></nav>
+  <div class="lib-main" id="libMain">
   <div class="lib-head" id="libHead" hidden>
     <div>
+      <nav class="crumbs" id="libCrumbs" aria-label="Emplacement" hidden></nav>
       <h1 id="libName">Bibliothèque</h1>
       <p id="libMeta"></p>
     </div>
     <div class="lib-actions">
+      <button class="btn" id="libOpenAll" type="button" hidden>Ouvrir tout le dossier</button>
       <input id="libSearch" type="search" placeholder="Rechercher un modèle" aria-label="Rechercher dans la bibliothèque" autocomplete="off">
       <button class="btn" id="libRefresh" type="button">Actualiser</button>
       <button class="btn" id="libChange" type="button">Ajouter un dossier…</button>
@@ -480,7 +518,7 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
     <div class="hero">
       <svg aria-hidden="true"><use href="#i-folder"/></svg>
       <h1 id="libEmptyTitle">Votre bibliothèque de figurines.</h1>
-      <p class="lede" id="libEmptyText">Reliez les dossiers où vous rangez vos modèles. Chaque sous-dossier devient une collection, avec sa couverture et l'aperçu de chaque figurine.</p>
+      <p class="lede" id="libEmptyText">Reliez les dossiers où vous rangez vos modèles. Tous leurs sous-dossiers s'affichent comme dans l'Explorateur, chacun avec sa couverture et l'aperçu de chaque figurine.</p>
       <div class="cta"><button class="btn primary large" id="libPick" type="button">Choisir un dossier</button><button class="btn plain" id="libForget" type="button" hidden>Oublier ces dossiers</button></div>
       <p class="foot" id="libEmptyFoot">Les fichiers restent sur cet ordinateur. Atelier 3D lit vos modèles sans jamais les modifier ni les envoyer en ligne ; il range seulement les tailles gardées dans un petit fichier, atelier-3d-tailles.json, à la racine de chaque dossier relié.</p>
     </div>
@@ -491,6 +529,7 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
     <span id="selCount"></span>
     <button class="btn plain" id="selClear" type="button">Tout désélectionner</button>
     <button class="btn primary" id="selOpen" type="button">Ouvrir dans la visionneuse</button>
+  </div>
   </div>
 </section>
 
@@ -1923,7 +1962,7 @@ function updateKeep() {
   btn.textContent = k ? 'Garder ' + pctText(it.scale) : 'Garder cette taille';
 }
 function refreshKeptTiles(it) {
-  for (const c of lib.cols) for (const m of c.models) if (m.name === it.name && m.size === it.size) repaint(m);
+  for (const m of lib.models) if (m.name === it.name && m.size === it.size) repaint(m);
 }
 $('keepBtn').addEventListener('click', () => {
   const it = items.find(i => i.id === shownId);
@@ -1994,7 +2033,7 @@ function syncSizes(ask = false) {
     if (res.changed) {
       saveKept();
       updateKeep();
-      for (const c of lib.cols) for (const m of c.models) if (m.el) repaint(m);
+      for (const m of lib.models) if (m.el) repaint(m);
     }
     for (const r of roots) {
       if (sameSizes(kept, remote.get(r) || {})) continue;
@@ -3521,7 +3560,11 @@ function step(delta) {
 document.addEventListener('keydown', (e) => {
   if (!calib.hidden) { if (e.key === 'Escape') closeCalib(); return; }
   if (view === 'library' && e.key === 'Escape') {
-    if (lib.expanded) collapseAlbum(); else if (lib.sel.size) { lib.sel.clear(); refreshSelection(); }
+    if (lib.expanded) collapseAlbum(); else if (lib.sel.size) { lib.sel.clear(); refreshSelection(); } else goUp();
+    return;
+  }
+  if (view === 'library' && ((e.key === 'Backspace' && !/^(INPUT|TEXTAREA)$/.test((e.target && e.target.tagName) || '')) || (e.altKey && e.key === 'ArrowLeft'))) {
+    if (goUp()) e.preventDefault();
     return;
   }
   if (e.key === 'Escape') {
@@ -3578,9 +3621,15 @@ const IMG_RE = /\.(png|jpe?g|webp|gif|avif)$/i;
 const COVER_RE = /^(cover|couverture|folder|poster|front|album)\.(png|jpe?g|webp|gif|avif)$/i;
 const LIB_POOL = 2;
 const LIB_MAX_FILE = 500 * 1048576;
-// Plusieurs dossiers peuvent être reliés ; chacun garde son autorisation et ses collections.
+// Plusieurs dossiers peuvent être reliés ; chacun garde son autorisation et son arborescence.
 // state : 'ok' (lisible), 'prompt' (autorisation à redonner), 'missing' (introuvable)
-const lib = { roots: [], cols: [], expanded: null, sel: new Map(), urls: [], jobs: [], running: 0, panel: null, scanning: false };
+// nodes : tous les dossiers (avec modèles) de tous les dossiers reliés ; at : dossier affiché (null = vue d'ensemble)
+const LS_AT = 'atelier3d.libAt', LS_TREE = 'atelier3d.libTree';
+const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* stockage indisponible */ } };
+const lib = { roots: [], nodes: [], models: [], at: null, open: new Set(), treeSaved: false, expanded: null, sel: new Map(), urls: [], jobs: [], running: 0, panel: null, scanning: false };
+try { const t = JSON.parse(lsGet(LS_TREE) || 'null'); if (Array.isArray(t)) { lib.open = new Set(t); lib.treeSaved = true; } } catch (e) { /* ignoré */ }
+const saveOpen = () => { lib.treeSaved = true; lsSet(LS_TREE, JSON.stringify([...lib.open])); };
 
 let dbp = null;
 function db() {
@@ -3624,6 +3673,7 @@ function libState(state) {
   $('libEmpty').hidden = state === 'ready';
   $('libHead').hidden = state !== 'ready';
   $('libGrid').hidden = state !== 'ready';
+  $('libTree').hidden = state !== 'ready';
   if (state === 'ready') return;
   $('libResults').hidden = true;
   const title = $('libEmptyTitle'), text = $('libEmptyText'), btn = $('libPick'), foot = $('libEmptyFoot');
@@ -3642,7 +3692,7 @@ function libState(state) {
     btn.textContent = missing ? 'Réessayer' : 'Autoriser l\'accès'; btn.dataset.mode = 'access'; btn.hidden = false;
   } else if (state === 'empty') {
     title.textContent = 'Votre bibliothèque de figurines.';
-    text.textContent = 'Reliez les dossiers où vous rangez vos modèles. Chaque sous-dossier devient une collection, avec sa couverture et l\'aperçu de chaque figurine.';
+    text.textContent = 'Reliez les dossiers où vous rangez vos modèles. Tous leurs sous-dossiers s\'affichent comme dans l\'Explorateur, chacun avec sa couverture et l\'aperçu de chaque figurine.';
     btn.textContent = 'Choisir un dossier'; btn.dataset.mode = 'add'; btn.hidden = false;
   }
   foot.hidden = state === 'unsupported';
@@ -3704,7 +3754,7 @@ async function askAccess(only) {
 
 $('libPick').addEventListener('click', () => { if ($('libPick').dataset.mode === 'access') askAccess(); else addLibraryFolder(); });
 $('libForget').addEventListener('click', async () => {
-  lib.roots = []; lib.cols = [];
+  lib.roots = []; lib.nodes = []; lib.models = []; lib.at = null;
   await saveRoots();
   libState('empty');
 });
@@ -3741,92 +3791,99 @@ async function removeRoot(r) {
   lib.roots = lib.roots.filter(x => x !== r);
   await saveRoots();
   toast('<strong>« ' + esc(r.h.name) + ' » retiré</strong> de la bibliothèque. Les fichiers ne sont pas touchés.');
-  if (!lib.roots.length) { collapseAlbum(); lib.cols = []; $('libGrid').textContent = ''; libState('empty'); return; }
+  if (!lib.roots.length) { collapseAlbum(); lib.nodes = []; lib.models = []; lib.at = null; $('libGrid').textContent = ''; libState('empty'); return; }
   await scanAndRender();
 }
 
-// Parcourt les dossiers : sous-dossiers de premier niveau = collections ; modèles et images rangés par dossier
+// Parcourt les dossiers reliés : une arborescence comme dans l'Explorateur.
+// Chaque dossier garde ses sous-dossiers (dirs), ses modèles posés directement (own) et tous ceux de sa branche (models).
 async function scanLibrary(onCount) {
-  const cols = new Map();
+  const nodes = [], models = [];
   const multi = lib.roots.length > 1;
   let n = 0;
   for (const [ri, r] of lib.roots.entries()) {
-    r.models = 0; r.cols = 0;
+    r.models = 0; r.cols = 0; r.node = null;
     if (r.state !== 'ok') continue;
-    const root = r.h;
-    const colOf = (key, name, handle) => {
-      const id = ri + '|' + key;
-      if (!cols.has(id)) cols.set(id, { id, key, name, handle, root: r, rootName: root.name, models: [], images: [], custom: null, coverImg: null, el: null });
-      return cols.get(id);
-    };
-    const walk = async (dir, rel, col, depth) => {
+    const mk = (parent, key, name, handle) => ({ id: ri + '|' + key, tkey: r.h.name + '/' + key, key, name, handle, root: r, rootName: r.h.name, parent,
+      dirs: [], own: [], images: [], models: [], nDirs: 0, custom: null, coverImg: null, strongCover: null, el: null, coverBox: null, hereNode: null, here: false });
+    const top = mk(null, '', r.h.name, r.h);
+    const walk = async (dir, node, depth) => {
       for await (const h of dir.values()) {
-        const path = rel ? rel + '/' + h.name : h.name;
+        const path = node.key ? node.key + '/' + h.name : h.name;
         if (h.kind === 'directory') {
-          if (h.name.startsWith('.')) continue;
-          if (depth === 0) await walk(h, path, colOf(h.name, h.name, h), 1);
-          else if (depth < 10) await walk(h, path, col, depth + 1);
-        } else {
-          const c = col || colOf('', multi ? root.name : 'À la racine', root);
-          if (isModel(h.name)) {
-            c.models.push({ name: h.name, base: baseName(h.name), ext: h.name.split('.').pop().toUpperCase(), path, uid: ri + ':' + path, dir: rel, handle: h, col: c, preview: null, thumbURL: null, stats: null, level: null, size: null, queued: false, el: null, failed: false });
-            if (++n % 25 === 0) onCount(n);
-          } else if (IMG_RE.test(h.name)) {
-            c.images.push({ name: h.name, base: h.name.replace(/\.[^.]+$/, ''), path, dir: rel, handle: h, url: null });
-          }
+          if (h.name.startsWith('.') || depth >= 12) continue;
+          const child = mk(node, path, h.name, h);
+          node.dirs.push(child);
+          await walk(h, child, depth + 1);
+        } else if (isModel(h.name)) {
+          node.own.push({ name: h.name, base: baseName(h.name), ext: h.name.split('.').pop().toUpperCase(), path, uid: ri + ':' + path, dir: node.key, handle: h, col: node, sub: '', preview: null, thumbURL: null, stats: null, level: null, size: null, queued: false, el: null, failed: false });
+          if (++n % 25 === 0) onCount(n);
+        } else if (IMG_RE.test(h.name)) {
+          node.images.push({ name: h.name, base: h.name.replace(/\.[^.]+$/, ''), path, dir: node.key, handle: h, url: null });
         }
       }
     };
-    try { await walk(root, '', null, 0); }
+    try { await walk(r.h, top, 0); }
     catch (e) {
       // dossier déplacé, débranché ou autorisation retirée pendant la lecture
       await checkRoot(r);
       if (r.state === 'ok') r.state = desktop ? 'missing' : 'prompt';
-      for (const [id, c] of cols) if (c.root === r) cols.delete(id);
+      continue;
     }
+    // de bas en haut : on ne garde que les dossiers qui contiennent des modèles, on range, on choisit les images
+    const finish = (node) => {
+      node.dirs = node.dirs.filter(d => { finish(d); return d.models.length > 0; });
+      node.dirs.sort((x, y) => collator.compare(x.name, y.name));
+      node.own.sort((x, y) => collator.compare(x.name, y.name));
+      node.images.sort((x, y) => collator.compare(x.name, y.name));
+      for (const m of node.own) m.preview = node.images.find(i => norm(i.base) === norm(m.base)) || (node.own.length === 1 && node.images.length ? node.images[0] : null);
+      node.models = node.own.concat(...node.dirs.map(d => d.models));
+      node.nDirs = node.dirs.reduce((t, d) => t + 1 + d.nDirs, 0);
+      node.strongCover = node.images.find(i => COVER_RE.test(i.name)) || (node.dirs.find(d => d.strongCover) || {}).strongCover || null;
+      node.coverImg = node.strongCover || node.images[0] || null;
+      // les modèles posés à côté de sous-dossiers ont leur propre carte (comme les fichiers sous les dossiers)
+      if (node.own.length && (node.dirs.length || !node.parent)) {
+        node.hereNode = { ...node, id: node.id + '|.', tkey: node.tkey + '/.', here: true, parent: node, dirs: [], models: node.own, nDirs: 0, hereNode: null,
+          name: node.parent ? 'Dans « ' + node.name + ' »' : (multi ? node.rootName : 'À la racine'),
+          coverImg: node.images.find(i => COVER_RE.test(i.name)) || node.images[0] || null };
+      }
+    };
+    finish(top);
+    r.node = top;
+    r.models = top.models.length; r.cols = top.nDirs;
+    const collect = (node) => { nodes.push(node); if (node.hereNode) nodes.push(node.hereNode); node.dirs.forEach(collect); };
+    if (top.models.length) collect(top);
+    models.push(...top.models);
   }
-  const list = [...cols.values()].filter(c => c.models.length);
-  for (const c of list) {
-    c.models.sort((a, b) => collator.compare(a.path, b.path));
-    c.images.sort((a, b) => collator.compare(a.path, b.path));
-    const top = c.key;
-    c.coverImg = c.images.find(i => COVER_RE.test(i.name) && i.dir === top) || c.images.find(i => COVER_RE.test(i.name)) || c.images.find(i => i.dir === top) || null;
-    const perDir = new Map();
-    for (const m of c.models) perDir.set(m.dir, (perDir.get(m.dir) || 0) + 1);
-    for (const m of c.models) {
-      const same = c.images.filter(i => i.dir === m.dir);
-      m.preview = same.find(i => norm(i.base) === norm(m.base)) || (perDir.get(m.dir) === 1 && same.length ? same[0] : null);
-      const sub = c.key ? m.dir.slice(c.key.length + 1) : m.dir;
-      m.sub = sub || '';
-    }
-    c.root.models += c.models.length;
-    c.root.cols++;
-  }
-  const order = (c) => lib.roots.indexOf(c.root);
-  list.sort((a, b) => order(a) - order(b) || (a.key === '') - (b.key === '') || collator.compare(a.name, b.name));
-  return list;
+  lib.nodes = nodes; lib.models = models;
 }
+const cardsOf = (node) => node.dirs.concat(node.hereNode ? [node.hereNode] : []);
+const isBranch = (c) => !c.here && c.dirs.length > 0;
 
 async function scanAndRender() {
   if (lib.scanning) return;
   lib.scanning = true;
   libState('ready');
+  $('libCrumbs').hidden = true; $('libOpenAll').hidden = true;
   $('libName').textContent = 'Bibliothèque';
   $('libMeta').textContent = 'Analyse des dossiers…';
   collapseAlbum();
-  $('libGrid').textContent = '';
+  $('libGrid').textContent = ''; $('libTree').textContent = '';
   for (const u of lib.urls) URL.revokeObjectURL(u);
   lib.urls = []; lib.jobs = []; lib.expanded = null; lib.panel = null; lib.sel.clear(); updateSelBar();
-  lib.cols = await scanLibrary((n) => { $('libMeta').textContent = 'Analyse des dossiers… ' + fmtInt(n) + ' modèles'; });
-  for (const c of lib.cols) c.custom = (await idbGet('covers', coverKey(c))) || null;
+  const want = lib.at ? lib.at.tkey : lsGet(LS_AT);
+  await scanLibrary((n) => { $('libMeta').textContent = 'Analyse des dossiers… ' + fmtInt(n) + ' modèles'; });
+  const coverKeys = new Set(await idb('covers', 'readonly', (o) => o.getAllKeys()).catch(() => []) || []);
+  for (const c of lib.nodes) c.custom = coverKeys.has(coverKey(c)) ? (await idbGet('covers', coverKey(c))) || null : null;
   lib.scanning = false;
   if (!lib.roots.some(r => r.state === 'ok')) { libState('reconnect'); return; }
-  const total = lib.cols.reduce((s, c) => s + c.models.length, 0);
-  $('libMeta').textContent = pl(lib.roots.length, 'dossier', 'dossiers') + ', ' + pl(lib.cols.length, 'collection', 'collections') + ', ' + pl(total, 'modèle', 'modèles');
+  if (!lib.treeSaved) for (const r of lib.roots) if (r.node) lib.open.add(r.node.tkey);
+  lib.at = (want && lib.nodes.find(nd => !nd.here && nd.tkey === want)) || null;
   renderLibrary();
   syncSizes(false).catch(() => {});
 }
-const coverKey = (c) => c.rootName + '/' + c.key;
+// les images choisies des anciennes collections (premier niveau) restent valables
+const coverKey = (c) => c.rootName + '/' + c.key + (c.here && c.key ? '/.' : '');
 
 async function urlOfImage(img) {
   if (!img.url) { const f = await img.handle.getFile(); img.url = URL.createObjectURL(f); lib.urls.push(img.url); }
@@ -3891,7 +3948,7 @@ function rootHeader(r) {
   const sec = document.createElement('div'); sec.className = 'lib-sec';
   const h = document.createElement('h2'); h.textContent = r.h.name;
   const info = document.createElement('span');
-  if (r.state === 'ok') info.textContent = r.models ? pl(r.cols, 'collection', 'collections') + ', ' + pl(r.models, 'modèle', 'modèles') : 'Aucun fichier 3D dans ce dossier';
+  if (r.state === 'ok') info.textContent = r.models ? (r.cols ? pl(r.cols, 'sous-dossier', 'sous-dossiers') + ', ' : '') + pl(r.models, 'modèle', 'modèles') : 'Aucun fichier 3D dans ce dossier';
   else { info.className = 'warn'; info.textContent = r.state === 'missing' ? 'Dossier introuvable' : 'Accès à autoriser'; }
   const acts = document.createElement('div'); acts.className = 'sec-actions';
   if (r.state === 'prompt') {
@@ -3907,24 +3964,115 @@ function rootHeader(r) {
   return sec;
 }
 
+// Navigation : un dossier qui contient d'autres dossiers s'ouvre en page (fil d'Ariane, retour) ;
+// un dossier final déroule son panneau de figurines sur place.
+function goTo(node, keepScroll) {
+  if ($('libSearch').value) $('libSearch').value = '';
+  collapseAlbum();
+  lib.at = node || null;
+  lsSet(LS_AT, node ? node.tkey : '');
+  for (let p = node; p; p = p.parent) lib.open.add(p.tkey);
+  saveOpen();
+  renderLibrary();
+  if (!keepScroll) $('libMain').scrollTop = 0;
+}
+const goUp = () => { if (!lib.at) return false; goTo(lib.at.parent || null); return true; };
+function openFromTree(node) {
+  if (isBranch(node) || !node.parent) { goTo(node); return; }
+  // un dossier de premier niveau se déroule sur place dans la vue d'ensemble
+  if (lib.at !== node.parent && !(lib.at === null && !node.parent.parent)) goTo(node.parent);
+  if (lib.expanded !== node && node.el) toggleAlbum(node);
+}
+
+function renderLibHead() {
+  const at = lib.at, crumbs = $('libCrumbs');
+  crumbs.textContent = '';
+  crumbs.hidden = !at;
+  $('libOpenAll').hidden = !at;
+  if (at) {
+    const chain = [];
+    for (let p = at.parent; p; p = p.parent) chain.unshift(p);
+    const link = (label, node) => {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = label;
+      b.addEventListener('click', () => goTo(node));
+      const sep = document.createElement('span'); sep.setAttribute('aria-hidden', 'true'); sep.textContent = '›';
+      crumbs.append(b, sep);
+    };
+    link('Bibliothèque', null);
+    for (const p of chain) link(p.name, p);
+    $('libName').textContent = at.name;
+    $('libMeta').textContent = (at.nDirs ? pl(at.nDirs, 'sous-dossier', 'sous-dossiers') + ', ' : '') + pl(at.models.length, 'modèle', 'modèles') + (lib.roots.length > 1 && at.parent ? ', dans « ' + at.rootName + ' »' : '');
+    $('libOpenAll').textContent = at.models.length > MAX_FILES ? `Ouvrir les ${MAX_FILES} premiers` : 'Ouvrir tout le dossier';
+  } else {
+    const dirs = lib.roots.reduce((t, r) => t + (r.cols || 0), 0);
+    $('libName').textContent = 'Bibliothèque';
+    $('libMeta').textContent = pl(lib.roots.length, 'dossier relié', 'dossiers reliés') + ', ' + (dirs ? pl(dirs, 'sous-dossier', 'sous-dossiers') + ', ' : '') + pl(lib.models.length, 'modèle', 'modèles');
+  }
+}
+$('libOpenAll').addEventListener('click', () => { if (lib.at) openModels(lib.at.models.slice(0, MAX_FILES)); });
+
+// Volet de gauche : tous les dossiers, dépliables d'un clic sur la flèche
+function renderTree() {
+  const tree = $('libTree'), keep = tree.scrollTop;
+  tree.textContent = '';
+  const cur = lib.expanded && !lib.expanded.here ? lib.expanded : lib.at;
+  const row = (lvl, cls, label, count, iconId, onOpen, node) => {
+    const r = document.createElement('div'); r.className = 'trow' + (cls ? ' ' + cls : ''); r.style.setProperty('--lvl', lvl);
+    const chev = document.createElement('button'); chev.type = 'button'; chev.className = 'tchev'; chev.innerHTML = icon('i-chev'); chev.tabIndex = -1;
+    if (node && node.dirs.length) {
+      const open = lib.open.has(node.tkey);
+      chev.setAttribute('aria-expanded', String(open));
+      chev.setAttribute('aria-label', (open ? 'Replier ' : 'Déplier ') + node.name);
+      chev.tabIndex = 0;
+      chev.addEventListener('click', () => { if (lib.open.has(node.tkey)) lib.open.delete(node.tkey); else lib.open.add(node.tkey); saveOpen(); renderTree(); });
+    } else chev.classList.add('none');
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'tname';
+    b.innerHTML = icon(iconId);
+    const l = document.createElement('span'); l.className = 'tl'; l.textContent = label;
+    b.append(l);
+    if (count != null) { const c = document.createElement('span'); c.className = 'tc'; c.textContent = fmtInt(count); b.append(c); }
+    b.addEventListener('click', onOpen);
+    if (node && node === cur) r.setAttribute('aria-current', 'true');
+    r.append(chev, b);
+    tree.append(r);
+  };
+  row(0, 'top', 'Bibliothèque', lib.models.length, 'i-lib', () => goTo(null), null);
+  if (!cur) tree.lastChild.setAttribute('aria-current', 'true');
+  const add = (node, lvl) => {
+    row(lvl, node.parent ? '' : 'root', node.name, node.models.length, 'i-dir', () => openFromTree(node), node);
+    if (node.dirs.length && lib.open.has(node.tkey)) for (const d of node.dirs) add(d, lvl + 1);
+  };
+  for (const r of lib.roots) {
+    if (r.node && r.node.models.length) add(r.node, 0);
+    else row(0, 'root off', r.h.name, null, 'i-dir', () => goTo(null), null);
+  }
+  tree.scrollTop = keep;
+}
+
 function renderLibrary() {
   const grid = $('libGrid');
   grid.textContent = '';
-  // les collections sont rangées par dossier relié, chacun sous son en-tête
-  const ordered = [];
-  for (const r of lib.roots) { ordered.push(r); for (const c of lib.cols) if (c.root === r) ordered.push(c); }
+  renderLibHead();
+  renderTree();
+  // vue d'ensemble : chaque dossier relié sous son en-tête ; dans un dossier : ses sous-dossiers, puis ses propres modèles
+  const seq = [];
+  if (lib.at) seq.push(...cardsOf(lib.at));
+  else for (const r of lib.roots) { seq.push(r); if (r.node) seq.push(...cardsOf(r.node)); }
   let i = -1;
-  for (const c of ordered) {
-    if (c.h) { grid.append(rootHeader(c)); continue; }   // un dossier relié, pas une collection
+  for (const c of seq) {
+    if (c.h) { grid.append(rootHeader(c)); continue; }   // un dossier relié, pas une carte
     i++;
+    const branch = isBranch(c);
     const a = document.createElement('button');
-    a.type = 'button'; a.className = 'album'; a.setAttribute('aria-expanded', 'false');
+    a.type = 'button'; a.className = 'album' + (branch ? ' branch' : '');
+    if (!branch) a.setAttribute('aria-expanded', 'false');
     a.style.setProperty('--d', Math.min(i * 30, 600) + 'ms');
     const cover = document.createElement('div'); cover.className = 'cover';
     const an = document.createElement('div'); an.className = 'an'; an.textContent = c.name;
-    const ac = document.createElement('div'); ac.className = 'ac'; ac.textContent = pl(c.models.length, 'modèle', 'modèles');
+    const ac = document.createElement('div'); ac.className = 'ac';
+    ac.textContent = (branch ? pl(c.dirs.length, 'dossier', 'dossiers') + ', ' : '') + pl(c.models.length, 'modèle', 'modèles');
     a.append(cover, an, ac);
-    a.addEventListener('click', () => toggleAlbum(c));
+    a.addEventListener('click', () => { if (branch) goTo(c); else toggleAlbum(c); });
     // glisser une image sur la couverture pour la remplacer
     a.addEventListener('dragover', (e) => { if ([...e.dataTransfer.types].includes('Files')) { e.preventDefault(); e.stopPropagation(); a.classList.add('dropping'); } });
     a.addEventListener('dragleave', () => a.classList.remove('dropping'));
@@ -3936,16 +4084,26 @@ function renderLibrary() {
     });
     c.el = a; c.coverBox = cover;
     grid.append(a);
-    fillCover(c, cover);
+    fillCover(c, cover).then(() => { if (branch) addBadge(c, cover); });
   }
   applyLibSearch();
+}
+function addBadge(c, cover) {
+  if (!cover.isConnected || cover.querySelector('.cbadge')) return;
+  const b = document.createElement('span'); b.className = 'cbadge';
+  b.innerHTML = icon('i-dir');
+  b.append(document.createTextNode(fmtInt(c.dirs.length)));
+  b.title = pl(c.dirs.length, 'sous-dossier', 'sous-dossiers');
+  cover.append(b);
 }
 
 function collapseAlbum() {
   if (lib.panel) { lib.panel.remove(); lib.panel = null; }
   if (lib.expanded && lib.expanded.el) lib.expanded.el.setAttribute('aria-expanded', 'false');
-  if (lib.expanded) lib.jobs = lib.jobs.filter(m => { if (m.col === lib.expanded) { m.queued = false; return false; } return true; });
+  if (lib.expanded) { const gone = new Set(lib.expanded.models); lib.jobs = lib.jobs.filter(m => { if (gone.has(m)) { m.queued = false; return false; } return true; }); }
+  const had = lib.expanded;
   lib.expanded = null;
+  if (had && !had.here) renderTree();
 }
 function placePanel() {
   const c = lib.expanded, panel = lib.panel;
@@ -3962,6 +4120,7 @@ async function toggleAlbum(c) {
   collapseAlbum();
   lib.expanded = c;
   c.el.setAttribute('aria-expanded', 'true');
+  if (!c.here) renderTree();
   const panel = document.createElement('div'); panel.className = 'panel';
   lib.panel = panel;
   const side = document.createElement('div'); side.className = 'pside';
@@ -3969,7 +4128,7 @@ async function toggleAlbum(c) {
   lib.panelCover = pc;
   const info = document.createElement('div');
   const h2 = document.createElement('h2'); h2.textContent = c.name;
-  const meta = document.createElement('div'); meta.className = 'pmeta'; meta.textContent = pl(c.models.length, 'modèle', 'modèles') + (c.key ? (lib.roots.length > 1 ? ', dans « ' + c.rootName + ' »' : '') : ', directement dans « ' + c.rootName + ' »');
+  const meta = document.createElement('div'); meta.className = 'pmeta'; meta.textContent = pl(c.models.length, 'modèle', 'modèles') + (c.here ? ', directement dans « ' + c.parent.name + ' »' : (lib.roots.length > 1 && !lib.at ? ', dans « ' + c.rootName + ' »' : ''));
   const acts = document.createElement('div'); acts.className = 'pactions';
   const bOpen = document.createElement('button'); bOpen.type = 'button'; bOpen.className = 'btn primary';
   bOpen.textContent = c.models.length > MAX_FILES ? `Ouvrir les ${MAX_FILES} premiers` : 'Ouvrir tout le dossier';
@@ -4037,7 +4196,7 @@ async function paintTile(m, t) {
   const ks = m.size ? keptScale(m.name, m.size) : null, kc = m.size ? keptCut(m.name, m.size) : 0;
   if (m.stats) parts.push(fmt(Math.max(0, m.stats.h - kc) * (ks || 1)) + ' mm' + (ks && Math.abs(ks - 1) > 1e-6 ? ', ' + pctText(ks) : ''));
   else if (m.size) parts.push(fmt(m.size / 1048576, m.size < 10485760 ? 1 : 0) + ' Mo');
-  if (t._showCol) parts.push(m.col.name);
+  if (t._showCol) parts.push(m.col.key ? m.col.key.split('/').join(' › ') : m.col.rootName);
   else if (m.sub) parts.push(m.sub);
   tm.append(document.createTextNode(parts.join(', ')));
 }
@@ -4099,19 +4258,22 @@ async function makeLibThumb(m) {
     m.failed = true;
     await idbPut('thumbs', m.key, { blob: null, stats: null, level: null, failed: true });
   }
-  // la mosaïque de couverture se complète au fil des aperçus calculés
-  if (!m.col.custom && !m.col.coverImg && m.col.models.indexOf(m) < 8) {
-    await fillCover(m.col, m.col.coverBox);
-    if (lib.expanded === m.col && lib.panelCover && lib.panel) {
-      await fillCover(m.col, lib.panelCover);
+  // la mosaïque de couverture se complète au fil des aperçus calculés, pour le dossier et tous ceux qui le contiennent
+  const touch = async (c) => {
+    if (!c || c.custom || c.coverImg || c.models.indexOf(m) >= 8) return;
+    if (c.coverBox && c.coverBox.isConnected) { await fillCover(c, c.coverBox); if (isBranch(c)) addBadge(c, c.coverBox); }
+    if (lib.expanded === c && lib.panelCover && lib.panel) {
+      await fillCover(c, lib.panelCover);
       if (lib.panelCover.querySelector('.mosaic')) lib.panel.style.setProperty('--pbg', '#2C2C2E');
     }
-  }
+  };
+  for (let c = m.col; c; c = c.parent) await touch(c);
+  await touch(m.col.hereNode);
 }
 
 // Sélection et ouverture dans la visionneuse
 function refreshSelection() {
-  for (const c of lib.cols) for (const m of c.models) if (m.el) for (const t of m.el) t.setAttribute('aria-pressed', String(lib.sel.has(m.uid)));
+  for (const m of lib.models) if (m.el) for (const t of m.el) t.setAttribute('aria-pressed', String(lib.sel.has(m.uid)));
   updateSelBar();
 }
 function updateSelBar() {
@@ -4149,7 +4311,8 @@ $('coverInput').addEventListener('change', () => {
 async function setCustomCover(c, file) {
   if (file) { c.custom = file; await idbPut('covers', coverKey(c), file); }
   else { c.custom = null; await idbDel('covers', coverKey(c)); }
-  const url = await fillCover(c, c.coverBox);
+  const url = c.coverBox && c.coverBox.isConnected ? await fillCover(c, c.coverBox) : null;
+  if (c.coverBox && isBranch(c)) addBadge(c, c.coverBox);
   if (lib.expanded === c) { const keep = c; collapseAlbum(); toggleAlbum(keep); }
   toast(file ? '<strong>Image mise à jour</strong> pour « ' + esc(c.name) + ' ».' : '<strong>Image retirée</strong> de « ' + esc(c.name) + ' ».');
   return url;
@@ -4164,11 +4327,13 @@ function applyLibSearch() {
   grid.hidden = true; res.hidden = false;
   const tiles = $('libResultsTiles'); tiles.textContent = '';
   const found = [];
-  for (const c of lib.cols) for (const m of c.models) if (norm(m.path).includes(q)) found.push(m);
+  for (const m of lib.models) if (norm(lib.roots.length > 1 ? m.col.rootName + '/' + m.path : m.path).includes(q)) found.push(m);
   $('libResultsTitle').textContent = found.length ? pl(found.length, 'résultat', 'résultats') + (found.length > 300 ? ', les 300 premiers affichés' : '') : 'Aucun modèle ne correspond.';
   found.slice(0, 300).forEach((m, i) => { tiles.append(makeTile(m, i, true)); queueThumb(m); });
 }
 $('libSearch').addEventListener('input', applyLibSearch);
+// bouton « précédent » de la souris : remonte d'un dossier, comme dans l'Explorateur
+$('library').addEventListener('mouseup', (e) => { if (e.button === 3 && goUp()) e.preventDefault(); });
 
 calibRange.value = String(pxPerMm);
 updateCalibState();
