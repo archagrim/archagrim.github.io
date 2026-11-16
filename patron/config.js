@@ -1,7 +1,7 @@
 // L'Œil du Patron : connexion au serveur Supabase (comptes, classement, duo).
-// Remplace les deux valeurs par celles de ton projet : Supabase → Project Settings → API.
-// La clé « anon » / « publishable » est faite pour être publique : aucune donnée sensible ici.
+// Projet Supabase « oeil-du-patron ». La clé « publishable » est faite pour être publique :
+// les tables sont fermées, le site ne peut appeler que les fonctions de patron/supabase.sql.
 window.PATRON_CONFIG = {
-  supabaseUrl: '',
-  supabaseKey: ''
+  supabaseUrl: 'https://ckyyzgybivmyuvcecpyj.supabase.co',
+  supabaseKey: 'sb_publishable_bjwL1G5BT2ng3IfL4njbPg_4w1XORi-'
 };
