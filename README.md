@@ -8,6 +8,7 @@ Mes sites et applications, publiés avec GitHub Pages.
 | `adc/` | https://archagrim.github.io/adc/ | ADC Lab : analyse automatique de mes parties classées (morts, lane, objectifs, sessions). |
 | `3d/` | https://archagrim.github.io/3d/ | Atelier 3D : visionneuse de fichiers 3D (3MF, STL, OBJ, PLY, GLB, FBX, DAE…) en taille réelle (dimensions, échelle par socle, volume de résine). Les fichiers sont lus sur l'ordinateur, rien n'est envoyé en ligne. |
 | `desktop/` | [Atelier3D-setup.exe](https://github.com/archagrim/archagrim.github.io/releases/latest/download/Atelier3D-setup.exe) | Atelier 3D en programme Windows : la même page que `3d/`, emballée avec Tauri. |
+| `patron/` | https://archagrim.github.io/patron/ | L'Œil du Patron : jeu de surveillance de bureau, avec comptes (identifiant + mot de passe), classement par difficulté et mode duo en ligne (Supabase). |
 
 ## Installer le Codex sur le téléphone
 
@@ -58,3 +59,11 @@ Chaque nouveau site peut avoir son propre dossier ici et sera publié à `https:
 - Fabrication : `.github/workflows/atelier-3d-windows.yml` compile le programme sur une machine Windows de GitHub à chaque modification de `3d/` ou `desktop/` (et à la demande depuis l'onglet **Actions**), puis publie `Atelier3D-setup.exe` dans les **Releases** sous le nom `atelier-3d-v1.0.N` ; les 5 dernières versions sont gardées.
 - `desktop/src-tauri/src/main.rs` : commandes du programme (lire un dossier ou un fichier, choisir un dossier, enregistrer, ouvrir un lien, fichiers reçus au lancement). Dans la page, `desktop` (en tête du script de `3d/index.html`) remplace l'accès aux fichiers du navigateur par ces commandes.
 - Fabriquer sur un PC : `cd desktop`, `npm ci`, `npx tauri build` (Rust et Node requis).
+
+## L'Œil du Patron
+
+- Jeu dans `patron/index.html` ; adresse et clé publique Supabase dans `patron/config.js` (sans elles, le jeu marche en solo, sans compte ni classement).
+- Base de données : coller une fois `patron/supabase.sql` dans Supabase → **SQL Editor** → **Run**. Tables `patron_players`, `patron_sessions`, `patron_scores`, fermées à tout accès direct : le site passe uniquement par les fonctions `patron_register`, `patron_login`, `patron_me`, `patron_logout`, `patron_submit_score` et `patron_leaderboard`. Les mots de passe sont hachés (bcrypt).
+- Classement : meilleur score de chaque joueur, par mode (`normal`, `hard`, `night`, et `duo_…`). Score = chiffre d'affaires total + 2'000 par objectif du jour atteint + confiance × 100 en cas de victoire.
+- Duo : salon à code de 4 lettres sur un canal Supabase Realtime (`patron-duo-CODE`). L'hôte fait tourner la simulation et envoie l'état 10 fois par seconde ; l'invité envoie sa position, ses coups de gueule et ses achats.
+- Mode test : ajouter `?debug` à l'adresse expose l'état du jeu dans la console.
