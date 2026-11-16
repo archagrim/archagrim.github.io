@@ -16,20 +16,96 @@ export function planeBasis(n) {
   return { u, v };
 }
 
-// Distance signée de chaque sommet au plan ; le plan est décalé d'un rien si un sommet tombe pile dessus
-function distances(pos, n, c) {
-  const V = pos.length / 3, d = new Float64Array(V);
-  for (let g = 0; g < 40; g++) {
-    let hit = false;
-    for (let i = 0; i < V; i++) {
-      const s = pos[i * 3] * n[0] + pos[i * 3 + 1] * n[1] + pos[i * 3 + 2] * n[2] - c;
-      if (Math.abs(s) < 1e-6) hit = true;
-      d[i] = s;
-    }
-    if (!hit) break;
-    c += 3e-5;
+// Coupe d'un maillage par un plan. Les sommets à moins d'un rien du plan sont considérés « sur le plan » :
+// ils servent tels quels aux deux pièces (aucun point de coupe en double, aucun triangle aplati).
+// keep : garder les triangles de chaque côté (sinon, seulement les bords de la coupe, pour l'aperçu).
+// Renvoie les triangles A et B, les points ajoutés, et pour chaque pièce les contours de sa face de coupe,
+// déjà dans le sens de cette face.
+function planeCut(pos, idx, n, c, col, keep) {
+  const V = pos.length / 3, T = idx.length / 3;
+  let big = 1;
+  for (let i = 0; i < pos.length; i++) { const a = Math.abs(pos[i]); if (a > big) big = a; }
+  const eps = big * 2e-7;
+  const side = new Int8Array(V);
+  for (let i = 0; i < V; i++) {
+    const dd = pos[i * 3] * n[0] + pos[i * 3 + 1] * n[1] + pos[i * 3 + 2] * n[2] - c;
+    side[i] = dd > eps ? 1 : dd < -eps ? -1 : 0;
   }
-  return { d, c };
+  // sens du modèle (normales vers l'extérieur ou à l'envers) : les faces ajoutées le suivent
+  let vol = 0;
+  for (let t = 0; t < T; t++) {
+    const a = idx[t * 3] * 3, b = idx[t * 3 + 1] * 3, e = idx[t * 3 + 2] * 3;
+    vol += pos[a] * (pos[b + 1] * pos[e + 2] - pos[b + 2] * pos[e + 1]) - pos[a + 1] * (pos[b] * pos[e + 2] - pos[b + 2] * pos[e]) + pos[a + 2] * (pos[b] * pos[e + 1] - pos[b + 1] * pos[e]);
+  }
+  const inv = vol < 0 ? -1 : 1;
+  const P = [], C = [];
+  const at = new Map();
+  const dist = (i) => pos[i * 3] * n[0] + pos[i * 3 + 1] * n[1] + pos[i * 3 + 2] * n[2] - c;
+  const cut = (i, j) => {
+    const key = i < j ? i * V + j : j * V + i;
+    let id = at.get(key);
+    if (id !== undefined) return id;
+    const di = dist(i), dj = dist(j), t = di / (di - dj);
+    P.push(pos[i * 3] + t * (pos[j * 3] - pos[i * 3]), pos[i * 3 + 1] + t * (pos[j * 3 + 1] - pos[i * 3 + 1]), pos[i * 3 + 2] + t * (pos[j * 3 + 2] - pos[i * 3 + 2]));
+    if (col) for (let k = 0; k < 3; k++) C.push(Math.round(col[i * 3 + k] + t * (col[j * 3 + k] - col[i * 3 + k])));
+    id = V + P.length / 3 - 1;
+    at.set(key, id);
+    return id;
+  };
+  const onPlane = (id) => id >= V || side[id] === 0;
+  // bords de coupe de chaque pièce : arêtes posées sur le plan ; deux triangles qui en partagent une l'annulent
+  const edges = [new Map(), new Map()];
+  const triA = [], triB = [];
+  const put = (k, a, b, e) => {
+    if (keep) (k ? triB : triA).push(a, b, e);
+    const E = edges[k];
+    for (const [x, w] of [[a, b], [b, e], [e, a]]) {
+      if (!onPlane(x) || !onPlane(w)) continue;
+      const rev = w * 1e8 + x;
+      if (E.has(rev)) E.delete(rev); else E.set(x * 1e8 + w, [x, w]);
+    }
+  };
+  for (let t = 0; t < T; t++) {
+    const v = [idx[t * 3], idx[t * 3 + 1], idx[t * 3 + 2]];
+    const sg = [side[v[0]], side[v[1]], side[v[2]]];
+    const np = (sg[0] > 0) + (sg[1] > 0) + (sg[2] > 0), nn = (sg[0] < 0) + (sg[1] < 0) + (sg[2] < 0);
+    if (!nn && np) { put(0, v[0], v[1], v[2]); continue; }
+    if (!np && nn) { put(1, v[0], v[1], v[2]); continue; }
+    if (!np && !nn) {
+      // triangle posé sur le plan : il revient à la pièce qui est sous sa face
+      const a = v[0] * 3, b = v[1] * 3, e = v[2] * 3;
+      const ux = pos[b] - pos[a], uy = pos[b + 1] - pos[a + 1], uz = pos[b + 2] - pos[a + 2];
+      const wx = pos[e] - pos[a], wy = pos[e + 1] - pos[a + 1], wz = pos[e + 2] - pos[a + 2];
+      const dn = ((uy * wz - uz * wy) * n[0] + (uz * wx - ux * wz) * n[1] + (ux * wy - uy * wx) * n[2]) * inv;
+      put(dn > 0 ? 1 : 0, v[0], v[1], v[2]);
+      continue;
+    }
+    if (np + nn === 3) {
+      // un sommet seul de son côté : un triangle d'un côté, un quadrilatère de l'autre
+      const lone = np === 1 ? sg.findIndex(x => x > 0) : sg.findIndex(x => x < 0);
+      const p = v[lone], q = v[(lone + 1) % 3], r = v[(lone + 2) % 3];
+      const pq = cut(p, q), pr = cut(p, r);
+      const one = np === 1 ? 0 : 1;
+      put(one, p, pq, pr);
+      put(1 - one, pq, q, r); put(1 - one, pq, r, pr);
+      continue;
+    }
+    // un sommet sur le plan, un de chaque côté : deux triangles qui partent de ce sommet
+    const z = sg.findIndex(x => x === 0);
+    const a = v[z], b = v[(z + 1) % 3], e = v[(z + 2) % 3];
+    const x = cut(b, e);
+    put(side[b] > 0 ? 0 : 1, a, b, x);
+    put(side[e] > 0 ? 0 : 1, a, x, e);
+  }
+  // contours : les bords restants, parcourus à l'envers (sens de la face de coupe de chaque pièce)
+  const loopsOf = (E) => {
+    const seg = new Map();
+    for (const [x, w] of E.values()) { let l = seg.get(w); if (!l) seg.set(w, l = []); l.push(x); }
+    return chain(seg);
+  };
+  const la = loopsOf(edges[0]), lb = loopsOf(edges[1]);
+  return { V, P, C, triA, triB, loopsA: la.loops, loopsB: lb.loops, open: la.open + lb.open, inv,
+    all: (i) => (i < V ? [pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]] : [P[(i - V) * 3], P[(i - V) * 3 + 1], P[(i - V) * 3 + 2]]) };
 }
 
 // Relie les segments de la coupe en contours fermés (listes d'identifiants de points)
@@ -100,38 +176,12 @@ function islandsOf(P2) {
   return islands;
 }
 
-// Coupe seule (pour l'aperçu) : contours en 2D dans le plan, îlots, étendue du modèle le long de la normale
+// Coupe seule (pour l'aperçu) : contours en 2D dans le plan, îlots
 export function section(pos, idx, n, c) {
-  const { d, c: c2 } = distances(pos, n, c);
   const { u, v } = planeBasis(n);
-  const V = pos.length / 3, T = idx.length / 3;
-  const at = new Map(), pts = [];
-  const cut = (i, j) => {
-    const key = i < j ? i * V + j : j * V + i;
-    let id = at.get(key);
-    if (id !== undefined) return id;
-    const t = d[i] / (d[i] - d[j]);
-    const x = pos[i * 3] + t * (pos[j * 3] - pos[i * 3]), y = pos[i * 3 + 1] + t * (pos[j * 3 + 1] - pos[i * 3 + 1]), z = pos[i * 3 + 2] + t * (pos[j * 3 + 2] - pos[i * 3 + 2]);
-    id = pts.length / 2;
-    pts.push(x * u[0] + y * u[1] + z * u[2], x * v[0] + y * v[1] + z * v[2]);
-    at.set(key, id);
-    return id;
-  };
-  const seg = new Map();
-  const add = (a, b) => { if (a === b) return; let l = seg.get(a); if (!l) seg.set(a, l = []); l.push(b); };
-  for (let t = 0; t < T; t++) {
-    const a = idx[t * 3], b = idx[t * 3 + 1], e = idx[t * 3 + 2];
-    const pa = d[a] > 0, pb = d[b] > 0, pe = d[e] > 0;
-    const s = pa + pb + pe;
-    if (s === 0 || s === 3) continue;
-    const vv = [a, b, e], pp = [pa, pb, pe];
-    const lone = s === 1 ? pp.indexOf(true) : pp.indexOf(false);
-    const p = vv[lone], q = vv[(lone + 1) % 3], r = vv[(lone + 2) % 3];
-    if (s === 1) add(cut(p, r), cut(p, q)); else add(cut(q, p), cut(r, p));
-  }
-  const { loops, open } = chain(seg);
-  const P2 = loops.map(l => { const P = new Float64Array(l.length * 2); l.forEach((id, i) => { P[i * 2] = pts[id * 2]; P[i * 2 + 1] = pts[id * 2 + 1]; }); return P; });
-  return { n, c: c2, u, v, loops: P2, islands: islandsOf(P2), open };
+  const k = planeCut(pos, idx, n, c, null, false);
+  const P2 = k.loopsA.map(l => { const F = new Float64Array(l.length * 2); l.forEach((id, i) => { const p = k.all(id); F[i * 2] = dot(p, u); F[i * 2 + 1] = dot(p, v); }); return F; });
+  return { n, c, u, v, loops: P2, islands: islandsOf(P2), open: k.open };
 }
 
 // Étendue du modèle le long d'une direction (pour le curseur de position du plan)
@@ -260,60 +310,23 @@ function rayHit(pos, idx, tris, o, dir) {
 // Renvoie { parts: [A, B, goupilles?], warn: [...], placed, open }
 export function splitMesh(src, plane, conns, opt, ShapeUtils) {
   const { pos, idx } = src, col = src.col || null;
-  const n = unit(plane.n);
-  const { d, c } = distances(pos, n, plane.c);
+  const n = unit(plane.n), c = plane.c;
   const { u, v } = planeBasis(n);
-  const V = pos.length / 3, T = idx.length / 3;
   const warn = [];
-
-  // sommets : ceux du modèle, puis les points de coupe, puis ceux des tenons
-  const P = [], C = [];          // positions et couleurs ajoutées (après les V sommets d'origine)
-  const newV = (x, y, z, rgb) => { P.push(x, y, z); if (col) C.push(rgb ? rgb[0] : 255, rgb ? rgb[1] : 255, rgb ? rgb[2] : 255); return V + P.length / 3 - 1; };
-  const at = new Map();
-  const cut = (i, j) => {
-    const key = i < j ? i * V + j : j * V + i;
-    let id = at.get(key);
-    if (id !== undefined) return id;
-    const t = d[i] / (d[i] - d[j]);
-    const rgb = col ? [0, 1, 2].map(k => Math.round(col[i * 3 + k] + t * (col[j * 3 + k] - col[i * 3 + k]))) : null;
-    id = newV(pos[i * 3] + t * (pos[j * 3] - pos[i * 3]), pos[i * 3 + 1] + t * (pos[j * 3 + 1] - pos[i * 3 + 1]), pos[i * 3 + 2] + t * (pos[j * 3 + 2] - pos[i * 3 + 2]), rgb);
-    at.set(key, id);
-    return id;
-  };
-  const triA = [], triB = [];
-  const seg = new Map();
-  const add = (a, b) => { if (a === b) return; let l = seg.get(a); if (!l) seg.set(a, l = []); l.push(b); };
-  for (let t = 0; t < T; t++) {
-    const a = idx[t * 3], b = idx[t * 3 + 1], e = idx[t * 3 + 2];
-    const pa = d[a] > 0, pb = d[b] > 0, pe = d[e] > 0;
-    const s = pa + pb + pe;
-    if (s === 3) { triA.push(a, b, e); continue; }
-    if (s === 0) { triB.push(a, b, e); continue; }
-    const vv = [a, b, e], pp = [pa, pb, pe];
-    const lone = s === 1 ? pp.indexOf(true) : pp.indexOf(false);
-    const p = vv[lone], q = vv[(lone + 1) % 3], r = vv[(lone + 2) % 3];
-    const pq = cut(p, q), pr = cut(p, r);
-    // le sommet seul d'un côté garde un triangle, l'autre côté un quadrilatère
-    const [one, two] = s === 1 ? [triA, triB] : [triB, triA];
-    one.push(p, pq, pr);
-    two.push(pq, q, r, pq, r, pr);
-    if (s === 1) add(pr, pq); else add(pq, pr);
-  }
-  const { loops, open } = chain(seg);
+  const k0 = planeCut(pos, idx, n, c, col, true);
+  const { V, P, C, triA, triB, inv } = k0;
+  const loops = k0.loopsA, loopsB = k0.loopsB, open = k0.open;
+  const T = idx.length / 3;
   if (open) warn.push('open');
-  // modèle « à l'envers » (normales vers l'intérieur) : les faces ajoutées suivent son sens, pour rester cohérentes
-  let vol = 0;
-  for (let t = 0; t < T; t++) {
-    const a = idx[t * 3] * 3, b = idx[t * 3 + 1] * 3, e = idx[t * 3 + 2] * 3;
-    vol += pos[a] * (pos[b + 1] * pos[e + 2] - pos[b + 2] * pos[e + 1]) - pos[a + 1] * (pos[b] * pos[e + 2] - pos[b + 2] * pos[e]) + pos[a + 2] * (pos[b] * pos[e + 1] - pos[b + 1] * pos[e]);
-  }
-  const inv = vol < 0 ? -1 : 1;
+  // sommets ajoutés après ceux du modèle et les points de coupe : ceux des tenons
+  const newV = (x, y, z, rgb) => { P.push(x, y, z); if (col) C.push(rgb ? rgb[0] : 255, rgb ? rgb[1] : 255, rgb ? rgb[2] : 255); return V + P.length / 3 - 1; };
   const all = (i) => (i < V ? [pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]] : [P[(i - V) * 3], P[(i - V) * 3 + 1], P[(i - V) * 3 + 2]]);
   const to2 = (p3) => [dot(p3, u), dot(p3, v)];
   const from2 = (x, y, off) => [n[0] * (c + off) + u[0] * x + v[0] * y, n[1] * (c + off) + u[1] * x + v[1] * y, n[2] * (c + off) + u[2] * x + v[2] * y];
-  const L2 = loops.map(l => { const F = new Float64Array(l.length * 2); l.forEach((id, i) => { const q = to2(all(id)); F[i * 2] = q[0]; F[i * 2 + 1] = q[1]; }); return F; });
-  const islands = islandsOf(L2);
-  const sec = { loops: L2, islands };
+  const to2F = (ls) => ls.map(l => { const F = new Float64Array(l.length * 2); l.forEach((id, i) => { const q = to2(all(id)); F[i * 2] = q[0]; F[i * 2 + 1] = q[1]; }); return F; });
+  const L2 = to2F(loops), L2B = to2F(loopsB);
+  const islands = islandsOf(L2), islandsB = islandsOf(L2B);
+  const sec = { loops: L2, islands }, secB = { loops: L2B, islands: islandsB };
 
   // tenons retenus : dans un îlot, assez loin des bords, assez de matière derrière
   const kind = opt.kind || 'none';
@@ -383,9 +396,9 @@ export function splitMesh(src, plane, conns, opt, ShapeUtils) {
       const rad = isPeg ? r : rh;
       const prof = profile(opt.shape, rad);
       const ring0 = prof.map(([dx, dy]) => newV(...from2(pc.x + dx, pc.y + dy, 0)));
-      const k = connectorIsland(sec, pc.x, pc.y, { shape: opt.shape, d: 0, gap: 0, wall: 0 });
-      if (!holesByIsland.has(k)) holesByIsland.set(k, []);
-      holesByIsland.get(k).push({ ids: ring0, pts: prof.map(([dx, dy]) => [pc.x + dx, pc.y + dy]) });
+      const ki = connectorIsland(side === 'A' ? sec : secB, pc.x, pc.y, { shape: opt.shape, d: 0, gap: 0, wall: 0 });
+      if (!holesByIsland.has(ki)) holesByIsland.set(ki, []);
+      holesByIsland.get(ki).push({ ids: ring0, pts: prof.map(([dx, dy]) => [pc.x + dx, pc.y + dy]) });
       // tube et fond : tenon vers l'autre pièce, ou trou vers l'intérieur de cette pièce
       const len = isPeg ? pc.h : kind === 'dowel' ? pc.h / 2 + extraDepth : pc.h + extraDepth;
       const dir = isPeg ? -sgn : sgn;                // un tenon sort de la pièce, un trou y entre
@@ -415,12 +428,13 @@ export function splitMesh(src, plane, conns, opt, ShapeUtils) {
       for (let i = 0; i < last.length; i++) face(cen, last[i], last[(i + 1) % last.length], capWant);
     }
     // faces de coupe : chaque îlot avec ses trous (ceux du modèle et ceux des tenons)
-    islands.forEach((isl, k) => {
-      const contour = loops[isl.outer], holes = isl.holes.map(h => loops[h]);
-      const conn = holesByIsland.get(k) || [];
+    const LS = side === 'A' ? loops : loopsB, LF = side === 'A' ? L2 : L2B;
+    (side === 'A' ? islands : islandsB).forEach((isl, ki) => {
+      const contour = LS[isl.outer], holes = isl.holes.map(h => LS[h]);
+      const conn = holesByIsland.get(ki) || [];
       const toV2 = (F) => { const out2 = []; for (let i = 0; i < F.length; i += 2) out2.push(new Pt(F[i], F[i + 1])); return out2; };
-      const cpts = toV2(L2[isl.outer]);
-      const hpts = isl.holes.map(h => toV2(L2[h])).concat(conn.map(cn => cn.pts.map(([x, y]) => new Pt(x, y))));
+      const cpts = toV2(LF[isl.outer]);
+      const hpts = isl.holes.map(h => toV2(LF[h])).concat(conn.map(cn => cn.pts.map(([x, y]) => new Pt(x, y))));
       const idLists = [contour, ...holes, ...conn.map(cn => cn.ids)];
       let faces;
       try { faces = ShapeUtils.triangulateShape(cpts, hpts); } catch (e) { warn.push('cap'); return; }

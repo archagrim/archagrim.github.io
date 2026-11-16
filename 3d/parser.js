@@ -1093,7 +1093,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScop
         const d = e.data;
         const { ShapeUtils } = await import('./lib/three.module.js');
         const r = splitMesh({ pos: d.pos, idx: d.idx, col: d.col }, d.plane, d.conns, d.opt, ShapeUtils);
-        const files = r.parts.map((p, k) => {
+        const files = r.parts.filter(p => p.idx.length).map((p, k) => {
           const fp = toFileCoords(p.pos, d.home, d.scale);
           const bytes = p.col ? write3MF([{ pos: fp, idx: p.idx, col: p.col }], 1, d.titles[k]) : writeSTL(fp, p.idx, d.titles[k]);
           return { bytes, ext: p.col ? '3mf' : 'stl', tris: p.idx.length / 3 };
