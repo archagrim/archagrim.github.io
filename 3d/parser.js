@@ -3,7 +3,7 @@
 // Sortie : sommets (Y vers le haut, centrés, posés à y = 0), indices, normales et quelques mesures.
 import { Unzip, UnzipInflate, Inflate, Zip, ZipDeflate } from './lib/fflate.module.js';
 import { readerFor } from './formats.js';
-import { splitMesh, toFileCoords, writeSTL } from './cut.js';
+import { splitMesh, toFileCoords, writeSTL, section, autoConnectors } from './cut.js';
 
 const UNIT = { micron: 0.001, millimeter: 1, centimeter: 10, inch: 25.4, foot: 304.8, meter: 1000 };
 
@@ -995,6 +995,28 @@ function baseOutline(o, inset) {
 }
 // Maillage fermé du socle : flanc biseauté, dessus plat, dessous plat avec logement d'aimant facultatif.
 // Arêtes vives : chaque face a ses propres sommets (mêmes positions exactes, soudées par le contrôle du maillage).
+class P2 { constructor(x, y) { this.x = x; this.y = y; } equals(q) { return q.x === this.x && q.y === this.y; } }
+// Contour du dessus du socle, dans le repère du modèle : [x0, z0, x1, z1, …]
+export function baseTopRing(o) {
+  const pts = baseOutline(o, Math.max(0, Math.min(o.bev, Math.min(o.a, o.b) * 0.4, o.h * 1.5)));
+  const ca = Math.cos(o.ang * Math.PI / 180), sa = Math.sin(o.ang * Math.PI / 180), w = [];
+  for (let i = 0; i < pts.length; i += 2) w.push(o.cx + pts[i] * ca - pts[i + 1] * sa, o.cz + pts[i] * sa + pts[i + 1] * ca);
+  return w;
+}
+// Cylindre fermé vertical (tenon sous un pied)
+function cylinderMesh(x, z, r, ya, yb, seg = 24) {
+  const pos = [], tri = [];
+  const ring = (y) => { const k = pos.length / 3; for (let i = 0; i < seg; i++) { const t = i / seg * Math.PI * 2; pos.push(x + r * Math.cos(t), y, z + r * Math.sin(t)); } return k; };
+  const s0 = ring(ya), s1 = ring(yb), c0 = ring(ya), c1 = ring(yb);
+  const m0 = pos.length / 3; pos.push(x, ya, z); const m1 = pos.length / 3; pos.push(x, yb, z);
+  for (let i = 0; i < seg; i++) {
+    const j = (i + 1) % seg;
+    tri.push(s0 + i, s1 + i, s1 + j, s0 + i, s1 + j, s0 + j);   // flanc
+    tri.push(m1, c1 + j, c1 + i);                               // dessus
+    tri.push(m0, c0 + i, c0 + j);                               // dessous
+  }
+  return { pos: new Float32Array(pos), idx: new Uint32Array(tri) };
+}
 export function baseMesh(o) {
   const out = [], tri = [];
   const add = (x, y, z) => { out.push(x, y, z); return out.length / 3 - 1; };
@@ -1009,8 +1031,36 @@ export function baseMesh(o) {
   };
   const B = ring(bot, y0), T = ring(top, y1);
   for (let i = 0; i < N; i++) { const j = (i + 1) % N; tri.push(B[i], T[i], T[j], B[i], T[j], B[j]); }      // flanc
-  const Tc = ring(top, y1), ct = add(o.cx, y1, o.cz);
-  for (let i = 0; i < N; i++) { const j = (i + 1) % N; tri.push(ct, Tc[j], Tc[i]); }                       // dessus
+  const Tc = ring(top, y1);
+  if (o.holes && o.holes.length && o.SU) {
+    // dessus percé des trous de tenons : triangulé avec ses trous, puis paroi et fond de chaque trou
+    const contour = Tc.map(id => new P2(out[id * 3], out[id * 3 + 2]));
+    const ids = Tc.slice(), hp = [];
+    for (const hl of o.holes) {
+      const M = 24, hr = [], hw0 = [], hw1 = [], hf = [];
+      for (let i = 0; i < M; i++) {
+        const t = i / M * Math.PI * 2, x = hl.x + hl.r * Math.cos(t), z = hl.z + hl.r * Math.sin(t);
+        hr.push(add(x, y1, z)); hw0.push(add(x, y1, z)); hw1.push(add(x, y1 - hl.d, z)); hf.push(add(x, y1 - hl.d, z));
+      }
+      const cf = add(hl.x, y1 - hl.d, hl.z);
+      for (let i = 0; i < M; i++) {
+        const j = (i + 1) % M;
+        tri.push(hw1[i], hw0[j], hw0[i], hw1[i], hw1[j], hw0[j]);   // paroi, tournée vers l'axe du trou
+        tri.push(cf, hf[j], hf[i]);                                 // fond, tourné vers le haut
+      }
+      hp.push(hr.map(id => new P2(out[id * 3], out[id * 3 + 2])));
+      ids.push(...hr);
+    }
+    const faces = o.SU.triangulateShape(contour, hp);
+    for (const [a, b, c] of faces) {
+      const A = ids[a] * 3, B = ids[b] * 3, C = ids[c] * 3;
+      const ny = (out[B + 2] - out[A + 2]) * (out[C] - out[A]) - (out[B] - out[A]) * (out[C + 2] - out[A + 2]);
+      if (ny >= 0) tri.push(ids[a], ids[b], ids[c]); else tri.push(ids[a], ids[c], ids[b]);
+    }
+  } else {
+    const ct = add(o.cx, y1, o.cz);
+    for (let i = 0; i < N; i++) { const j = (i + 1) % N; tri.push(ct, Tc[j], Tc[i]); }                     // dessus
+  }
   const Bc = ring(bot, y0);
   const md = o.mag ? Math.min(o.mag.d, o.h - 0.6 * o.u) : 0;
   const mr = o.mag ? Math.min(o.mag.r, Math.min(o.a, o.b) - 1.2 * o.u) : 0;
@@ -1031,6 +1081,59 @@ export function baseMesh(o) {
     for (let i = 0; i < N; i++) { const j = (i + 1) % N; tri.push(cb, Bc[i], Bc[j]); }                     // dessous
   }
   return { pos: new Float32Array(out), idx: new Uint32Array(tri) };
+}
+
+// Tenons de placement : au cœur des pieds qui touchent le socle (deux au plus, les plus éloignés),
+// raccourcis si le socle est mince ou si le logement d'aimant est dessous, retirés s'ils sortiraient du socle.
+function pointInRing(x, z, R) {
+  let inside = false;
+  for (let i = 0, j = R.length - 2; i < R.length; j = i, i += 2) {
+    const xi = R[i], zi = R[i + 1], xj = R[j], zj = R[j + 1];
+    if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) inside = !inside;
+  }
+  return inside;
+}
+function ringDist(x, z, R) {
+  let m = Infinity;
+  for (let i = 0, j = R.length - 2; i < R.length; j = i, i += 2) {
+    const ax = R[j], az = R[j + 1], bx = R[i], bz = R[i + 1], dx = bx - ax, dz = bz - az;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1)));
+    m = Math.min(m, Math.hypot(x - ax - t * dx, z - az - t * dz));
+  }
+  return m;
+}
+function placePegs(pos, idx, minY, g) {
+  const u = g.u, gap = g.gap;
+  const sec = section(pos, idx, [0, 1, 0], minY + 0.35 * u);
+  // le plus gros tenon qui tient dans les pieds : Ø 2 mm, sinon 1,5 mm, sinon 1,2 mm
+  let pts = [], d = g.pegD;
+  for (const [k, wall] of [[1, 0.6], [0.75, 0.5], [0.6, 0.4]]) {
+    const q = autoConnectors(sec, { shape: 'round', d: g.pegD * k, gap, wall: wall * u });
+    if (q.length > pts.length) { pts = q; d = g.pegD * k; }
+    if (pts.length >= 2) break;
+  }
+  const r = d / 2, hr = r + gap / 2;
+  if (pts.length > 2) {
+    let best = [pts[0], pts[1]], bd = -1;
+    for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) {
+      const d = Math.hypot(pts[i][0] - pts[j][0], pts[i][1] - pts[j][1]);
+      if (d > bd) { bd = d; best = [pts[i], pts[j]]; }
+    }
+    pts = best;
+  }
+  const ring = baseTopRing(g), pegs = [], holes = [];
+  const floor = 0.8 * u;
+  for (const [px, py] of pts) {
+    const x = sec.u[0] * px + sec.v[0] * py, z = sec.u[2] * px + sec.v[2] * py;
+    if (!pointInRing(x, z, ring) || ringDist(x, z, ring) < hr + 0.6 * u) continue;
+    let depth = Math.min(g.pegLen + 0.3 * u, g.h - floor);
+    if (g.mag && Math.hypot(x - g.cx, z - g.cz) < g.mag.r + hr + 0.4 * u) depth = Math.min(depth, g.h - Math.min(g.mag.d, g.h - 0.6 * u) - 0.5 * u);
+    const len = depth - 0.3 * u;
+    if (len < 0.8 * u) continue;
+    pegs.push({ x, z, r, len, inside: 0.4 * u });
+    holes.push({ x, z, r: hr, d: depth });
+  }
+  return { pegs, holes, d };
 }
 
 export async function editModel(pos, idx, opts) {
@@ -1060,7 +1163,7 @@ export async function editModel(pos, idx, opts) {
     if (!opts.repair && !(opts.cut > 0) && rbf === nv0) col = rbf === ref.col.length ? ref.col : rCol.slice();
     else col = transferColors(rPos, ref.off, rCol, pos);
   }
-  let baseFrom = 0;
+  let baseFrom = 0, baseTri = 0, pegCount = 0, pegD = 0;
   if (opts.base) {
     const b = opts.base;
     // les pieds : le bas de la figurine, et le centre de ce qui touche le sol
@@ -1074,8 +1177,28 @@ export async function editModel(pos, idx, opts) {
       if (x < x0) x0 = x; if (x > x1) x1 = x; if (z < z0) z0 = z; if (z > z1) z1 = z;
     }
     if (!Number.isFinite(x0)) { x0 = x1 = z0 = z1 = 0; }
-    const bm = baseMesh({ ...b, cx: (x0 + x1) / 2 + b.dx, cz: (z0 + z1) / 2 + b.dz, y1: minY + b.sink });
+    const geo = { ...b, cx: (x0 + x1) / 2 + b.dx, cz: (z0 + z1) / 2 + b.dz, y1: minY + (b.apart ? 0 : b.sink) };
+    if (b.apart && b.pegs) {
+      // socle imprimé à part : tenons sous les pieds, trous assortis dans le socle
+      const P = placePegs(pos, idx, minY, geo);
+      if (P.pegs.length) {
+        geo.holes = P.holes;
+        geo.SU = (await import('./lib/three.module.js')).ShapeUtils;
+        for (const pg of P.pegs) {
+          const cy = cylinderMesh(pg.x, pg.z, pg.r, minY - pg.len, minY + pg.inside);
+          const nb = pos.length / 3;
+          const np = new Float32Array(pos.length + cy.pos.length); np.set(pos); np.set(cy.pos, pos.length);
+          const ni = new Uint32Array(idx.length + cy.idx.length); ni.set(idx);
+          for (let i = 0; i < cy.idx.length; i++) ni[idx.length + i] = cy.idx[i] + nb;
+          if (col) { const nc = new Uint8Array(np.length).fill(255); nc.set(col); col = nc; }
+          pos = np; idx = ni;
+        }
+      }
+      pegCount = P.pegs.length; pegD = P.d;
+    }
+    const bm = baseMesh(geo);
     baseFrom = pos.length / 3;
+    baseTri = idx.length;
     const np = new Float32Array(pos.length + bm.pos.length); np.set(pos); np.set(bm.pos, pos.length);
     const ni = new Uint32Array(idx.length + bm.idx.length); ni.set(idx);
     for (let i = 0; i < bm.idx.length; i++) ni[idx.length + i] = bm.idx[i] + baseFrom;
@@ -1093,6 +1216,9 @@ export async function editModel(pos, idx, opts) {
   out.report = report;
   out.cut = cut;
   out.baseFrom = baseFrom;
+  out.baseTri = baseTri;
+  out.pegs = pegCount;
+  out.pegD = pegD;
   out.check = out.stats.tris <= CHECK_MAX_TRIS ? analyzeMesh(out.pos, out.idx) : { skipped: true };
   return out;
 }
@@ -1100,7 +1226,11 @@ export async function editModel(pos, idx, opts) {
 // ---------- Écriture d'un 3MF ----------
 // parts : maillages { pos, idx } dans le repère d'affichage (Y vers le haut) ; écrits en millimètres, Z vers le haut,
 // à l'échelle demandée. Plusieurs maillages (figurine et tiges) sont réunis en un seul objet composé.
-export function write3MF(parts, scale, title) {
+export function write3MF(parts, scale, title, groups = null, names = null) {
+  // groups : pièces réunies en un objet (par défaut toutes) ; chaque groupe devient un objet séparé dans le logiciel d'impression
+  const G = groups && groups.length ? groups : [parts.map((p, k) => k)];
+  const partName = new Array(parts.length).fill('');
+  G.forEach((g, i) => { if (g.length === 1 && names && names[i]) partName[g[0]] = names[i]; });
   const chunks = [];
   const zip = new Zip((err, data) => { if (err) throw err; chunks.push(data); });
   const enc = new TextEncoder();
@@ -1141,7 +1271,7 @@ export function write3MF(parts, scale, title) {
       gid = 10000 + k;
       put('  <m:colorgroup id="' + gid + '">\n' + list.map(c => '   <m:color color="#' + hex2(c >> 16) + hex2((c >> 8) & 255) + hex2(c & 255) + '"/>\n').join('') + '  </m:colorgroup>\n');
     }
-    put('  <object id="' + (k + 1) + '" type="model"' + (vIdx ? ' pid="' + gid + '" pindex="0"' : '') + '>\n   <mesh>\n    <vertices>\n');
+    put('  <object id="' + (k + 1) + '" type="model"' + (partName[k] ? ' name="' + xml(partName[k]) + '"' : '') + (vIdx ? ' pid="' + gid + '" pindex="0"' : '') + '>\n   <mesh>\n    <vertices>\n');
     const { pos, idx } = p;
     let buf = [];
     for (let i = 0; i < pos.length; i += 3) {
@@ -1158,12 +1288,14 @@ export function write3MF(parts, scale, title) {
     }
     put(buf.join('') + '    </triangles>\n   </mesh>\n  </object>\n');
   });
-  let item = 1;
-  if (parts.length > 1) {
-    item = parts.length + 1;
-    put('  <object id="' + item + '" type="model">\n   <components>\n' + parts.map((p, k) => '    <component objectid="' + (k + 1) + '"/>\n').join('') + '   </components>\n  </object>\n');
-  }
-  f.push(enc.encode(' </resources>\n <build>\n  <item objectid="' + item + '"/>\n </build>\n</model>\n'), true);
+  const items = [];
+  let nextId = parts.length + 1;
+  G.forEach((g, i) => {
+    if (g.length === 1) { items.push(g[0] + 1); return; }
+    put('  <object id="' + nextId + '" type="model"' + (names && names[i] ? ' name="' + xml(names[i]) + '"' : '') + '>\n   <components>\n' + g.map(k => '    <component objectid="' + (k + 1) + '"/>\n').join('') + '   </components>\n  </object>\n');
+    items.push(nextId++);
+  });
+  f.push(enc.encode(' </resources>\n <build>\n' + items.map(id => '  <item objectid="' + id + '"/>\n').join('') + ' </build>\n</model>\n'), true);
   zip.end();
   let n = 0;
   for (const c of chunks) n += c.length;
@@ -1190,7 +1322,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScop
   self.onmessage = async (e) => {
     if (e.data.op === 'export3mf') {
       try {
-        const zip = write3MF(e.data.parts, e.data.scale, e.data.title);
+        const zip = write3MF(e.data.parts, e.data.scale, e.data.title, e.data.groups, e.data.names);
         self.postMessage({ type: 'exported', zip }, [zip.buffer]);
       } catch (err) {
         self.postMessage({ type: 'error', message: String(err && err.message || err) });
@@ -1220,7 +1352,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScop
         const transfer = [r.pos.buffer, r.idx.buffer, r.nrm.buffer];
         if (r.check.red) transfer.push(r.check.red.buffer, r.check.orange.buffer);
         if (r.col && r.col !== e.data.ref?.col) transfer.push(r.col.buffer);
-        self.postMessage({ type: 'edited', pos: r.pos, idx: r.idx, nrm: r.nrm, col: r.col, stats: r.stats, check: r.check, offset: r.offset, report: r.report, cut: r.cut, baseFrom: r.baseFrom }, transfer);
+        self.postMessage({ type: 'edited', pos: r.pos, idx: r.idx, nrm: r.nrm, col: r.col, stats: r.stats, check: r.check, offset: r.offset, report: r.report, cut: r.cut, baseFrom: r.baseFrom, baseTri: r.baseTri, pegs: r.pegs, pegD: r.pegD }, transfer);
       } catch (err) {
         self.postMessage({ type: 'error', message: String(err && err.message || err) });
       }

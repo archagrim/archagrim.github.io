@@ -731,6 +731,15 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
       <h3 class="sub">Ajouter un socle</h3>
       <div class="row-btns"><button class="btn" id="baseAdd" type="button" disabled>Ajouter un socle</button><button class="btn plain" id="baseCenter" type="button" hidden>Recentrer</button><button class="btn plain" id="baseDel" type="button" hidden>Retirer le socle</button></div>
       <div class="base-tools" id="baseTools" hidden>
+        <div class="segfull seg2" role="group" aria-label="Impression du socle">
+          <button type="button" data-bsep="0" aria-pressed="true">Collé à la figurine</button>
+          <button type="button" data-bsep="1" aria-pressed="false">Imprimé à part</button>
+        </div>
+        <div class="segfull seg2" id="basePegRow" role="group" aria-label="Tenons sous les pieds" hidden>
+          <button type="button" data-bpeg="1" aria-pressed="true">Avec tenons</button>
+          <button type="button" data-bpeg="0" aria-pressed="false">Sans tenons</button>
+        </div>
+        <p class="foot" id="basePegNote" hidden></p>
         <div class="segfull seg3" role="group" aria-label="Forme du socle">
           <button type="button" data-bshape="round" aria-pressed="true">Rond</button>
           <button type="button" data-bshape="oval" aria-pressed="false">Ovale</button>
@@ -741,7 +750,7 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
         <label class="field" for="baseB" id="baseBRow" hidden>Largeur <span class="box"><input id="baseB" type="number" min="5" max="400" step="0.5"><span>mm</span></span></label>
         <label class="slider"><span>Épaisseur</span><input id="baseH" type="range" min="1" max="10" step="0.1"><output id="baseHOut"></output></label>
         <label class="slider"><span>Biseau</span><input id="baseBev" type="range" min="0" max="4" step="0.1"><output id="baseBevOut"></output></label>
-        <label class="slider"><span>Enfoncé</span><input id="baseSink" type="range" min="0" max="5" step="0.1"><output id="baseSinkOut"></output></label>
+        <label class="slider" id="baseSinkRow"><span>Enfoncé</span><input id="baseSink" type="range" min="0" max="5" step="0.1"><output id="baseSinkOut"></output></label>
         <label class="slider"><span>Côté</span><input id="baseX" type="range" min="-30" max="30" step="0.5"><output id="baseXOut"></output></label>
         <label class="slider"><span>Avant</span><input id="baseZ" type="range" min="-30" max="30" step="0.5"><output id="baseZOut"></output></label>
         <label class="slider" id="baseAngRow" hidden><span>Rotation</span><input id="baseAng" type="range" min="0" max="179" step="1"><output id="baseAngOut"></output></label>
@@ -754,7 +763,7 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
           <button type="button" data-bmag="10">10 × 3</button>
         </div>
       </div>
-      <p class="foot" id="baseNote">Pour une figurine sans socle : un socle est posé sous ses pieds, à la vraie taille choisie, même si vous changez l'échelle de la figurine. « Enfoncé » fait entrer les pieds dans le socle pour qu'ils s'y soudent à l'impression. Le socle part avec la figurine dans l'export STL ou 3MF, et « Garder cette taille » le mémorise.</p>
+      <p class="foot" id="baseNote">Pour une figurine sans socle : un socle est posé sous ses pieds, à la vraie taille choisie, même si vous changez l'échelle de la figurine. « Enfoncé » fait entrer les pieds dans le socle pour qu'ils s'y soudent à l'impression. « Imprimé à part » sépare le socle pour peindre la figurine seule : l'export donne deux fichiers en STL, deux objets côte à côte en 3MF, et les tenons sous les pieds se plantent dans les trous du socle pour le recoller juste. « Garder cette taille » mémorise le socle.</p>
       <h3 class="sub">Tiges de résine</h3>
       <div class="rods" id="rodList"></div>
       <div class="row-btns"><button class="btn" id="rodAdd" type="button" disabled>Ajouter une tige</button></div>
@@ -2057,7 +2066,7 @@ function updateKeep() {
   const sameRot = (!q && !krq) || (q && krq && q.angleTo(krq) < 1e-3);
   const kb = keptBase(it.name, it.size);
   const same = k && Math.abs(k - it.scale) < 1e-4 && Math.abs(kc - (it.edit.cut || 0)) < 0.01 && sameRot && sameBase(kb, it.edit.base);
-  txt.textContent = k ? 'Taille gardée : ' + pctText(k) + (kc ? ', socle coupé' : '') + (kr ? ', redressée' : '') + (kb ? ', socle ' + baseLabel(kb) : '') : '';
+  txt.textContent = k ? 'Taille gardée : ' + pctText(k) + (kc ? ', socle coupé' : '') + (kr ? ', redressée' : '') + (kb ? ', socle ' + baseLabel(kb) + (kb.apart ? ' à part' : '') : '') : '';
   forget.hidden = !k;
   btn.hidden = !!same;
   btn.textContent = k ? 'Garder ' + pctText(it.scale) : 'Garder cette taille';
@@ -2536,7 +2545,8 @@ function runEdit(it, initial = false) {
     if (m.type === 'error') { fail(m.message); return; }
     if (m.type !== 'edited' || it.editWorker !== w) return;
     w.terminate(); it.editWorker = null; it.editing = false;
-    it.data = { pos: m.pos, idx: m.idx, nrm: m.nrm, col: m.col || null, baseFrom: m.baseFrom || 0 };
+    it.data = { pos: m.pos, idx: m.idx, nrm: m.nrm, col: m.col || null, baseFrom: m.baseFrom || 0, baseTri: m.baseTri || 0 };
+    it.pegs = m.pegs || 0; it.pegD = (m.pegD || 0) * it.baseScale; it.pegsFor = baseKey(it.edit.base);
     it.stats = { ...m.stats, objects: it.orig.stats.objects + (m.baseFrom ? 1 : 0) };
     it.check = m.check;
     it.offset = m.offset;
@@ -2865,9 +2875,10 @@ function normBase(v) {
     dx: cl(num(v.dx, 0), -300, 300), dz: cl(num(v.dz, 0), -300, 300),
     ang: shape === 'round' ? 0 : ((num(v.ang, 0) % 180) + 180) % 180,
     mag: [5, 6, 8, 10].includes(v.mag) ? v.mag : 0, auto: v.auto !== false,
+    apart: v.apart === true, pegs: v.pegs !== false,
   };
 }
-const baseKey = (b) => (b ? [b.shape, b.a, b.b, b.h, b.bev, b.sink, b.dx, b.dz, b.ang, b.mag].join('|') : '');
+const baseKey = (b) => (b ? [b.shape, b.a, b.b, b.h, b.bev, b.sink, b.dx, b.dz, b.ang, b.mag, b.apart, b.pegs].join('|') : '');
 const sameBase = (a, b) => baseKey(a && normBase(a)) === baseKey(b && normBase(b));
 const nfmt = (v) => fmt(v, Math.abs(v - Math.round(v)) < 0.05 ? 0 : 1);
 const baseLabel = (b) => (b.shape === 'round' ? 'Ø ' + nfmt(b.a) : nfmt(b.a) + ' × ' + nfmt(b.b)) + ' mm';
@@ -2881,6 +2892,7 @@ function baseForWorker(it) {
     shape: b.shape === 'square' ? 'square' : 'ellipse', a: b.a / 2 * u, b: b.b / 2 * u, h: b.h * u, bev: b.bev * u, sink: b.sink * u,
     dx: b.dx * u, dz: b.dz * u, ang: b.shape === 'round' ? 0 : b.ang, mag: m ? { r: m[0] / 2 * u, d: m[1] * u } : null,
     n: Math.min(384, Math.max(64, Math.round(Math.PI * big / 0.8))), rc: 0.8 * u, u, band: 1 * u,
+    apart: b.apart, pegs: b.pegs, pegD: 2 * u, pegLen: 2 * u, gap: 0.3 * u,   // tenons de 2 mm de long, Ø 2 mm au plus ; trous 0,3 mm plus larges
   };
 }
 function commitBase(it, delay = 0) {
@@ -2941,6 +2953,16 @@ function renderBaseUI() {
   $('baseAngRow').hidden = b.shape === 'round';
   $('baseAng').value = String(b.ang); $('baseAngOut').textContent = Math.round(b.ang) + '°';
   document.querySelectorAll('[data-bmag]').forEach(x => x.setAttribute('aria-pressed', String(Number(x.dataset.bmag) === b.mag)));
+  document.querySelectorAll('[data-bsep]').forEach(x => x.setAttribute('aria-pressed', String((x.dataset.bsep === '1') === b.apart)));
+  document.querySelectorAll('[data-bpeg]').forEach(x => x.setAttribute('aria-pressed', String((x.dataset.bpeg === '1') === b.pegs)));
+  $('basePegRow').hidden = !b.apart;
+  $('baseSinkRow').hidden = b.apart;
+  const note = $('basePegNote');
+  const known = !it.editing && it.data && it.data.baseFrom && it.pegsFor === baseKey(b);
+  note.hidden = !(b.apart && b.pegs && known);
+  if (!note.hidden) note.textContent = it.pegs
+    ? pl(it.pegs, 'tenon', 'tenons') + ' sous les pieds (Ø ' + nfmt(it.pegD) + ' mm) et ' + pl(it.pegs, 'trou', 'trous') + ' assortis dans le socle, avec 0,3 mm de jeu.'
+    : 'Pas de place pour un tenon : pieds trop fins, socle trop mince ou logement d\'aimant juste dessous. Épaississez le socle ou retirez l\'aimant.';
 }
 $('baseAdd').addEventListener('click', () => {
   const it = shownItem();
@@ -2967,6 +2989,8 @@ document.querySelectorAll('[data-bshape]').forEach(x => x.addEventListener('clic
   setBase(it, { shape: x.dataset.bshape, a: best[0], b: best[1] });
 }));
 document.querySelectorAll('[data-bmag]').forEach(x => x.addEventListener('click', () => { const it = shownItem(); if (it) setBase(it, { mag: Number(x.dataset.bmag) }); }));
+document.querySelectorAll('[data-bsep]').forEach(x => x.addEventListener('click', () => { const it = shownItem(); if (it && it.edit.base && it.edit.base.apart !== (x.dataset.bsep === '1')) setBase(it, { apart: x.dataset.bsep === '1' }); }));
+document.querySelectorAll('[data-bpeg]').forEach(x => x.addEventListener('click', () => { const it = shownItem(); if (it && it.edit.base && it.edit.base.pegs !== (x.dataset.bpeg === '1')) setBase(it, { pegs: x.dataset.bpeg === '1' }); }));
 for (const [id, key] of [['baseA', 'a'], ['baseB', 'b']]) {
   $(id).addEventListener('change', () => {
     const it = shownItem();
@@ -2988,21 +3012,12 @@ for (const [id, key, out] of [['baseH', 'h', (v) => fmt(v, 1) + ' mm'], ['baseBe
 }
 
 // ----- Export STL : le modèle affiché, à l'échelle, avec ses tiges, remis en Z vers le haut -----
-function exportSTL() {
-  const it = shownItem();
-  if (!it || !it.data || it.editing) return;
-  const s = it.scale, off = it.orig && it.offset ? it.offset : [0, 0, 0];
-  const pos = it.data.pos, idx = it.data.idx;
-  const extra = [];
-  for (const r of it.rods) {
-    const g = new THREE.CylinderGeometry(r.d / 2, r.d / 2, r.len, 32).toNonIndexed();
-    g.applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3(r.x + off[0], r.y + off[1], r.z + off[2]), new THREE.Quaternion().setFromUnitVectors(UP, rodDir(r)), new THREE.Vector3(1, 1, 1)));
-    extra.push(g.attributes.position.array);
-    g.dispose();
-  }
-  const T = idx.length / 3 + extra.reduce((n, a) => n + a.length / 9, 0);
+// meshes : { pos, idx } (idx absent : triangles à la suite), décalés de dy (unités du modèle) avant l'écriture
+function stlBlob(meshes, s, title) {
+  let T = 0;
+  for (const m of meshes) T += (m.idx ? m.idx.length : m.pos.length / 3) / 3;
   const buf = new ArrayBuffer(84 + T * 50), dv = new DataView(buf);
-  const head = 'Atelier 3D - ' + baseName(it.name);
+  const head = 'Atelier 3D - ' + title;
   for (let i = 0; i < Math.min(80, head.length); i++) dv.setUint8(i, head.charCodeAt(i) & 0x7f);
   dv.setUint32(80, T, true);
   let o = 84;
@@ -3015,17 +3030,52 @@ function exportSTL() {
     for (let k = 0; k < 9; k++) dv.setFloat32(o + 12 + k * 4, v[k], true);
     o += 50;
   };
-  // affichage (x, y, z) → impression (x, −z, y), à l'échelle choisie
-  const set = (k, x, y, z) => { v[k] = x * s; v[k + 1] = -z * s; v[k + 2] = y * s; };
-  for (let t = 0; t < idx.length; t += 3) {
-    for (let j = 0; j < 3; j++) { const p = idx[t + j] * 3; set(j * 3, pos[p], pos[p + 1], pos[p + 2]); }
-    put();
+  for (const m of meshes) {
+    const pos = m.pos, idx = m.idx, dy = m.dy || 0;
+    // affichage (x, y, z) → impression (x, −z, y), à l'échelle choisie
+    const set = (k, p) => { v[k] = pos[p] * s; v[k + 1] = -pos[p + 2] * s; v[k + 2] = (pos[p + 1] + dy) * s; };
+    if (idx) for (let t = 0; t < idx.length; t += 3) { for (let j = 0; j < 3; j++) set(j * 3, idx[t + j] * 3); put(); }
+    else for (let i = 0; i < pos.length; i += 9) { for (let j = 0; j < 3; j++) set(j * 3, i + j * 3); put(); }
   }
-  for (const a of extra) for (let i = 0; i < a.length; i += 9) {
-    for (let j = 0; j < 3; j++) set(j * 3, a[i + j * 3], a[i + j * 3 + 1], a[i + j * 3 + 2]);
-    put();
+  return new Blob([buf], { type: 'model/stl' });
+}
+function rodTriangles(it) {
+  const off = it.orig && it.offset ? it.offset : [0, 0, 0];
+  return it.rods.map(r => {
+    const g = new THREE.CylinderGeometry(r.d / 2, r.d / 2, r.len, 32).toNonIndexed();
+    g.applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3(r.x + off[0], r.y + off[1], r.z + off[2]), new THREE.Quaternion().setFromUnitVectors(UP, rodDir(r)), new THREE.Vector3(1, 1, 1)));
+    const a = g.attributes.position.array;
+    g.dispose();
+    return { pos: a };
+  });
+}
+// Socle imprimé à part : la figurine (avec ses tenons) et le socle, en deux maillages
+function splitBase(it) {
+  const D = it.data, b = it.edit.base;
+  if (!b || !b.apart || !D || !D.baseFrom || !D.baseTri) return null;
+  const bf = D.baseFrom, bt = D.baseTri;
+  const bidx = new Uint32Array(D.idx.length - bt);
+  for (let i = 0; i < bidx.length; i++) bidx[i] = D.idx[bt + i] - bf;
+  let low = Infinity;
+  for (let i = 1; i < bf * 3; i += 3) if (D.pos[i] < low) low = D.pos[i];
+  return {
+    fig: { pos: D.pos.subarray(0, bf * 3), idx: D.idx.subarray(0, bt), col: D.col ? D.col.subarray(0, bf * 3) : null, dy: -low },
+    base: { pos: D.pos.subarray(bf * 3), idx: bidx, col: D.col ? D.col.subarray(bf * 3) : null },
+  };
+}
+async function exportSTL() {
+  const it = shownItem();
+  if (!it || !it.data || it.editing) return;
+  const s = it.scale, title = baseName(it.name), rods = rodTriangles(it);
+  const sp = splitBase(it);
+  if (!sp) {
+    saveBlob(stlBlob([{ pos: it.data.pos, idx: it.data.idx }, ...rods], s, title), exportFileName(it) + '.stl', 'Modèle STL', 'model/stl', 'stl');
+    return;
   }
-  saveBlob(new Blob([buf], { type: 'model/stl' }), exportFileName(it) + '.stl', 'Modèle STL', 'model/stl', 'stl');
+  // deux fichiers : la figurine posée au sol (bout des tenons), puis le socle
+  for (const r of rods) r.dy = sp.fig.dy;
+  await saveBlob(stlBlob([sp.fig, ...rods], s, title), exportFileName(it, 'figurine') + '.stl', 'Figurine STL', 'model/stl', 'stl');
+  await saveBlob(stlBlob([sp.base], s, title + ' socle'), exportFileName(it, 'socle') + '.stl', 'Socle STL', 'model/stl', 'stl');
 }
 $('stlBtn').addEventListener('click', exportSTL);
 
@@ -3047,10 +3097,13 @@ function rodMeshData(r, off) {
   }
   return { pos, idx };
 }
-function exportFileName(it) {
-  const parts = [baseName(it.name)];
-  if (it.edit.cut && !it.edit.base) parts.push('sans socle');
-  if (it.edit.base) parts.push('socle ' + baseLabel(it.edit.base).replace(/\s/g, '').replace('Ø', ''));
+function exportFileName(it, part = '') {
+  const b = it.edit.base, parts = [baseName(it.name)];
+  const bl = b ? 'socle ' + baseLabel(b).replace(/\s/g, '').replace('Ø', '') : '';
+  if (part === 'socle') return parts.concat(bl).join(' - ');
+  if (part === 'figurine') parts.push('figurine');
+  else if (b) parts.push(bl + (b.apart ? ' à part' : ''));
+  if (it.edit.cut && !b) parts.push('sans socle');
   if (it.rods.length) parts.push(pl(it.rods.length, 'tige', 'tiges'));
   if (Math.abs(it.scale - 1) > 1e-6) parts.push(pctText(it.scale).replace(/\s/g, ''));
   return parts.join(' - ');
@@ -3060,7 +3113,20 @@ function export3MF() {
   const it = shownItem();
   if (!it || !it.data || it.editing || it.exporting) return;
   const off = it.orig && it.offset ? it.offset : [0, 0, 0];
-  const parts = [{ pos: it.data.pos.slice(), idx: it.data.idx.slice(), col: it.data.col ? it.data.col.slice() : undefined }, ...it.rods.map(r => rodMeshData(r, off))];
+  const sp = splitBase(it);
+  let parts, groups = null, names = null;
+  if (!sp) parts = [{ pos: it.data.pos.slice(), idx: it.data.idx.slice(), col: it.data.col ? it.data.col.slice() : undefined }, ...it.rods.map(r => rodMeshData(r, off))];
+  else {
+    // deux objets séparés, côte à côte et posés au sol : la figurine (tenons et tiges compris), puis le socle
+    const shift = (pos, dx, dy) => { const p = pos.slice(); for (let i = 0; i < p.length; i += 3) { p[i] += dx; p[i + 1] += dy; } return p; };
+    const fig = [{ pos: shift(sp.fig.pos, 0, sp.fig.dy), idx: sp.fig.idx.slice(), col: sp.fig.col ? sp.fig.col.slice() : undefined }, ...it.rods.map(r => { const m = rodMeshData(r, off); m.pos = shift(m.pos, 0, sp.fig.dy); return m; })];
+    let fx = -Infinity, bx = Infinity;
+    for (const m of fig) for (let i = 0; i < m.pos.length; i += 3) if (m.pos[i] > fx) fx = m.pos[i];
+    for (let i = 0; i < sp.base.pos.length; i += 3) if (sp.base.pos[i] < bx) bx = sp.base.pos[i];
+    parts = [...fig, { pos: shift(sp.base.pos, fx - bx + 5 / it.scale, 0), idx: sp.base.idx, col: sp.base.col ? sp.base.col.slice() : undefined }];
+    groups = [fig.map((m, k) => k), [fig.length]];
+    names = [baseName(it.name), 'Socle ' + baseLabel(it.edit.base)];
+  }
   const label = $('mfBtn').querySelector('span');
   it.exporting = true;
   label.textContent = 'Préparation du 3MF…';
@@ -3072,7 +3138,7 @@ function export3MF() {
       else if (e.data.type === 'error') { done(); reject(new Error(e.data.message)); }
     };
     w.onerror = (e) => { e.preventDefault(); done(); reject(new Error('le fichier n\'a pas pu être préparé')); };
-    w.postMessage({ op: 'export3mf', parts, scale: it.scale, title: baseName(it.name) }, parts.flatMap(p => p.col ? [p.pos.buffer, p.idx.buffer, p.col.buffer] : [p.pos.buffer, p.idx.buffer]));
+    w.postMessage({ op: 'export3mf', parts, scale: it.scale, title: baseName(it.name), groups, names }, parts.flatMap(p => p.col ? [p.pos.buffer, p.idx.buffer, p.col.buffer] : [p.pos.buffer, p.idx.buffer]));
   });
   ready.catch(() => {});
   saveBlob(ready, exportFileName(it) + '.3mf', 'Modèle 3MF', 'model/3mf', '3mf');
