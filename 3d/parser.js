@@ -513,16 +513,28 @@ export function analyzeMesh(pos, idx) {
   let largest = 0, largestN = 0;
   for (let i = 0; i < V; i++) if (triCount[i] > largestN) { largestN = triCount[i]; largest = i; }
   const thr = Math.max(1, Math.min(5000, Math.floor(T * 0.001)));
+  // peu de faces ET minuscule (moins de 2 mm de diagonale, comme à la réparation) : une pièce simple mais grande,
+  // un socle ajouté par exemple, n'est pas une poussière
+  const small = new Map();
+  for (let i = 0; i < V; i++) if (triCount[i] && i !== largest && triCount[i] < thr) small.set(i, [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity]);
+  if (small.size) {
+    for (let i = 0; i < V; i++) {
+      if (canon[i] !== i) continue;
+      const b = small.get(find(i));
+      if (!b) continue;
+      for (let d = 0; d < 3; d++) { const x = pos[i * 3 + d]; if (x < b[d]) b[d] = x; if (x > b[3 + d]) b[3 + d] = x; }
+    }
+    for (const [r, b] of small) if (Math.hypot(b[3] - b[0], b[4] - b[1], b[5] - b[2]) >= 2) small.delete(r);
+  }
   let parts = 0, fragments = 0;
   for (let i = 0; i < V; i++) {
-    const n = triCount[i];
-    if (!n) continue;
-    if (i !== largest && n < thr) fragments++; else parts++;
+    if (!triCount[i]) continue;
+    if (small.has(i)) fragments++; else parts++;
   }
   if (fragments) {
     for (let t = 0; t < T; t++) {
       const r = find(canon[idx[t * 3]]);
-      if (r !== largest && triCount[r] < thr) { mark(red, canon[idx[t * 3]]); mark(red, canon[idx[t * 3 + 1]]); mark(red, canon[idx[t * 3 + 2]]); }
+      if (small.has(r)) { mark(red, canon[idx[t * 3]]); mark(red, canon[idx[t * 3 + 1]]); mark(red, canon[idx[t * 3 + 2]]); }
     }
   }
   return {
@@ -954,6 +966,73 @@ function transferColors(refPos, off, refCol, pos) {
   return out;
 }
 
+// ---------- Socle ajouté sous les pieds ----------
+// Contour d'un socle autour de 0, en (x, z) : ellipse (rond, ovale) ou rectangle aux coins arrondis (carré).
+// inset : retrait du bord, pour le dessus biseauté. Même nombre de points et même ordre pour tout retrait : les anneaux se répondent.
+function baseOutline(o, inset) {
+  const pts = [];
+  const A = o.a - inset, B = o.b - inset;
+  if (o.shape === 'square') {
+    const K = 8, E = 6;
+    const rc = Math.max(Math.min(o.rc - inset, A * 0.95, B * 0.95), Math.min(0.25 * o.u, A * 0.45, B * 0.45));
+    const corner = [[1, 1], [-1, 1], [-1, -1], [1, -1]];
+    for (let k = 0; k < 4; k++) {
+      const [sx, sz] = corner[k];
+      for (let j = 0; j <= K; j++) {
+        const t = (k + j / K) * Math.PI / 2;
+        pts.push(sx * (A - rc) + rc * Math.cos(t), sz * (B - rc) + rc * Math.sin(t));
+      }
+      // points le long du côté droit qui suit, pour que le logement d'aimant reste bien rond
+      const t1 = (k + 1) * Math.PI / 2, [nx, nz] = corner[(k + 1) % 4];
+      const x0 = sx * (A - rc) + rc * Math.cos(t1), z0 = sz * (B - rc) + rc * Math.sin(t1);
+      const x1 = nx * (A - rc) + rc * Math.cos(t1), z1 = nz * (B - rc) + rc * Math.sin(t1);
+      for (let j = 1; j <= E; j++) { const f = j / (E + 1); pts.push(x0 + (x1 - x0) * f, z0 + (z1 - z0) * f); }
+    }
+  } else {
+    for (let i = 0; i < o.n; i++) { const t = i / o.n * Math.PI * 2; pts.push(A * Math.cos(t), B * Math.sin(t)); }
+  }
+  return pts;
+}
+// Maillage fermé du socle : flanc biseauté, dessus plat, dessous plat avec logement d'aimant facultatif.
+// Arêtes vives : chaque face a ses propres sommets (mêmes positions exactes, soudées par le contrôle du maillage).
+export function baseMesh(o) {
+  const out = [], tri = [];
+  const add = (x, y, z) => { out.push(x, y, z); return out.length / 3 - 1; };
+  const ca = Math.cos(o.ang * Math.PI / 180), sa = Math.sin(o.ang * Math.PI / 180);
+  const y1 = o.y1, y0 = o.y1 - o.h;
+  const bot = baseOutline(o, 0), top = baseOutline(o, Math.max(0, Math.min(o.bev, Math.min(o.a, o.b) * 0.4, o.h * 1.5)));
+  const N = bot.length / 2;
+  const ring = (pts, y) => {
+    const r = [];
+    for (let i = 0; i < N; i++) { const x = pts[i * 2], z = pts[i * 2 + 1]; r.push(add(o.cx + x * ca - z * sa, y, o.cz + x * sa + z * ca)); }
+    return r;
+  };
+  const B = ring(bot, y0), T = ring(top, y1);
+  for (let i = 0; i < N; i++) { const j = (i + 1) % N; tri.push(B[i], T[i], T[j], B[i], T[j], B[j]); }      // flanc
+  const Tc = ring(top, y1), ct = add(o.cx, y1, o.cz);
+  for (let i = 0; i < N; i++) { const j = (i + 1) % N; tri.push(ct, Tc[j], Tc[i]); }                       // dessus
+  const Bc = ring(bot, y0);
+  const md = o.mag ? Math.min(o.mag.d, o.h - 0.6 * o.u) : 0;
+  const mr = o.mag ? Math.min(o.mag.r, Math.min(o.a, o.b) - 1.2 * o.u) : 0;
+  if (md > 0.2 * o.u && mr > 0.5 * o.u) {
+    // logement d'aimant : couronne sur le dessous, paroi, fond
+    const dir = [];
+    for (let i = 0; i < N; i++) { const k = Bc[i] * 3, dx = out[k] - o.cx, dz = out[k + 2] - o.cz, l = Math.hypot(dx, dz) || 1; dir.push(dx / l, dz / l); }
+    const mring = (y) => { const r = []; for (let i = 0; i < N; i++) r.push(add(o.cx + dir[i * 2] * mr, y, o.cz + dir[i * 2 + 1] * mr)); return r; };
+    const Ma = mring(y0), W0 = mring(y0), W1 = mring(y0 + md), Mc = mring(y0 + md), cm = add(o.cx, y0 + md, o.cz);
+    for (let i = 0; i < N; i++) {
+      const j = (i + 1) % N;
+      tri.push(Ma[i], Bc[i], Bc[j], Ma[i], Bc[j], Ma[j]);
+      tri.push(W0[i], W1[j], W1[i], W0[i], W0[j], W1[j]);
+      tri.push(cm, Mc[i], Mc[j]);
+    }
+  } else {
+    const cb = add(o.cx, y0, o.cz);
+    for (let i = 0; i < N; i++) { const j = (i + 1) % N; tri.push(cb, Bc[i], Bc[j]); }                     // dessous
+  }
+  return { pos: new Float32Array(out), idx: new Uint32Array(tri) };
+}
+
 export async function editModel(pos, idx, opts) {
   let report = null, cut = null;
   if (opts.rot) {
@@ -971,18 +1050,49 @@ export async function editModel(pos, idx, opts) {
   const nv0 = pos.length;
   if (opts.repair) { const r = repairMesh(pos, idx); pos = r.pos; idx = r.idx; report = r.report; }
   if (opts.cut > 0) { const r = await cutMesh(pos, idx, opts.cut); pos = r.pos; idx = r.idx; cut = { loops: r.loops, capped: r.capped, open: r.open }; }
-  // couleurs (peinture ou fichier) : même maillage → telles quelles ; sinon, celle du sommet le plus proche
+  // couleurs (peinture ou fichier) : même maillage → telles quelles ; sinon, celle du sommet le plus proche.
+  // Un socle déjà ajouté (ref.baseFrom) reste à part : la figurine ne prend pas ses couleurs, et inversement.
   let col = null;
-  if (opts.ref && opts.ref.col) {
-    if (!opts.repair && !(opts.cut > 0) && opts.ref.col.length === nv0) col = opts.ref.col;
-    else col = transferColors(opts.ref.pos, opts.ref.off, opts.ref.col, pos);
+  const ref = opts.ref && opts.ref.col ? opts.ref : null;
+  const rbf = ref && ref.baseFrom > 0 ? ref.baseFrom * 3 : ref ? ref.col.length : 0;
+  if (ref) {
+    const rPos = ref.pos.subarray(0, rbf), rCol = ref.col.subarray(0, rbf);
+    if (!opts.repair && !(opts.cut > 0) && rbf === nv0) col = rbf === ref.col.length ? ref.col : rCol.slice();
+    else col = transferColors(rPos, ref.off, rCol, pos);
+  }
+  let baseFrom = 0;
+  if (opts.base) {
+    const b = opts.base;
+    // les pieds : le bas de la figurine, et le centre de ce qui touche le sol
+    let minY = Infinity;
+    for (let i = 1; i < pos.length; i += 3) if (pos[i] < minY) minY = pos[i];
+    const band = minY + b.band;
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (let i = 0; i < pos.length; i += 3) {
+      if (pos[i + 1] > band) continue;
+      const x = pos[i], z = pos[i + 2];
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (z < z0) z0 = z; if (z > z1) z1 = z;
+    }
+    if (!Number.isFinite(x0)) { x0 = x1 = z0 = z1 = 0; }
+    const bm = baseMesh({ ...b, cx: (x0 + x1) / 2 + b.dx, cz: (z0 + z1) / 2 + b.dz, y1: minY + b.sink });
+    baseFrom = pos.length / 3;
+    const np = new Float32Array(pos.length + bm.pos.length); np.set(pos); np.set(bm.pos, pos.length);
+    const ni = new Uint32Array(idx.length + bm.idx.length); ni.set(idx);
+    for (let i = 0; i < bm.idx.length; i++) ni[idx.length + i] = bm.idx[i] + baseFrom;
+    if (col) {
+      // socle déjà peint : ses couleurs suivent ; socle neuf : blanc (non peint)
+      const bc = ref && ref.baseFrom > 0 ? transferColors(ref.pos.subarray(rbf), ref.off, ref.col.subarray(rbf), bm.pos) : new Uint8Array(bm.pos.length).fill(255);
+      const nc = new Uint8Array(np.length); nc.set(col); nc.set(bc, col.length); col = nc;
+    }
+    pos = np; idx = ni;
   }
   const offset = place(pos);
-  const out = measure(pos, idx, opts.objects || 1);
+  const out = measure(pos, idx, (opts.objects || 1) + (baseFrom ? 1 : 0));
   out.col = col;
   out.offset = offset;
   out.report = report;
   out.cut = cut;
+  out.baseFrom = baseFrom;
   out.check = out.stats.tris <= CHECK_MAX_TRIS ? analyzeMesh(out.pos, out.idx) : { skipped: true };
   return out;
 }
@@ -1110,7 +1220,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScop
         const transfer = [r.pos.buffer, r.idx.buffer, r.nrm.buffer];
         if (r.check.red) transfer.push(r.check.red.buffer, r.check.orange.buffer);
         if (r.col && r.col !== e.data.ref?.col) transfer.push(r.col.buffer);
-        self.postMessage({ type: 'edited', pos: r.pos, idx: r.idx, nrm: r.nrm, col: r.col, stats: r.stats, check: r.check, offset: r.offset, report: r.report, cut: r.cut }, transfer);
+        self.postMessage({ type: 'edited', pos: r.pos, idx: r.idx, nrm: r.nrm, col: r.col, stats: r.stats, check: r.check, offset: r.offset, report: r.report, cut: r.cut, baseFrom: r.baseFrom }, transfer);
       } catch (err) {
         self.postMessage({ type: 'error', message: String(err && err.message || err) });
       }

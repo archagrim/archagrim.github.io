@@ -227,6 +227,10 @@ dd.warn{color:var(--warn)}
 .segfull button[aria-pressed="true"]{background:var(--panel);box-shadow:0 1px 3px rgba(0,0,0,.12),0 0 0 .5px rgba(0,0,0,.04)}
 .segfull button:disabled{opacity:.45}
 .segfull.seg3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.segfull.seg5{grid-template-columns:repeat(5,minmax(0,1fr))}
+.base-tools .bases{margin-top:10px}
+.base-tools .segfull{margin-top:10px}
+.base-tools .field{margin-top:8px}
 .segfull + .slider,.segfull + .segfull{margin-top:10px}
 .split-state{margin:10px 0 0;font-size:12.5px;color:var(--ink-2)}
 .split-state.warn{color:var(--warn)}
@@ -724,6 +728,33 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
       <label class="slider"><span>Hauteur</span><input id="cutRange" type="range" min="0" max="20" step="0.1" value="0" disabled><output id="cutOut">Aucune</output></label>
       <div class="row-btns"><button class="btn" id="cutSuggest" type="button" disabled>Proposer</button><button class="btn plain" id="cutReset" type="button" hidden>Remettre le socle</button></div>
       <p class="foot" id="cutNote">Retire tout ce qui est sous la hauteur choisie et referme le dessous. Les cotes et l'échelle portent alors sur la figurine seule.</p>
+      <h3 class="sub">Ajouter un socle</h3>
+      <div class="row-btns"><button class="btn" id="baseAdd" type="button" disabled>Ajouter un socle</button><button class="btn plain" id="baseCenter" type="button" hidden>Recentrer</button><button class="btn plain" id="baseDel" type="button" hidden>Retirer le socle</button></div>
+      <div class="base-tools" id="baseTools" hidden>
+        <div class="segfull seg3" role="group" aria-label="Forme du socle">
+          <button type="button" data-bshape="round" aria-pressed="true">Rond</button>
+          <button type="button" data-bshape="oval" aria-pressed="false">Ovale</button>
+          <button type="button" data-bshape="square" aria-pressed="false">Carré</button>
+        </div>
+        <div class="bases" id="baseSizes" role="group" aria-label="Taille du socle"></div>
+        <label class="field" for="baseA"><span id="baseALabel">Diamètre</span> <span class="box"><input id="baseA" type="number" min="5" max="400" step="0.5"><span>mm</span></span></label>
+        <label class="field" for="baseB" id="baseBRow" hidden>Largeur <span class="box"><input id="baseB" type="number" min="5" max="400" step="0.5"><span>mm</span></span></label>
+        <label class="slider"><span>Épaisseur</span><input id="baseH" type="range" min="1" max="10" step="0.1"><output id="baseHOut"></output></label>
+        <label class="slider"><span>Biseau</span><input id="baseBev" type="range" min="0" max="4" step="0.1"><output id="baseBevOut"></output></label>
+        <label class="slider"><span>Enfoncé</span><input id="baseSink" type="range" min="0" max="5" step="0.1"><output id="baseSinkOut"></output></label>
+        <label class="slider"><span>Côté</span><input id="baseX" type="range" min="-30" max="30" step="0.5"><output id="baseXOut"></output></label>
+        <label class="slider"><span>Avant</span><input id="baseZ" type="range" min="-30" max="30" step="0.5"><output id="baseZOut"></output></label>
+        <label class="slider" id="baseAngRow" hidden><span>Rotation</span><input id="baseAng" type="range" min="0" max="179" step="1"><output id="baseAngOut"></output></label>
+        <h3 class="sub">Logement d'aimant</h3>
+        <div class="segfull seg5" role="group" aria-label="Logement d'aimant sous le socle">
+          <button type="button" data-bmag="0" aria-pressed="true">Aucun</button>
+          <button type="button" data-bmag="5">5 × 2</button>
+          <button type="button" data-bmag="6">6 × 3</button>
+          <button type="button" data-bmag="8">8 × 3</button>
+          <button type="button" data-bmag="10">10 × 3</button>
+        </div>
+      </div>
+      <p class="foot" id="baseNote">Pour une figurine sans socle : un socle est posé sous ses pieds, à la vraie taille choisie, même si vous changez l'échelle de la figurine. « Enfoncé » fait entrer les pieds dans le socle pour qu'ils s'y soudent à l'impression. Le socle part avec la figurine dans l'export STL ou 3MF, et « Garder cette taille » le mémorise.</p>
       <h3 class="sub">Tiges de résine</h3>
       <div class="rods" id="rodList"></div>
       <div class="row-btns"><button class="btn" id="rodAdd" type="button" disabled>Ajouter une tige</button></div>
@@ -1951,7 +1982,7 @@ function clearPanel() {
   renderCheck(null);
   $('keepInfo').textContent = ''; $('keepForget').hidden = true; $('keepBtn').hidden = false; $('keepBtn').textContent = 'Garder cette taille';
   rodSel = null; placing = null; stage.classList.remove('placing'); gizmo.detach(); cutDragging = null;
-  updateCutUI(); updateRotUI(); renderRods(); $('editBusy').hidden = true;
+  updateCutUI(); updateRotUI(); renderBaseUI(); renderRods(); $('editBusy').hidden = true;
 }
 const mm = (v) => fmt(v) + ' mm';
 const ml = (v) => '≈ ' + fmt(v, v < 10 ? 2 : 1) + ' ml';
@@ -1959,7 +1990,7 @@ function setScale(s, from, animate = true) {
   if (!info) return;
   scale = Math.min(4, Math.max(0.05, s));
   const it = items.find(i => i.id === shownId);
-  if (it) { it.scale = scale; updateCard(it); if (sortEl.value === 'height' && from !== 'quiet') applyListView(); }
+  if (it) { it.scale = scale; updateCard(it); if (sortEl.value === 'height' && from !== 'quiet') applyListView(); if (it.edit.base) rebaseLater(it); }
   setNum('d-h', info.h * scale, mm);
   setNum('d-w', info.w * scale, mm);
   setNum('d-d', info.d * scale, mm);
@@ -1991,6 +2022,9 @@ function setScale(s, from, animate = true) {
 }
 chips.forEach(c => c.addEventListener('click', () => {
   const b = Number(c.dataset.base);
+  const it = shownItem();
+  // socle ajouté : la pastille choisit son diamètre, la figurine garde sa taille
+  if (b > 0 && it && it.edit.base) { setBase(it, { shape: 'round', a: b, b }); return; }
   setScale(b === 0 ? 1 : b / info.footprint);
 }));
 scaleInput.addEventListener('input', () => {
@@ -2008,6 +2042,7 @@ try { kept = JSON.parse(localStorage.getItem(SIZES_KEY) || '{}') || {}; } catch 
 function keptScale(name, bytes) { const k = kept[sizeKey(name, bytes)]; return k && k.s ? k.s : null; }
 function keptRot(name, bytes) { const k = kept[sizeKey(name, bytes)]; return k && k.s && Array.isArray(k.r) && k.r.length === 4 ? { q0: k.r.slice(), ax: 0, az: 0 } : null; }
 function keptCut(name, bytes) { const k = kept[sizeKey(name, bytes)]; return k && k.s && k.c > 0 ? k.c : 0; }
+function keptBase(name, bytes) { const k = kept[sizeKey(name, bytes)]; return k && k.s && k.b ? normBase(k.b) : null; }
 function saveKept() {
   try { localStorage.setItem(SIZES_KEY, JSON.stringify(kept)); return true; }
   catch (e) { toast('<strong>Taille non enregistrée.</strong> Le stockage du navigateur est indisponible.'); return false; }
@@ -2020,8 +2055,9 @@ function updateKeep() {
   const k = keptScale(it.name, it.size), kc = keptCut(it.name, it.size), kr = keptRot(it.name, it.size);
   const q = rotQuat(it), krq = kr ? new THREE.Quaternion().fromArray(kr.q0) : null;
   const sameRot = (!q && !krq) || (q && krq && q.angleTo(krq) < 1e-3);
-  const same = k && Math.abs(k - it.scale) < 1e-4 && Math.abs(kc - (it.edit.cut || 0)) < 0.01 && sameRot;
-  txt.textContent = k ? 'Taille gardée : ' + pctText(k) + (kc ? ', socle coupé' : '') + (kr ? ', redressée' : '') : '';
+  const kb = keptBase(it.name, it.size);
+  const same = k && Math.abs(k - it.scale) < 1e-4 && Math.abs(kc - (it.edit.cut || 0)) < 0.01 && sameRot && sameBase(kb, it.edit.base);
+  txt.textContent = k ? 'Taille gardée : ' + pctText(k) + (kc ? ', socle coupé' : '') + (kr ? ', redressée' : '') + (kb ? ', socle ' + baseLabel(kb) : '') : '';
   forget.hidden = !k;
   btn.hidden = !!same;
   btn.textContent = k ? 'Garder ' + pctText(it.scale) : 'Garder cette taille';
@@ -2033,10 +2069,10 @@ $('keepBtn').addEventListener('click', () => {
   const it = items.find(i => i.id === shownId);
   if (!it) return;
   const rq = rotQuat(it);
-  kept[sizeKey(it.name, it.size)] = { s: it.scale, n: it.name, t: Date.now(), c: it.edit.cut || 0, r: rq ? rq.toArray().map(v => Math.round(v * 1e6) / 1e6) : null };
+  kept[sizeKey(it.name, it.size)] = { s: it.scale, n: it.name, t: Date.now(), c: it.edit.cut || 0, r: rq ? rq.toArray().map(v => Math.round(v * 1e6) / 1e6) : null, b: it.edit.base ? normBase(it.edit.base) : null };
   if (!saveKept()) return;
   updateKeep(); refreshKeptTiles(it);
-  const msg = '<strong>' + esc(baseName(it.name)) + '</strong> se rouvrira à ' + pctText(it.scale) + ' (' + fmt(info.h * it.scale) + ' mm de haut).';
+  const msg = '<strong>' + esc(baseName(it.name)) + '</strong> se rouvrira à ' + pctText(it.scale) + (it.edit.base ? ', sur son socle ' + esc(baseLabel(it.edit.base)) : '') + ' (' + fmt(info.h * it.scale) + ' mm de haut).';
   toast(msg);
   syncSizes(true).then((res) => { if (res.roots) toast(msg + sizesNote(res)); }).catch(() => {});
 });
@@ -2073,13 +2109,13 @@ function mergeSizes(into, from) {
   let changed = false;
   for (const [k, v] of Object.entries(from || {})) {
     if (!v || typeof v.t !== 'number') continue;
-    if (!into[k] || !(into[k].t >= v.t)) { into[k] = { s: typeof v.s === 'number' && v.s > 0 ? v.s : null, n: String(v.n || ''), t: v.t, c: typeof v.c === 'number' && v.c > 0 ? v.c : 0, r: Array.isArray(v.r) && v.r.length === 4 ? v.r.map(Number) : null }; changed = true; }
+    if (!into[k] || !(into[k].t >= v.t)) { into[k] = { s: typeof v.s === 'number' && v.s > 0 ? v.s : null, n: String(v.n || ''), t: v.t, c: typeof v.c === 'number' && v.c > 0 ? v.c : 0, r: Array.isArray(v.r) && v.r.length === 4 ? v.r.map(Number) : null, b: v.b && typeof v.b === 'object' ? normBase(v.b) : null }; changed = true; }
   }
   return changed;
 }
 function sameSizes(a, b) {
   const ka = Object.keys(a || {});
-  return ka.length === Object.keys(b || {}).length && ka.every(k => b[k] && b[k].t === a[k].t && b[k].s === a[k].s && (b[k].c || 0) === (a[k].c || 0) && JSON.stringify(b[k].r || null) === JSON.stringify(a[k].r || null));
+  return ka.length === Object.keys(b || {}).length && ka.every(k => b[k] && b[k].t === a[k].t && b[k].s === a[k].s && (b[k].c || 0) === (a[k].c || 0) && JSON.stringify(b[k].r || null) === JSON.stringify(a[k].r || null) && JSON.stringify(b[k].b || null) === JSON.stringify(a[k].b || null));
 }
 async function mayWrite(r, ask) {
   if (r.h.disk) return true;
@@ -2462,7 +2498,7 @@ $('rodL').addEventListener('input', () => {
 $('rodA').addEventListener('input', () => { const [it, r] = selRod(); if (!r) return; r.ang = Number($('rodA').value); layoutRod(r, it); refreshRods(it); });
 
 // ----- Retouches en arrière-plan -----
-const needsEdit = (it) => !!(it.edit && (it.edit.cut > 0 || it.edit.repair));
+const needsEdit = (it) => !!(it.edit && (it.edit.cut > 0 || it.edit.repair || it.edit.base));
 function renderEditBusy() { const it = shownItem(); $('editBusy').hidden = !(it && it.editing); }
 function runEdit(it, initial = false) {
   if (it.editWorker) { it.editWorker.terminate(); it.editWorker = null; }
@@ -2471,7 +2507,7 @@ function runEdit(it, initial = false) {
   // couleurs à reporter (peinture ou fichier) : depuis le modèle affiché, ou depuis la base après un changement d'orientation
   let ref = null;
   if (it.colFromBase) { if (base.data && base.data.col) ref = { pos: base.data.pos.slice(), col: base.data.col.slice(), off: null }; }
-  else if (D && D.col && base.data) ref = { pos: D.pos.slice(), col: D.col.slice(), off: D !== base.data ? it.offset || null : null };
+  else if (D && D.col && base.data) ref = { pos: D.pos.slice(), col: D.col.slice(), off: D !== base.data ? it.offset || null : null, baseFrom: D !== base.data ? D.baseFrom || 0 : 0 };
   it.colFromBase = false;
   // sans retouche et déjà sur la base : rien à recalculer
   if (!needsEdit(it) && (!ref || D === base.data)) {
@@ -2492,7 +2528,7 @@ function runEdit(it, initial = false) {
     if (it.editWorker !== w) return;
     w.terminate(); it.editWorker = null; it.editing = false;
     toast('<strong>Retouche impossible.</strong> ' + esc(msg));
-    it.edit.cut = 0; it.edit.repair = false;
+    it.edit.cut = 0; it.edit.repair = false; it.edit.base = null;
     runEdit(it, initial);
   };
   w.onmessage = (e) => {
@@ -2500,8 +2536,8 @@ function runEdit(it, initial = false) {
     if (m.type === 'error') { fail(m.message); return; }
     if (m.type !== 'edited' || it.editWorker !== w) return;
     w.terminate(); it.editWorker = null; it.editing = false;
-    it.data = { pos: m.pos, idx: m.idx, nrm: m.nrm, col: m.col || null };
-    it.stats = { ...m.stats, objects: it.orig.stats.objects };
+    it.data = { pos: m.pos, idx: m.idx, nrm: m.nrm, col: m.col || null, baseFrom: m.baseFrom || 0 };
+    it.stats = { ...m.stats, objects: it.orig.stats.objects + (m.baseFrom ? 1 : 0) };
     it.check = m.check;
     it.offset = m.offset;
     if (undoOnly) { it.orig = null; it.offset = null; }
@@ -2510,7 +2546,8 @@ function runEdit(it, initial = false) {
   w.onerror = (e) => { e.preventDefault(); fail('le calcul a échoué'); };
   const transfer = [pos.buffer, idx.buffer];
   if (ref) transfer.push(ref.pos.buffer, ref.col.buffer);
-  w.postMessage({ op: 'edit', pos, idx, cut: undoOnly ? 0 : it.edit.cut, repair: undoOnly ? false : it.edit.repair, objects: it.orig.stats.objects, ref }, transfer);
+  it.baseScale = it.scale;
+  w.postMessage({ op: 'edit', pos, idx, cut: undoOnly ? 0 : it.edit.cut, repair: undoOnly ? false : it.edit.repair, base: undoOnly ? null : baseForWorker(it), objects: it.orig.stats.objects, ref }, transfer);
 }
 function rebuildEntry(e) {
   const old = e.mesh, parent = old.parent;
@@ -2807,6 +2844,149 @@ $('cutSuggest').addEventListener('click', () => {
 });
 $('cutReset').addEventListener('click', () => commitCut(0));
 
+// ----- Ajouter un socle -----
+// it.edit.base : le socle ajouté sous les pieds, en vrais millimètres (indépendant de l'échelle de la figurine).
+// Il est fabriqué en arrière-plan avec les autres retouches, puis fait partie du modèle (cotes, export, découpe).
+const BASE_SIZES = {
+  round: [[25, 25], [28.5, 28.5], [32, 32], [40, 40], [50, 50], [60, 60], [80, 80], [100, 100], [130, 130]],
+  oval: [[60, 35], [75, 42], [90, 52], [105, 70], [120, 92], [170, 105]],
+  square: [[20, 20], [25, 25], [30, 30], [40, 40], [50, 50], [60, 60], [25, 50], [30, 60], [50, 100]],
+};
+const MAGNETS = { 5: [5.2, 2.2], 6: [6.2, 3.2], 8: [8.2, 3.2], 10: [10.2, 3.2] };   // aimant Ø × épaisseur, avec 0,2 mm de jeu
+function normBase(v) {
+  const num = (x, d) => (typeof x === 'number' && Number.isFinite(x) ? x : d);
+  const cl = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
+  const shape = ['round', 'oval', 'square'].includes(v && v.shape) ? v.shape : 'round';
+  v = v || {};
+  const a = cl(num(v.a, 25), 5, 400);
+  return {
+    shape, a, b: shape === 'round' ? a : cl(num(v.b, a), 5, 400),
+    h: cl(num(v.h, 4), 0.5, 20), bev: cl(num(v.bev, 1.5), 0, 10), sink: cl(num(v.sink, 0.6), 0, 10),
+    dx: cl(num(v.dx, 0), -300, 300), dz: cl(num(v.dz, 0), -300, 300),
+    ang: shape === 'round' ? 0 : ((num(v.ang, 0) % 180) + 180) % 180,
+    mag: [5, 6, 8, 10].includes(v.mag) ? v.mag : 0, auto: v.auto !== false,
+  };
+}
+const baseKey = (b) => (b ? [b.shape, b.a, b.b, b.h, b.bev, b.sink, b.dx, b.dz, b.ang, b.mag].join('|') : '');
+const sameBase = (a, b) => baseKey(a && normBase(a)) === baseKey(b && normBase(b));
+const nfmt = (v) => fmt(v, Math.abs(v - Math.round(v)) < 0.05 ? 0 : 1);
+const baseLabel = (b) => (b.shape === 'round' ? 'Ø ' + nfmt(b.a) : nfmt(b.a) + ' × ' + nfmt(b.b)) + ' mm';
+const bevAuto = (b) => Math.round(Math.min(2.2, Math.max(1.2, Math.min(b.a, b.b) * 0.05)) * 10) / 10;
+// Le socle en unités du modèle (le modèle est affiché à it.scale) pour le calcul en arrière-plan
+function baseForWorker(it) {
+  const b = it.edit.base;
+  if (!b) return null;
+  const u = 1 / it.scale, m = MAGNETS[b.mag], big = Math.max(b.a, b.b);
+  return {
+    shape: b.shape === 'square' ? 'square' : 'ellipse', a: b.a / 2 * u, b: b.b / 2 * u, h: b.h * u, bev: b.bev * u, sink: b.sink * u,
+    dx: b.dx * u, dz: b.dz * u, ang: b.shape === 'round' ? 0 : b.ang, mag: m ? { r: m[0] / 2 * u, d: m[1] * u } : null,
+    n: Math.min(384, Math.max(64, Math.round(Math.PI * big / 0.8))), rc: 0.8 * u, u, band: 1 * u,
+  };
+}
+function commitBase(it, delay = 0) {
+  clearTimeout(it.baseTimer);
+  renderBaseUI();
+  updateKeep();
+  it.baseTimer = setTimeout(() => { if (items.includes(it)) runEdit(it); }, delay);
+}
+// Échelle changée : le socle garde sa vraie taille, il est refait une fois l'échelle posée
+function rebaseLater(it) {
+  if (!it.data || (it.baseScale && Math.abs(it.baseScale - it.scale) < 1e-6)) return;
+  clearTimeout(it.rebaseTimer);
+  it.rebaseTimer = setTimeout(() => { if (it.edit.base && items.includes(it) && Math.abs((it.baseScale || 0) - it.scale) > 1e-6) runEdit(it); }, 450);
+}
+function setBase(it, patch, delay = 0) {
+  const b = it.edit.base;
+  if (!b) return;
+  Object.assign(b, patch);
+  if (b.shape === 'round') b.b = b.a;
+  if ('bev' in patch) b.auto = false;
+  else if (b.auto && ('a' in patch || 'b' in patch || 'shape' in patch)) b.bev = bevAuto(b);
+  it.edit.base = normBase(b);
+  commitBase(it, delay);
+}
+const signed = (v) => (Math.abs(v) < 0.05 ? '0' : (v > 0 ? '+' : '−') + fmt(Math.abs(v), 1)) + ' mm';
+function renderBaseUI() {
+  const it = shownItem();
+  const on = !!(it && info);
+  const b = on ? it.edit.base : null;
+  $('baseAdd').disabled = !on;
+  $('baseAdd').hidden = !!b;
+  $('baseDel').hidden = !b;
+  $('baseCenter').hidden = !(b && (Math.abs(b.dx) >= 0.05 || Math.abs(b.dz) >= 0.05));
+  $('baseTools').hidden = !b;
+  if (!b) return;
+  document.querySelectorAll('[data-bshape]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.bshape === b.shape)));
+  const box = $('baseSizes');
+  box.textContent = '';
+  for (const [a, w] of BASE_SIZES[b.shape]) {
+    const c = document.createElement('button');
+    c.type = 'button'; c.className = 'chip';
+    c.textContent = b.shape === 'round' ? 'Ø ' + nfmt(a) : nfmt(a) + ' × ' + nfmt(w);
+    c.setAttribute('aria-pressed', String(Math.abs(b.a - a) < 0.01 && Math.abs(b.b - w) < 0.01));
+    c.addEventListener('click', () => setBase(it, { a, b: w }));
+    box.append(c);
+  }
+  $('baseALabel').textContent = b.shape === 'round' ? 'Diamètre' : 'Longueur';
+  $('baseBRow').hidden = b.shape === 'round';
+  if (document.activeElement !== $('baseA')) $('baseA').value = String(b.a);
+  if (document.activeElement !== $('baseB')) $('baseB').value = String(b.b);
+  const lim = Math.max(30, Math.ceil(Math.max(b.a, b.b) / 2));
+  for (const id of ['baseX', 'baseZ']) { $(id).min = String(-lim); $(id).max = String(lim); }
+  $('baseH').value = String(b.h); $('baseHOut').textContent = fmt(b.h, 1) + ' mm';
+  $('baseBev').value = String(b.bev); $('baseBevOut').textContent = fmt(b.bev, 1) + ' mm';
+  $('baseSink').value = String(b.sink); $('baseSinkOut').textContent = fmt(b.sink, 1) + ' mm';
+  $('baseX').value = String(b.dx); $('baseXOut').textContent = signed(b.dx);
+  $('baseZ').value = String(b.dz); $('baseZOut').textContent = signed(b.dz);
+  $('baseAngRow').hidden = b.shape === 'round';
+  $('baseAng').value = String(b.ang); $('baseAngOut').textContent = Math.round(b.ang) + '°';
+  document.querySelectorAll('[data-bmag]').forEach(x => x.setAttribute('aria-pressed', String(Number(x.dataset.bmag) === b.mag)));
+}
+$('baseAdd').addEventListener('click', () => {
+  const it = shownItem();
+  if (!it || !info) return;
+  // le plus petit socle rond standard qui contient les pieds
+  const want = info.footprint * it.scale + 2;
+  const list = BASE_SIZES.round;
+  const a = (list.find(([d]) => d >= want) || list[list.length - 1])[0];
+  const b = normBase({ shape: 'round', a, h: 4, sink: 0.6, auto: true });
+  b.bev = bevAuto(b);
+  it.edit.base = b;
+  commitBase(it);
+  toast('<strong>Socle ' + esc(baseLabel(b)) + ' ajouté</strong> sous les pieds. Choisissez sa forme et sa taille, puis exportez.');
+});
+$('baseDel').addEventListener('click', () => { const it = shownItem(); if (!it || !it.edit.base) return; it.edit.base = null; commitBase(it); });
+$('baseCenter').addEventListener('click', () => { const it = shownItem(); if (it) setBase(it, { dx: 0, dz: 0 }); });
+document.querySelectorAll('[data-bshape]').forEach(x => x.addEventListener('click', () => {
+  const it = shownItem();
+  if (!it || !it.edit.base || it.edit.base.shape === x.dataset.bshape) return;
+  const cur = it.edit.base, want = Math.max(cur.a, cur.b);
+  // la taille standard la plus proche dans la nouvelle forme
+  let best = null;
+  for (const s of BASE_SIZES[x.dataset.bshape]) if (!best || Math.abs(Math.max(...s) - want) < Math.abs(Math.max(...best) - want)) best = s;
+  setBase(it, { shape: x.dataset.bshape, a: best[0], b: best[1] });
+}));
+document.querySelectorAll('[data-bmag]').forEach(x => x.addEventListener('click', () => { const it = shownItem(); if (it) setBase(it, { mag: Number(x.dataset.bmag) }); }));
+for (const [id, key] of [['baseA', 'a'], ['baseB', 'b']]) {
+  $(id).addEventListener('change', () => {
+    const it = shownItem();
+    const v = parseFloat(String($(id).value).replace(',', '.'));
+    if (it && Number.isFinite(v) && v > 0) setBase(it, { [key]: v });
+    else renderBaseUI();
+  });
+}
+// Curseurs : la valeur suit tout de suite, le socle est refait dès qu'on s'arrête
+for (const [id, key, out] of [['baseH', 'h', (v) => fmt(v, 1) + ' mm'], ['baseBev', 'bev', (v) => fmt(v, 1) + ' mm'], ['baseSink', 'sink', (v) => fmt(v, 1) + ' mm'], ['baseX', 'dx', signed], ['baseZ', 'dz', signed], ['baseAng', 'ang', (v) => Math.round(v) + '°']]) {
+  $(id).addEventListener('input', () => {
+    const it = shownItem();
+    if (!it || !it.edit.base) return;
+    const v = Number($(id).value);
+    $(id + 'Out').textContent = out(v);
+    setBase(it, { [key]: v }, 350);
+  });
+  $(id).addEventListener('change', () => { const it = shownItem(); if (it && it.edit.base) commitBase(it); });
+}
+
 // ----- Export STL : le modèle affiché, à l'échelle, avec ses tiges, remis en Z vers le haut -----
 function exportSTL() {
   const it = shownItem();
@@ -2869,7 +3049,8 @@ function rodMeshData(r, off) {
 }
 function exportFileName(it) {
   const parts = [baseName(it.name)];
-  if (it.edit.cut) parts.push('sans socle');
+  if (it.edit.cut && !it.edit.base) parts.push('sans socle');
+  if (it.edit.base) parts.push('socle ' + baseLabel(it.edit.base).replace(/\s/g, '').replace('Ø', ''));
   if (it.rods.length) parts.push(pl(it.rods.length, 'tige', 'tiges'));
   if (Math.abs(it.scale - 1) > 1e-6) parts.push(pctText(it.scale).replace(/\s/g, ''));
   return parts.join(' - ');
@@ -3607,7 +3788,7 @@ function addFiles(list) {
     const dup = items.find(it => it.name === f.name && it.size === f.size && it.file.lastModified === f.lastModified);
     if (dup) { firstExisting = firstExisting || dup; continue; }
     if (items.length >= MAX_FILES) { tooMany++; continue; }
-    const it = { id: ++seq, file: f, name: f.name, size: f.size, status: 'queued', progress: 0, data: null, stats: null, check: null, thumb: null, scale: keptScale(f.name, f.size) || 1, edit: { cut: keptCut(f.name, f.size), repair: false, rot: keptRot(f.name, f.size) }, orig: null, offset: null, rods: [], secs: 0, error: null, lastUsed: 0, el: null };
+    const it = { id: ++seq, file: f, name: f.name, size: f.size, status: 'queued', progress: 0, data: null, stats: null, check: null, thumb: null, scale: keptScale(f.name, f.size) || 1, edit: { cut: keptCut(f.name, f.size), repair: false, rot: keptRot(f.name, f.size), base: keptBase(f.name, f.size) }, orig: null, offset: null, rods: [], secs: 0, error: null, lastUsed: 0, el: null };
     items.push(it);
     firstNew = firstNew || it;
   }
@@ -3817,7 +3998,7 @@ function showModelUI(it) {
   renderCheck(it);
   updateMarks();
   if (rodSel && rodSel.it !== it) rodSel = null;
-  updateCutUI(); updateRotUI(); renderRods(); attachGizmo(); renderEditBusy();
+  updateCutUI(); updateRotUI(); renderBaseUI(); renderRods(); attachGizmo(); renderEditBusy();
 }
 
 function showItem(it) {
@@ -4705,7 +4886,8 @@ async function paintTile(m, t) {
   if (m.level) { const d = document.createElement('span'); d.className = 'dot ' + m.level; tm.append(d); }
   const parts = [];
   const ks = m.size ? keptScale(m.name, m.size) : null, kc = m.size ? keptCut(m.name, m.size) : 0;
-  if (m.stats) parts.push(fmt(Math.max(0, m.stats.h - kc) * (ks || 1)) + ' mm' + (ks && Math.abs(ks - 1) > 1e-6 ? ', ' + pctText(ks) : ''));
+  const kb = m.size ? keptBase(m.name, m.size) : null;
+  if (m.stats) parts.push(fmt(Math.max(0, m.stats.h - kc) * (ks || 1) + (kb ? Math.max(0, kb.h - kb.sink) : 0)) + ' mm' + (ks && Math.abs(ks - 1) > 1e-6 ? ', ' + pctText(ks) : ''));
   else if (m.size) parts.push(fmt(m.size / 1048576, m.size < 10485760 ? 1 : 0) + ' Mo');
   if (t._showCol) parts.push(m.col.key ? m.col.key.split('/').join(' › ') : m.col.rootName);
   else if (m.sub) parts.push(m.sub);
