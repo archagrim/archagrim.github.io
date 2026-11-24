@@ -779,10 +779,38 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
       <p class="foot">Le modèle tel qu'il est affiché : à l'échelle choisie, socle coupé, tiges et réparations comprises, prêt pour votre slicer. Le 3MF est plus léger que le STL et garde la figurine et ses tiges en un seul objet.</p>
     </section>
 
+    <section class="group" id="sculptGroup">
+      <h2>Sculpter</h2>
+      <div class="row-btns"><button class="btn" id="sculptBtn" type="button" aria-pressed="false" disabled><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14.5 4.5 5 5"/><path d="M4 20l3.5-1 11-11a2.1 2.1 0 0 0-3-3l-11 11Z"/><path d="M14 20h6"/></svg>Sculpter</button><button class="btn plain" id="sculptUndo" type="button" disabled>Annuler</button></div>
+      <div id="sculptTools" hidden>
+        <div class="segfull" role="group" aria-label="Outil de sculpture">
+          <button type="button" data-stool="dig" aria-pressed="true">Creuser</button>
+          <button type="button" data-stool="add" aria-pressed="false">Ajouter</button>
+          <button type="button" data-stool="smooth" aria-pressed="false">Lisser</button>
+          <button type="button" data-stool="flat" aria-pressed="false">Aplatir</button>
+        </div>
+        <label class="slider"><span>Taille</span><input id="sculptSize" type="range" min="0" max="100" step="1"><output id="sculptSizeOut"></output></label>
+        <label class="slider"><span>Force</span><input id="sculptForce" type="range" min="5" max="100" step="1"><output id="sculptForceOut"></output></label>
+        <div class="segfull seg2" role="group" aria-label="Symétrie">
+          <button type="button" data-ssym="0" aria-pressed="true">Un côté</button>
+          <button type="button" data-ssym="1" aria-pressed="false">Symétrique</button>
+        </div>
+        <p class="split-state" id="sculptState"></p>
+        <div class="row-btns"><button class="btn primary" id="sculptKeep" type="button" disabled>Garder la figurine sculptée</button><button class="btn plain" id="sculptCancel" type="button">Tout annuler</button></div>
+        <p class="foot">Clic gauche maintenu pour sculpter, Maj pour l'effet inverse (creuser ↔ ajouter). « Symétrique » fait la même chose de l'autre côté de la figurine. Restez appuyé au même endroit pour creuser plus profond. Taille : touches [ et ]. Clic molette pour tourner, clic droit pour déplacer la vue. Ctrl+Z pour annuler un trait.</p>
+      </div>
+      <p class="foot" id="sculptNote">Creusez un logement pour qu'une pièce s'emboîte, ajoutez de la matière, lissez une bosse ou aplatissez une surface, au pinceau. Là où la surface s'étire, les triangles se resserrent tout seuls. La figurine sculptée s'ajoute à la liste comme un nouveau fichier, prête à exporter ou à découper ; l'original ne change pas.</p>
+    </section>
+
     <section class="group" id="splitGroup">
       <h2>Découper en pièces</h2>
       <div class="row-btns"><button class="btn" id="splitBtn" type="button" aria-pressed="false" disabled><svg aria-hidden="true"><use href="#i-scissors"/></svg>Découper la figurine</button></div>
       <div id="splitTools" hidden>
+        <div class="segfull seg2" role="group" aria-label="Ce que le plan coupe">
+          <button type="button" data-cutscope="all" aria-pressed="true">En entier</button>
+          <button type="button" data-cutscope="part" aria-pressed="false">Une partie</button>
+        </div>
+        <p class="foot tight" id="splitScopeNote" hidden>Cliquez sur la figurine là où couper : le cou pour la tête, l'épaule pour un bras. Seule la partie en bleu se détache, le reste ne bouge pas. Cliquez une face grise pour couper aussi à cet endroit, une face bleue pour ne plus y couper.</p>
         <div class="segfull seg3" role="group" aria-label="Sens de la coupe">
           <button type="button" data-cutdir="h" aria-pressed="true">Horizontale</button>
           <button type="button" data-cutdir="f" aria-pressed="false">De face</button>
@@ -808,6 +836,7 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
           <div class="row-btns"><button class="btn plain" id="jointAuto" type="button">Placer automatiquement</button><button class="btn plain" id="jointFlip" type="button">Changer de côté</button></div>
         </div>
         <p class="split-state" id="splitState"></p>
+        <div class="row-btns" id="splitCompleteRow" hidden><button class="btn" id="splitComplete" type="button">Couper aussi là où elle tient</button></div>
         <div class="row-btns"><button class="btn primary" id="splitGo" type="button">Couper en 2 pièces</button><button class="btn plain" id="splitCancel" type="button">Annuler</button></div>
       </div>
       <p class="foot" id="splitNote">Coupez une grande figurine en pièces plus petites pour votre imprimante. Les tenons se glissent dans des trous un peu plus larges ; les goupilles s'impriment à part et entrent dans un trou de chaque côté. Le jeu ajoute de la place autour : 0,1 à 0,2 mm en résine, 0,2 à 0,3 mm en filament. Les pièces s'ajoutent à la liste, prêtes à exporter, et « Assembler » les remet ensemble pour vérifier.</p>
@@ -872,7 +901,8 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
 import * as THREE from 'three';
 import { OrbitControls } from './lib/OrbitControls.js';
 import { TransformControls } from './lib/TransformControls.js';
-import { section, autoConnectors, connectorIsland, extent } from './cut.js';
+import { section, autoConnectors, connectorIsland, extent, islandAt, localPieces, completePicks, toFileCoords } from './cut.js';
+import { Sculptor } from './sculpt.js';
 
 const MAX_FILES = 60;
 const MAX_LINEUP = 16;                                  // modèles affichés côte à côte
@@ -997,6 +1027,7 @@ const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 5000);
 let realSize = true;
 let spinOn = false;
 let painting = false;          // mode peinture : le clic gauche peint, le clic molette tourne la vue, le clic droit la déplace
+let sculpt = null;            // mode sculpture : { it, S, origGeo, geo, cx, ptr, down, last, invert, t, saving }
 let recording = false;
 let camera = ortho;
 let controls = makeControls(camera);
@@ -1464,6 +1495,7 @@ function ensureColors(it) {
 function setPainting(on) {
   const e = paintEntry();
   if (on && (!e || !e.it.data || e.it.editing)) return;
+  if (on && sculpt) { toast('Terminez d\'abord la sculpture : <strong>Garder la figurine sculptée</strong> ou <strong>Tout annuler</strong>.'); return; }
   painting = on;
   $('paintBtn').setAttribute('aria-pressed', String(on));
   $('paintTools').hidden = !on;
@@ -1489,6 +1521,7 @@ function updatePaintUI() {
   $('paintBtn').disabled = !it || !it.data || lineup;
   $('splitBtn').disabled = !it || !it.data || lineup || !!it.editing;
   $('paintUndo').disabled = !it || !it.paintUndo || !it.paintUndo.length;
+  updateSculptUI();
 }
 
 // Grille de voisinage des sommets (coordonnées du modèle), refaite si le maillage change
@@ -2263,7 +2296,7 @@ function updateMeasure() {
 let down = null;
 renderer.domElement.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, t: e.timeStamp, b: e.button }; });
 renderer.domElement.addEventListener('pointerup', (e) => {
-  if (painting) return;
+  if (painting || sculpt) return;
   if (!down || down.b !== 0) return;
   if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) return;   // un clic, pas un glisser
   if (gizmo.dragging || gizmo.axis) return;                              // les flèches d'une tige
@@ -3369,12 +3402,19 @@ $('asmReset').addEventListener('click', () => { for (const e of lineModels) e.it
 // Pendant le réglage, l'aperçu montre les deux pièces un peu écartées, la face de coupe et les tenons.
 // La découpe se fait en arrière-plan et chaque pièce s'ajoute à la liste comme un fichier.
 const CUT_KEY = 'atelier3d.cut';
-const CUT = Object.assign({ dir: 'h', tilt: 0, turn: 0, pos: 0.5, joint: 'peg', shape: 'round', d: 4, h: 5, gap: 0.2, flip: false },
+const CUT = Object.assign({ dir: 'h', tilt: 0, turn: 0, pos: 0.5, joint: 'peg', shape: 'round', d: 4, h: 5, gap: 0.2, flip: false, scope: 'all' },
   (() => { try { return JSON.parse(localStorage.getItem(CUT_KEY) || '{}'); } catch (e) { return {}; } })());
 const saveCutPrefs = () => { try { localStorage.setItem(CUT_KEY, JSON.stringify({ ...CUT, pos: 0.5 })); } catch (e) { /* stockage indisponible */ } };
-const cutPlaneA = new THREE.Plane(), cutPlaneB = new THREE.Plane();
+const cutPlaneA = new THREE.Plane(), cutPlaneB = new THREE.Plane(), cutPlaneP = new THREE.Plane();
 const cutMatA = new THREE.MeshStandardMaterial({ roughness: 0.52, metalness: 0, clippingPlanes: [cutPlaneA, floorPlane], clipShadows: true });
 const cutMatB = new THREE.MeshStandardMaterial({ color: '#A9BED8', roughness: 0.52, metalness: 0, clippingPlanes: [cutPlaneB, floorPlane], clipShadows: true });
+// coupe d'une partie seulement : la partie détachée (bleue, coupée au plan) et le reste (entier)
+const cutMatP = new THREE.MeshStandardMaterial({ color: '#7FB2F0', roughness: 0.5, metalness: 0, clippingPlanes: [cutPlaneP, floorPlane], clipShadows: true });
+const cutMatR = new THREE.MeshStandardMaterial({ roughness: 0.52, metalness: 0, clippingPlanes: [floorPlane], clipShadows: true });
+// faces de coupe non choisies : grises, visibles à travers la figurine pour pouvoir les cliquer
+const cutOffMat = new THREE.MeshBasicMaterial({ color: '#8E8E93', transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthTest: false, depthWrite: false });
+const cutOffEdge = new THREE.LineBasicMaterial({ color: '#636366', transparent: true, opacity: 0.9, depthTest: false });
+const partMode = () => CUT.scope === 'part';
 const cutFillMat = new THREE.MeshStandardMaterial({ color: '#E3EBF6', roughness: 0.8, metalness: 0, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
 const cutPegMat = new THREE.MeshStandardMaterial({ color: '#0A84FF', roughness: 0.4, metalness: 0 });
 const cutHoleMat = new THREE.MeshBasicMaterial({ color: '#2C2C2E', side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
@@ -3418,11 +3458,15 @@ function renderCutControls() {
   $('jointGap').value = String(CUT.gap); $('jointGapOut').textContent = fmt(CUT.gap, 2) + ' mm';
   $('jointOpts').hidden = CUT.joint === 'none';
   $('jointFlip').hidden = CUT.joint !== 'peg';
-  $('splitGo').textContent = CUT.joint === 'dowel' ? 'Couper en 2 pièces et goupilles' : 'Couper en 2 pièces';
+  document.querySelectorAll('[data-cutscope]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.cutscope === CUT.scope)));
+  $('splitScopeNote').hidden = !partMode();
+  $('splitGo').textContent = partMode() ? (CUT.joint === 'dowel' ? 'Détacher la partie, avec goupilles' : 'Détacher la partie')
+    : CUT.joint === 'dowel' ? 'Couper en 2 pièces et goupilles' : 'Couper en 2 pièces';
 }
 function startCut() {
   const it = shownItem();
   if (!it || !it.data || lineup || !single || single.it !== it || it.editing) return;
+  if (sculpt) { toast('Terminez d\'abord la sculpture : <strong>Garder la figurine sculptée</strong> ou <strong>Tout annuler</strong>.'); return; }
   if (painting) setPainting(false);
   if (measuring) setMeasuring(false);
   if (sunOn) setSun(false);
@@ -3442,7 +3486,8 @@ function startCut() {
   const marks = new THREE.Group();
   grp.add(meshA, meshB, planeObj, marks);
   scene.add(grp);
-  cutMode = { it, grp, meshA, meshB, planeObj, quad, edge, marks, fillA: null, fillB: null, sec: null, conns: [], ok: [], manual: false, n: null, c: 0, lo: 0, hi: 1, gap: 0, radius: g.boundingSphere.radius, busy: false, raf: 0 };
+  cutMode = { it, g, grp, meshA, meshB, planeObj, quad, edge, marks, fillA: null, fillB: null, offFill: null, offLine: null, sec: null, conns: [], ok: [], manual: false, n: null, c: 0, lo: 0, hi: 1, gap: 0, radius: g.boundingSphere.radius, busy: false, raf: 0,
+    picks: [], chosen: [], local: null, localTimer: 0, localBusy: false, subP: null, subR: null };
   single.mesh.visible = false;
   cutMatA.color.copy(material.color);
   $('splitTools').hidden = false;
@@ -3450,6 +3495,7 @@ function startCut() {
   cutGizmo.camera = camera;
   cutGizmo.attach(planeObj);
   renderCutControls();
+  applyCutMeshes();
   updateCutPlane();
   updateHint();
 }
@@ -3459,7 +3505,9 @@ function endCut() {
   cutMode = null;
   cutGizmo.detach();
   if (m.raf) cancelAnimationFrame(m.raf);
-  for (const o of [m.quad, m.edge, m.fillB]) if (o) o.geometry.dispose();
+  clearTimeout(m.localTimer);
+  dropSubGeos(m);
+  for (const o of [m.quad, m.edge, m.fillB, m.offFill, m.offLine]) if (o) o.geometry.dispose();
   for (const o of m.marks.children) o.geometry.dispose();
   scene.remove(m.grp);
   if (single && single.it === m.it) single.mesh.visible = true;
@@ -3480,7 +3528,7 @@ function updateCutPlane() {
   const sz = m.radius * 2.4;
   m.quad.scale.set(sz, sz, 1); m.edge.scale.set(sz, 1, sz);
   m.gap = Math.max(3 / m.it.scale, m.radius * 0.14);
-  m.meshA.position.copy(nv).multiplyScalar(m.gap);
+  placeCutMeshes();
   $('splitPosOut').textContent = fmt((m.c - m.lo) * m.it.scale) + ' mm';
   if (m.raf) return;
   m.raf = requestAnimationFrame(() => { m.raf = 0; if (cutMode === m) computeCut(); });
@@ -3488,27 +3536,117 @@ function updateCutPlane() {
 function computeCut() {
   const m = cutMode;
   m.sec = section(m.it.data.pos, m.it.data.idx, m.n, m.c);
+  if (partMode()) { refreshPart(); return; }
   if (!m.manual) m.conns = CUT.joint === 'none' ? [] : autoConnectors(m.sec, cutOpt());
   buildCutVisuals();
+}
+// ---- Une partie seulement ----
+// Les points cliqués (dans le plan) désignent les faces de coupe choisies ; la partie qu'elles détachent
+// est cherchée un peu après le dernier changement, pour rester fluide pendant qu'on déplace le plan.
+const localReady = (m) => !!(m && m.local && !m.local.attached && m.local.count);
+function refreshPart() {
+  const m = cutMode;
+  m.chosen = m.sec ? [...new Set(m.picks.map(([x, y]) => islandAt(m.sec, x, y)).filter(k => k >= 0))] : [];
+  if (!m.manual) m.conns = CUT.joint === 'none' || !m.chosen.length ? [] : autoConnectors({ ...m.sec, islands: m.chosen.map(k => m.sec.islands[k]) }, cutOpt());
+  clearTimeout(m.localTimer);
+  m.local = null;
+  m.localBusy = m.chosen.length > 0;
+  applyCutMeshes();
+  buildCutVisuals();
+  if (!m.chosen.length) return;
+  m.localTimer = setTimeout(() => {
+    if (cutMode !== m) return;
+    let r = null;
+    try { r = localPieces(m.it.data.pos, m.it.data.idx, m.n, m.c, m.picks); } catch (e) { r = null; }
+    if (cutMode !== m) return;
+    m.localBusy = false; m.local = r || { attached: true, count: 0, side: 1, chosen: [] };
+    applyCutMeshes();
+    buildCutVisuals();
+  }, 180);
+}
+function togglePick(x, y) {
+  const m = cutMode, k = islandAt(m.sec, x, y);
+  if (k < 0) return;
+  if (m.chosen.includes(k)) m.picks = m.picks.filter(([px, py]) => islandAt(m.sec, px, py) !== k);
+  else m.picks.push([x, y]);
+  m.manual = false;
+  refreshPart();
+}
+// géométries de la partie et du reste : mêmes sommets que la figurine, seuls les triangles changent
+function subGeo(g, mask, want) {
+  const I = g.index.array, T = I.length / 3;
+  let n = 0;
+  for (let t = 0; t < T; t++) if (mask[t] === want) n++;
+  const out = new Uint32Array(n * 3);
+  for (let t = 0, o = 0; t < T; t++) if (mask[t] === want) { out[o++] = I[t * 3]; out[o++] = I[t * 3 + 1]; out[o++] = I[t * 3 + 2]; }
+  const gg = new THREE.BufferGeometry();
+  gg.setAttribute('position', g.getAttribute('position'));
+  gg.setAttribute('normal', g.getAttribute('normal'));
+  gg.setIndex(new THREE.BufferAttribute(out, 1));
+  gg.boundingBox = g.boundingBox; gg.boundingSphere = g.boundingSphere;
+  return gg;
+}
+function dropSubGeos(m) {
+  // les sommets restent ceux de la figurine affichée : on ne libère que les triangles
+  for (const k of ['subP', 'subR']) { const gg = m[k]; if (gg) { gg.deleteAttribute('position'); gg.deleteAttribute('normal'); gg.dispose(); m[k] = null; } }
+}
+function applyCutMeshes() {
+  const m = cutMode;
+  if (!m) return;
+  const prev = [m.subP, m.subR];
+  m.subP = m.subR = null;
+  if (!partMode()) {
+    m.meshA.geometry = m.g; m.meshB.geometry = m.g; m.meshA.material = cutMatA; m.meshB.material = cutMatB;
+    m.meshA.visible = true;
+  } else if (!localReady(m)) {
+    m.meshB.geometry = m.g; m.meshB.material = cutMatR; m.meshA.geometry = m.g; m.meshA.visible = false;
+  } else {
+    m.subP = subGeo(m.g, m.local.mask, 1); m.subR = subGeo(m.g, m.local.mask, 0);
+    m.meshA.geometry = m.subP; m.meshA.material = cutMatP; m.meshB.geometry = m.subR; m.meshB.material = cutMatR;
+    m.meshA.visible = true;
+  }
+  dropSubGeos({ subP: prev[0], subR: prev[1] });
+  cutMatR.color.copy(material.color);
+  placeCutMeshes();
+  renderer.shadowMap.needsUpdate = true;
+}
+// où se trouvent les deux faces de coupe le long de la normale : A (côté normale) et B
+function cutOffsets(m) {
+  if (partMode() && localReady(m) && m.local.side < 0) return [0, -m.gap];
+  return [m.gap, 0];
+}
+function placeCutMeshes() {
+  const m = cutMode;
+  if (!m || !m.n) return;
+  const nv = new THREE.Vector3(...m.n), [offA, offB] = cutOffsets(m);
+  const sd = partMode() && localReady(m) ? m.local.side : 1;
+  m.meshA.position.copy(nv).multiplyScalar(sd > 0 ? offA : offB);
+  m.meshB.position.set(0, 0, 0);
 }
 function buildCutVisuals() {
   const m = cutMode, sec = m.sec;
   if (m.fillB) { m.grp.remove(m.fillA, m.fillB); m.fillB.geometry.dispose(); m.fillA = m.fillB = null; }
+  if (m.offFill) { m.grp.remove(m.offFill, m.offLine); m.offFill.geometry.dispose(); m.offLine.geometry.dispose(); m.offFill = m.offLine = null; }
   for (const o of m.marks.children.slice()) { m.marks.remove(o); o.geometry.dispose(); }
   const at = (x, y, off) => new THREE.Vector3(
     sec.n[0] * (sec.c + off) + sec.u[0] * x + sec.v[0] * y,
     sec.n[1] * (sec.c + off) + sec.u[1] * x + sec.v[1] * y,
     sec.n[2] * (sec.c + off) + sec.u[2] * x + sec.v[2] * y);
-  // face de coupe : chaque îlot triangulé avec ses trous
-  const P = [];
+  // face de coupe : chaque îlot triangulé avec ses trous ; en « une partie seulement », les îlots non choisis
+  // sont gris et se voient à travers la figurine
+  const part = partMode(), chosen = new Set(m.chosen), ready = !part || localReady(m);
+  const [offA, offB] = cutOffsets(m);
+  const P = [], Q = [], E = [];
   const toV = (F) => { const a = []; for (let i = 0; i < F.length; i += 2) a.push(new THREE.Vector2(F[i], F[i + 1])); return a; };
-  for (const isl of sec.islands) {
+  sec.islands.forEach((isl, k) => {
+    const on = !part || chosen.has(k);
     const outer = toV(sec.loops[isl.outer]), holes = isl.holes.map(h => toV(sec.loops[h]));
+    if (!on) for (const L of [outer, ...holes]) for (let i = 0; i < L.length; i++) { const a = at(L[i].x, L[i].y, 0), b = at(L[(i + 1) % L.length].x, L[(i + 1) % L.length].y, 0); E.push(a.x, a.y, a.z, b.x, b.y, b.z); }
     let faces;
-    try { faces = THREE.ShapeUtils.triangulateShape(outer, holes); } catch (e) { continue; }
-    const pts = outer.concat(...holes);
-    for (const f of faces) for (const k of f) { const q = at(pts[k].x, pts[k].y, 0); P.push(q.x, q.y, q.z); }
-  }
+    try { faces = THREE.ShapeUtils.triangulateShape(outer, holes); } catch (e) { return; }
+    const pts = outer.concat(...holes), dst = on ? P : Q;
+    for (const f of faces) for (const j of f) { const q = at(pts[j].x, pts[j].y, 0); dst.push(q.x, q.y, q.z); }
+  });
   const nv = new THREE.Vector3(...sec.n);
   if (P.length) {
     const g = new THREE.BufferGeometry();
@@ -3516,8 +3654,19 @@ function buildCutVisuals() {
     g.computeVertexNormals();
     m.fillB = new THREE.Mesh(g, cutFillMat);
     m.fillA = new THREE.Mesh(g, cutFillMat);
-    m.fillA.position.copy(nv).multiplyScalar(m.gap);
+    m.fillB.position.copy(nv).multiplyScalar(offB);
+    m.fillA.position.copy(nv).multiplyScalar(offA);
+    m.fillA.visible = ready;
     m.grp.add(m.fillB, m.fillA);
+  }
+  if (Q.length) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(Q, 3));
+    const ge = new THREE.BufferGeometry();
+    ge.setAttribute('position', new THREE.Float32BufferAttribute(E, 3));
+    m.offFill = new THREE.Mesh(g, cutOffMat); m.offFill.renderOrder = 20;
+    m.offLine = new THREE.LineSegments(ge, cutOffEdge); m.offLine.renderOrder = 21; m.offLine.raycast = () => {};
+    m.grp.add(m.offFill, m.offLine);
   }
   // tenons (bleus), trous (sombres) ; en rouge, ceux qui sont trop près du bord
   const s = m.it.scale, r = CUT.d / 2 / s, rh = (CUT.d + CUT.gap) / 2 / s, h = CUT.h / s;
@@ -3527,15 +3676,16 @@ function buildCutVisuals() {
   const disc = (rad) => (CUT.shape === 'square' ? new THREE.PlaneGeometry(rad * 2, rad * 2) : new THREE.CircleGeometry(rad, 40)).rotateX(-Math.PI / 2);
   const stick = (rad, len) => CUT.shape === 'square' ? new THREE.BoxGeometry(rad * 2, len, rad * 2) : new THREE.CylinderGeometry(rad, rad, len, 40);
   m.conns.forEach(([x, y], i) => {
+    if (!ready) return;
     const base = at(x, y, 0);
     const add = (geo, mat, off) => { const o = new THREE.Mesh(geo, mat); o.position.copy(base).addScaledVector(nv, off); o.quaternion.copy(q); o.userData.conn = i; m.marks.add(o); };
-    if (!m.ok[i]) { add(disc(rh), cutBadMat, 0); add(disc(rh), cutBadMat, m.gap); return; }
+    if (!m.ok[i]) { add(disc(rh), cutBadMat, offB); add(disc(rh), cutBadMat, offA); return; }
     if (CUT.joint === 'peg') {
-      if (!CUT.flip) { add(stick(r, h), cutPegMat, h / 2); add(disc(rh), cutHoleMat, m.gap); }
-      else { add(stick(r, h), cutPegMat, m.gap - h / 2); add(disc(rh), cutHoleMat, 0); }
+      if (!CUT.flip) { add(stick(r, h), cutPegMat, offB + h / 2); add(disc(rh), cutHoleMat, offA); }
+      else { add(stick(r, h), cutPegMat, offA - h / 2); add(disc(rh), cutHoleMat, offB); }
     } else if (CUT.joint === 'dowel') {
-      add(disc(rh), cutHoleMat, 0); add(disc(rh), cutHoleMat, m.gap);
-      add(stick(r, Math.max(h - 0.2 / s, r)), cutPegMat, m.gap / 2);
+      add(disc(rh), cutHoleMat, offB); add(disc(rh), cutHoleMat, offA);
+      add(stick(r, Math.max(h - 0.2 / s, r)), cutPegMat, (offA + offB) / 2);
     }
   });
   renderCutState();
@@ -3549,17 +3699,23 @@ function renderCutState() {
   let txt = '', warn = false;
   if (m.busy) txt = 'Découpe en cours…';
   else if (!m.sec.loops.length) { txt = 'Le plan ne traverse pas la figurine : déplacez-le.'; warn = true; }
-  else {
-    txt = pl(m.sec.islands.length, 'face de coupe', 'faces de coupe');
+  else if (partMode() && !m.chosen.length) txt = 'Cliquez sur la figurine là où couper : le cou pour détacher la tête, l\'épaule pour un bras.';
+  else if (partMode() && !m.local) txt = 'Recherche de la partie à détacher…';
+  else if (partMode() && !localReady(m)) {
+    txt = 'Cette partie tient encore au reste ailleurs (une main, une arme, une cape…). « Couper aussi là où elle tient » cherche les autres faces de ce plan ; ou cliquez vous-même une face grise, ou déplacez le plan.'; warn = true;
+  } else {
+    txt = partMode() ? 'La partie en bleu se détache' + (m.chosen.length > 1 ? ', coupée sur ' + pl(m.chosen.length, 'face', 'faces') : '')
+      : pl(m.sec.islands.length, 'face de coupe', 'faces de coupe');
     if (CUT.joint !== 'none') txt += ', ' + (good ? pl(good, word[0], word[1]) : 'aucun ' + word[0]) + '.';
     else txt += '.';
     if (bad) { txt += ' ' + pl(bad, word[0] + ' trop près du bord, en rouge', word[1] + ' trop près du bord, en rouge') + ' : cliquez dessus pour l\'enlever.'; warn = true; }
     else if (CUT.joint !== 'none' && !good) { txt += ' Pas assez de place : réduisez le diamètre, ou cliquez sur la face de coupe pour en placer.'; warn = true; }
-    if (m.sec.open) { txt += ' La coupe ne se referme pas partout : réparez d\'abord le maillage.'; warn = true; }
+    if (m.sec.open && !partMode()) { txt += ' La coupe ne se referme pas partout : réparez d\'abord le maillage.'; warn = true; }
   }
   el.textContent = txt;
   el.classList.toggle('warn', warn);
-  $('splitGo').disabled = m.busy || !m.sec.loops.length;
+  $('splitGo').disabled = m.busy || !m.sec.loops.length || (partMode() && !localReady(m));
+  $('splitCompleteRow').hidden = !(partMode() && m.local && m.local.attached && m.chosen.length && !m.busy);
 }
 // clic dans la vue : sur un tenon pour l'enlever, sur la face de coupe pour en ajouter un
 function cutClick(cx, cy) {
@@ -3567,14 +3723,30 @@ function cutClick(cx, cy) {
   if (!m || !m.sec || m.busy) return;
   const r = renderer.domElement.getBoundingClientRect();
   raycaster.setFromCamera(new THREE.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1), camera);
-  const hits = raycaster.intersectObjects([...m.marks.children, m.fillB, m.fillA].filter(Boolean), false);
-  if (!hits.length) return;
+  const hits = raycaster.intersectObjects([...m.marks.children, m.fillB, m.fillA && m.fillA.visible ? m.fillA : null, m.offFill].filter(Boolean), false);
+  const toPlane = (p) => [p.x * m.sec.u[0] + p.y * m.sec.u[1] + p.z * m.sec.u[2], p.x * m.sec.v[0] + p.y * m.sec.v[1] + p.z * m.sec.v[2]];
+  if (!hits.length) {
+    // une partie seulement : un clic sur la figurine y fait passer le plan et choisit la face de coupe de cet endroit
+    if (!partMode()) return;
+    const hp = pick(cx, cy);
+    if (!hp) return;
+    const p = m.grp.worldToLocal(hp.point.clone());
+    const c = p.x * m.n[0] + p.y * m.n[1] + p.z * m.n[2];
+    CUT.pos = THREE.MathUtils.clamp((c - m.lo) / (m.hi - m.lo), 0.001, 0.999);
+    $('splitPos').value = String(Math.round(CUT.pos * 1000));
+    m.picks = [toPlane(p)]; m.manual = false;
+    updateCutPlane();
+    return;
+  }
   const h = hits[0];
   if (h.object.userData.conn !== undefined) { m.conns.splice(h.object.userData.conn, 1); m.manual = true; buildCutVisuals(); return; }
-  if (CUT.joint === 'none') { toast('Choisissez <strong>Tenons</strong> ou <strong>Goupilles</strong> pour en placer.'); return; }
+  const [offA, offB] = cutOffsets(m);
   const local = m.grp.worldToLocal(h.point.clone());
-  if (h.object === m.fillA) local.addScaledVector(new THREE.Vector3(...m.sec.n), -m.gap);
-  const x = local.x * m.sec.u[0] + local.y * m.sec.u[1] + local.z * m.sec.u[2], y = local.x * m.sec.v[0] + local.y * m.sec.v[1] + local.z * m.sec.v[2];
+  if (h.object === m.fillA) local.addScaledVector(new THREE.Vector3(...m.sec.n), -offA);
+  else if (h.object === m.fillB) local.addScaledVector(new THREE.Vector3(...m.sec.n), -offB);
+  if (partMode()) { const [px, py] = toPlane(local); togglePick(px, py); return; }
+  if (CUT.joint === 'none') { toast('Choisissez <strong>Tenons</strong> ou <strong>Goupilles</strong> pour en placer.'); return; }
+  const [x, y] = toPlane(local);
   if (connectorIsland(m.sec, x, y, cutOpt()) < 0) { toast('<strong>Trop près du bord.</strong> Il faut au moins 1 mm de matière autour du trou.'); return; }
   m.conns.push([x, y]); m.manual = true;
   buildCutVisuals();
@@ -3583,13 +3755,16 @@ function cutClick(cx, cy) {
 function cutFrame() {
   const m = cutMode;
   if (!m) return;
-  if (!single || single.it !== m.it || single.mesh.geometry !== m.meshA.geometry) { endCut(); return; }
+  if (!single || single.it !== m.it || single.mesh.geometry !== m.g) { endCut(); return; }
   single.mesh.visible = false;
   m.grp.position.copy(single.mesh.position); m.grp.quaternion.copy(single.mesh.quaternion); m.grp.scale.copy(single.mesh.scale);
   m.grp.updateMatrixWorld(true);
   const nv = tmpCutN.set(...m.n);
   cutPlaneB.set(tmpCutM.copy(nv).negate(), m.c).applyMatrix4(m.meshB.matrixWorld);
   cutPlaneA.set(nv, -m.c).applyMatrix4(m.meshA.matrixWorld);
+  // la partie détachée est coupée au plan, du côté où elle part
+  const sd = localReady(m) ? m.local.side : 1;
+  cutPlaneP.set(tmpCutM.copy(nv).multiplyScalar(sd), -m.c * sd).applyMatrix4(m.meshA.matrixWorld);
   renderer.shadowMap.needsUpdate = true;
 }
 const tmpCutN = new THREE.Vector3(), tmpCutM = new THREE.Vector3();
@@ -3605,16 +3780,24 @@ function partNames(it, pins) {
 function runSplit() {
   const m = cutMode;
   if (!m || m.busy || !m.sec || !m.sec.loops.length) return;
+  const part = partMode();
+  if (part && !localReady(m)) return;
   const it = m.it;
   const conns = CUT.joint === 'none' ? [] : m.conns.filter((_, i) => m.ok[i]);
   m.busy = true; renderCutState();
   const names = partNames(it, CUT.joint === 'dowel');
   const opt = cutOpt();
+  if (part) opt.picks = m.picks.map(p => p.slice());
   const w = new Worker('./parser.js', { type: 'module' });
   const done = (r) => {
     w.terminate();
     if (cutMode === m) { m.busy = false; renderCutState(); }
     if (!r || r.type !== 'split') { toast('<strong>Découpe impossible.</strong> ' + esc((r && r.message) || 'Le calcul a échoué.')); return; }
+    if (!r.files.length) {
+      toast(r.warn.includes('attached') ? '<strong>Rien n\'a été détaché.</strong> La partie tient encore au reste ailleurs : choisissez aussi l\'autre face de coupe qui la relie.'
+        : '<strong>Rien n\'a été détaché.</strong> Cliquez sur la figurine là où couper, puis recommencez.');
+      return;
+    }
     const files = r.files.map((f, k) => new File([f.bytes], names[k] + '.' + f.ext, { type: f.ext === 'stl' ? 'model/stl' : 'model/3mf', lastModified: Date.now() + k }));
     endCut();
     const before = new Set(items);
@@ -3622,7 +3805,7 @@ function runSplit() {
     const fresh = items.filter(x => !before.has(x));
     pendingAsm = fresh.length >= 2 ? { ids: fresh.map(x => x.id), explode: 0.3 } : null;
     const word = opt.kind === 'dowel' ? ['goupille', 'goupilles'] : ['tenon', 'tenons'];
-    const msg = ['<strong>' + (opt.kind === 'dowel' ? '2 pièces et ' + pl(r.placed, 'goupille créées', 'goupilles créées') : '2 pièces créées' + (r.placed ? ', avec ' + pl(r.placed, word[0], word[1]) : '')) + '.</strong> Elles s\'affichent assemblées, un peu écartées : « Écarter » les rapproche.'];
+    const msg = ['<strong>' + (part ? 'Partie détachée' + (r.placed ? ', avec ' + pl(r.placed, word[0], word[1]) : '') : opt.kind === 'dowel' ? '2 pièces et ' + pl(r.placed, 'goupille créées', 'goupilles créées') : '2 pièces créées' + (r.placed ? ', avec ' + pl(r.placed, word[0], word[1]) : '')) + '.</strong> ' + (part ? 'La partie et le reste' : 'Elles') + ' s\'affichent assemblées, un peu écartées : « Écarter » les rapproche.'];
     if (r.warn.includes('short')) msg.push('Des ' + word[1] + ' ont été raccourcis pour ne pas traverser la pièce.');
     if (r.warn.includes('thin')) msg.push('Des ' + word[1] + ' ont été retirés : pas assez de matière derrière.');
     if (r.warn.includes('open') || r.warn.includes('cap')) msg.push('La coupe n\'a pas pu être refermée partout : réparez le maillage, puis recoupez.');
@@ -3636,6 +3819,31 @@ function runSplit() {
     col ? [pos.buffer, idx.buffer, col.buffer] : [pos.buffer, idx.buffer]);
 }
 $('splitBtn').addEventListener('click', () => (cutMode ? endCut() : startCut()));
+// la partie tient encore ailleurs : on ajoute les autres faces de ce plan par lesquelles elle rejoint le reste
+$('splitComplete').addEventListener('click', () => {
+  const m = cutMode;
+  if (!m || !partMode() || !m.chosen.length) return;
+  $('splitState').textContent = 'Recherche des endroits où la partie tient…';
+  $('splitCompleteRow').hidden = true;
+  setTimeout(() => {
+    if (cutMode !== m) return;
+    let extra = [];
+    try { extra = completePicks(m.it.data.pos, m.it.data.idx, m.n, m.c, m.picks); } catch (e) { extra = []; }
+    if (!extra.length) { toast('<strong>Impossible de la détacher avec ce plan.</strong> Déplacez-le ou inclinez-le, ou coupez la figurine en entier.'); renderCutState(); return; }
+    m.picks.push(...extra); m.manual = false;
+    refreshPart();
+  }, 30);
+});
+document.querySelectorAll('[data-cutscope]').forEach(b => b.addEventListener('click', () => {
+  if (CUT.scope === b.dataset.cutscope) return;
+  CUT.scope = b.dataset.cutscope; saveCutPrefs(); renderCutControls(); updateHint();
+  const m = cutMode;
+  if (!m) return;
+  clearTimeout(m.localTimer);
+  m.manual = false; m.local = null; m.localBusy = false;
+  applyCutMeshes();
+  if (m.sec) computeCut();
+}));
 $('splitCancel').addEventListener('click', endCut);
 $('splitGo').addEventListener('click', runSplit);
 document.querySelectorAll('[data-cutdir]').forEach(b => b.addEventListener('click', () => {
@@ -3654,21 +3862,246 @@ for (const [id, key] of [['splitTilt', 'tilt'], ['splitTurn', 'turn']]) {
 $('splitPos').addEventListener('input', () => { CUT.pos = Number($('splitPos').value) / 1000; if (cutMode) cutMode.manual = false; updateCutPlane(); });
 document.querySelectorAll('[data-joint]').forEach(b => b.addEventListener('click', () => {
   CUT.joint = b.dataset.joint; saveCutPrefs(); renderCutControls();
-  if (cutMode && cutMode.sec) { if (!cutMode.manual) computeCut(); else buildCutVisuals(); }
+  if (cutMode && cutMode.sec) { if (!cutMode.manual) autoConns(); else buildCutVisuals(); }
 }));
 document.querySelectorAll('[data-jshape]').forEach(b => b.addEventListener('click', () => {
   CUT.shape = b.dataset.jshape; saveCutPrefs(); renderCutControls();
-  if (cutMode && cutMode.sec) { if (!cutMode.manual) computeCut(); else buildCutVisuals(); }
+  if (cutMode && cutMode.sec) { if (!cutMode.manual) autoConns(); else buildCutVisuals(); }
 }));
 for (const [id, key] of [['jointD', 'd'], ['jointH', 'h'], ['jointGap', 'gap']]) {
   $(id).addEventListener('input', () => {
     CUT[key] = Number($(id).value); renderCutControls();
-    if (cutMode && cutMode.sec) { if (!cutMode.manual && key === 'd') computeCut(); else buildCutVisuals(); }
+    if (cutMode && cutMode.sec) { if (!cutMode.manual && key === 'd') autoConns(); else buildCutVisuals(); }
   });
   $(id).addEventListener('change', saveCutPrefs);
 }
-$('jointAuto').addEventListener('click', () => { if (cutMode && cutMode.sec) { cutMode.manual = false; computeCut(); } });
+$('jointAuto').addEventListener('click', () => { if (cutMode && cutMode.sec) { cutMode.manual = false; autoConns(); } });
+// tenons placés automatiquement : sur toutes les faces de coupe, ou sur celles de la partie choisie
+function autoConns() {
+  const m = cutMode;
+  if (!m || !m.sec) return;
+  if (partMode()) m.conns = CUT.joint === 'none' || !m.chosen.length ? [] : autoConnectors({ ...m.sec, islands: m.chosen.map(k => m.sec.islands[k]) }, cutOpt());
+  else m.conns = CUT.joint === 'none' ? [] : autoConnectors(m.sec, cutOpt());
+  buildCutVisuals();
+}
 $('jointFlip').addEventListener('click', () => { CUT.flip = !CUT.flip; saveCutPrefs(); if (cutMode && cutMode.sec) buildCutVisuals(); });
+
+// ---------- Sculpture ----------
+// Le pinceau déforme une copie du maillage affiché ; à la fin de chaque trait, les triangles étirés sont recoupés.
+// « Garder » écrit la figurine sculptée comme un nouveau fichier de la liste (l'original ne change jamais).
+const SCULPT_KEY = 'atelier3d.sculpt';
+const SC = Object.assign({ tool: 'dig', size: 50, force: 50, sym: false },
+  (() => { try { return JSON.parse(localStorage.getItem(SCULPT_KEY) || '{}'); } catch (e) { return {}; } })());
+const saveSculptPrefs = () => { try { localStorage.setItem(SCULPT_KEY, JSON.stringify(SC)); } catch (e) { /* stockage indisponible */ } };
+const SCULPT_COLORS = { dig: '#FF9F0A', add: '#30D158', smooth: '#64D2FF', flat: '#BF5AF2' };
+const sculptMM = () => +(0.3 * Math.pow(50, SC.size / 100)).toFixed(2);    // 0,3 à 15 mm
+function renderSculptControls() {
+  document.querySelectorAll('[data-stool]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.stool === SC.tool)));
+  document.querySelectorAll('[data-ssym]').forEach(b => b.setAttribute('aria-pressed', String((b.dataset.ssym === '1') === SC.sym)));
+  $('sculptSize').value = String(SC.size); $('sculptSizeOut').textContent = String(sculptMM()).replace('.', ',') + ' mm';
+  $('sculptForce').value = String(SC.force); $('sculptForceOut').textContent = SC.force + ' %';
+  if (sculpt) { brushRing.material.color.set(SCULPT_COLORS[SC.tool]); brushDot.material.color.set(SCULPT_COLORS[SC.tool]); brushDot.material.opacity = 0.18; }
+}
+function updateSculptUI() {
+  const s = sculpt;
+  const e = paintEntry(), it = e && e.it;
+  $('sculptBtn').disabled = !s && (!it || !it.data || lineup || !!it.editing);
+  $('sculptBtn').setAttribute('aria-pressed', String(!!s));
+  $('sculptTools').hidden = !s;
+  $('sculptUndo').disabled = !s || !s.S.strokes || s.down;
+  $('sculptKeep').disabled = !s || !s.S.strokes || s.down || s.saving;
+  if (!s) return;
+  const n = s.S.strokes;
+  $('sculptState').textContent = s.saving ? 'Préparation du fichier…'
+    : n ? pl(n, 'trait', 'traits') + (s.S.added > 0 ? ', ' + fmtInt(s.S.added) + ' triangles ajoutés là où la surface s\'est étirée.' : '.')
+      : 'Cliquez et glissez sur la figurine pour sculpter.';
+}
+function startSculpt() {
+  const it = shownItem();
+  if (!it || !it.data || lineup || !single || single.it !== it || it.editing || sculpt) return;
+  if (painting) setPainting(false);
+  if (cutMode) endCut();
+  if (measuring) setMeasuring(false);
+  if (sunOn) setSun(false);
+  if (placing) setPlacing(null);
+  if (rodSel) { rodSel = null; gizmo.detach(); renderRods(); }
+  let S;
+  try { S = new Sculptor(it.data.pos, it.data.idx, it.data.nrm, it.data.col); }
+  catch (err) { toast('<strong>Sculpture impossible :</strong> pas assez de mémoire pour ce modèle.'); return; }
+  const origGeo = single.mesh.geometry;
+  if (!origGeo.boundingBox) origGeo.computeBoundingBox();
+  sculpt = { it, S, origGeo, geo: null, cx: (origGeo.boundingBox.min.x + origGeo.boundingBox.max.x) / 2, ptr: null, down: false, last: null, invert: false, t: 0, saving: false };
+  setSculptGeometry();
+  gizmo.detach();
+  stage.classList.add('painting');
+  controls.mouseButtons.LEFT = -1; controls.mouseButtons.MIDDLE = THREE.MOUSE.ROTATE; controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
+  controls.touches.ONE = -1; controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE;
+  renderSculptControls(); updateSculptUI(); updateHint();
+}
+// le maillage sculpté s'affiche à la place de la figurine ; refait quand des triangles ont été ajoutés
+function setSculptGeometry() {
+  const s = sculpt, v = s.S.views();
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(v.pos, 3));
+  g.setAttribute('normal', new THREE.BufferAttribute(v.nrm, 3, true));
+  if (v.col) g.setAttribute('color', colorAttribute(v.col));
+  g.setIndex(new THREE.BufferAttribute(v.idx, 1));
+  g.computeBoundingBox(); g.computeBoundingSphere();
+  const old = s.geo;
+  if (single && single.it === s.it) single.mesh.geometry = g;
+  s.geo = g;
+  if (old) old.dispose();
+  renderer.shadowMap.needsUpdate = true;
+}
+function endSculpt(keep) {
+  const s = sculpt;
+  if (!s) return;
+  sculpt = null;
+  if (single && single.mesh.geometry === s.geo) single.mesh.geometry = s.origGeo;
+  if (s.geo) s.geo.dispose();
+  stage.classList.toggle('painting', painting);
+  brushRing.visible = false;
+  controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE; controls.mouseButtons.MIDDLE = THREE.MOUSE.DOLLY; controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
+  controls.touches.ONE = THREE.TOUCH.ROTATE; controls.touches.TWO = THREE.TOUCH.DOLLY_PAN;
+  updateBrushLook();
+  attachGizmo();
+  renderer.shadowMap.needsUpdate = true;
+  updateSculptUI(); updateHint();
+  if (keep && s.S.strokes) saveSculpted(s);
+}
+// nom du nouveau fichier : « Dragon – sculpté », puis « Dragon – sculpté 2 »…
+function sculptName(it) {
+  const root = baseName(it.name).replace(/ – sculpté( \d+)?$/, '');
+  const taken = new Set(items.map(x => baseName(x.name)));
+  let name = root + ' – sculpté', k = 2;
+  while (taken.has(name)) name = root + ' – sculpté ' + k++;
+  return name;
+}
+function saveSculpted(s) {
+  const it = s.it, v = s.S.views();
+  const off = it.orig && it.offset ? it.offset : [0, 0, 0], home = it.home || [0, 0, 0];
+  const fp = toFileCoords(v.pos, [home[0] + off[0], home[1] + off[1], home[2] + off[2]], it.scale);
+  const idx = v.idx.slice(), col = v.col ? v.col.slice() : null;
+  const name = sculptName(it);
+  toast('<strong>Préparation de la figurine sculptée…</strong>');
+  const w = new Worker('./parser.js', { type: 'module' });
+  const done = (r) => {
+    w.terminate();
+    if (!r || r.type !== 'exported') { toast('<strong>Enregistrement impossible.</strong> ' + esc((r && r.message) || 'Le calcul a échoué.')); return; }
+    addFiles([new File([r.zip], name + '.3mf', { type: 'model/3mf', lastModified: Date.now() })]);
+    toast('<strong>Figurine sculptée ajoutée à la liste :</strong> « ' + esc(name) + ' », à la taille d\'impression. Exportez-la pour la garder ; l\'original n\'a pas changé.');
+  };
+  w.onmessage = (ev) => done(ev.data);
+  w.onerror = (ev) => { ev.preventDefault(); done(null); };
+  const tr = [fp.buffer, idx.buffer];
+  if (col) tr.push(col.buffer);
+  w.postMessage({ op: 'export3mf', parts: [{ pos: fp, idx, col }], scale: 1, title: name }, tr);
+}
+function sculptDab(p) {
+  const s = sculpt, R = sculptMM() / single.mesh.scale.x, f = SC.force / 100;
+  let tool = SC.tool;
+  if (s.invert) tool = tool === 'dig' ? 'add' : tool === 'add' ? 'dig' : tool;
+  let lo = Infinity, hi = -1;
+  const apply = (x, y, z) => { const r = s.S.dab([x, y, z], R, tool, f); if (r) { if (r.lo < lo) lo = r.lo; if (r.hi > hi) hi = r.hi; } };
+  apply(p.x, p.y, p.z);
+  if (SC.sym && Math.abs(p.x - s.cx) > R * 0.5) apply(2 * s.cx - p.x, p.y, p.z);
+  if (hi < 0) return;
+  for (const name of ['position', 'normal']) { const a = s.geo.getAttribute(name); a.addUpdateRange(lo * 3, (hi - lo + 1) * 3); a.needsUpdate = true; }
+  renderer.shadowMap.needsUpdate = true;
+}
+function finishSculptStroke() {
+  const s = sculpt;
+  if (!s || !s.down) return;
+  s.down = false;
+  const r = s.S.endStroke();
+  if (r.topo) setSculptGeometry();
+  updateSculptUI();
+}
+function undoSculpt() {
+  const s = sculpt;
+  if (!s || s.down) return;
+  const r = s.S.undoStroke();
+  if (!r) return;
+  if (r.topo) setSculptGeometry();
+  else for (const name of ['position', 'normal']) { const a = s.geo.getAttribute(name); a.needsUpdate = true; }
+  renderer.shadowMap.needsUpdate = true;
+  updateSculptUI();
+}
+function nudgeSculpt(steps) {
+  SC.size = Math.min(100, Math.max(0, SC.size + steps)); saveSculptPrefs(); renderSculptControls();
+  const bub = $('sizeBubble');
+  bub.textContent = 'Pinceau ' + String(sculptMM()).replace('.', ',') + ' mm';
+  bub.classList.add('show');
+  clearTimeout(bubbleTimer); bubbleTimer = setTimeout(() => bub.classList.remove('show'), 900);
+}
+renderer.domElement.addEventListener('pointerdown', (ev) => {
+  const s = sculpt;
+  if (!s || ev.button !== 0 || s.saving || !single || single.it !== s.it) return;
+  const h = pick(ev.clientX, ev.clientY);
+  if (!h || h.mesh !== single.mesh) return;
+  renderer.domElement.setPointerCapture(ev.pointerId);
+  s.down = true; s.invert = ev.shiftKey;
+  s.S.beginStroke();
+  const p = single.mesh.worldToLocal(h.point.clone());
+  sculptDab(p);
+  s.last = p; s.t = performance.now();
+  updateSculptUI();
+});
+renderer.domElement.addEventListener('pointermove', (ev) => { if (sculpt) { sculpt.ptr = { x: ev.clientX, y: ev.clientY }; sculpt.invert = ev.shiftKey; } });
+renderer.domElement.addEventListener('pointerleave', () => { if (sculpt && !sculpt.down) { sculpt.ptr = null; brushRing.visible = false; } });
+renderer.domElement.addEventListener('pointerup', finishSculptStroke);
+renderer.domElement.addEventListener('pointercancel', finishSculptStroke);
+stage.addEventListener('wheel', (ev) => {
+  if (!sculpt || !ev.altKey) return;
+  ev.preventDefault(); ev.stopPropagation();
+  nudgeSculpt(ev.deltaY < 0 ? 3 : -3);
+}, { capture: true, passive: false });
+// à chaque image : curseur, puis touches régulières le long du trait (ou sur place, si le bouton reste appuyé)
+function sculptFrame() {
+  const s = sculpt;
+  if (!s) return;
+  if (!single || single.it !== s.it || single.mesh.geometry !== s.geo) { endSculpt(true); return; }
+  let cur = null;
+  if (s.ptr) {
+    const p = s.ptr; s.ptr = null;
+    const h = pick(p.x, p.y);
+    if (h && h.mesh === single.mesh) {
+      brushRing.visible = true;
+      brushRing.position.copy(h.point);
+      brushRing.scale.setScalar(sculptMM());
+      cur = single.mesh.worldToLocal(h.point.clone());
+    } else if (!s.down) brushRing.visible = false;
+  }
+  if (brushRing.visible) brushRing.quaternion.copy(camera.quaternion);
+  if (!s.down) return;
+  const now = performance.now(), R = sculptMM() / single.mesh.scale.x, stepL = R * 0.2;
+  if (cur) {
+    const dist = s.last.distanceTo(cur);
+    if (dist >= stepL * 0.5) {
+      const n = Math.min(48, Math.ceil(dist / stepL));
+      for (let k = 1; k <= n; k++) sculptDab(s.last.clone().lerp(cur, k / n));
+      s.last = cur; s.t = now;
+      return;
+    }
+  }
+  // bouton appuyé sans bouger : on continue au même endroit, à rythme régulier
+  if (now - s.t > 70 && SC.tool !== 'flat') { sculptDab(s.last); s.t = now; }
+}
+$('sculptBtn').addEventListener('click', () => {
+  if (!sculpt) { startSculpt(); return; }
+  if (sculpt.S.strokes) toast('Cliquez <strong>Garder la figurine sculptée</strong> pour la conserver, ou <strong>Tout annuler</strong>.');
+  else endSculpt(false);
+});
+$('sculptUndo').addEventListener('click', undoSculpt);
+$('sculptKeep').addEventListener('click', () => endSculpt(true));
+$('sculptCancel').addEventListener('click', () => endSculpt(false));
+document.querySelectorAll('[data-stool]').forEach(b => b.addEventListener('click', () => { SC.tool = b.dataset.stool; saveSculptPrefs(); renderSculptControls(); }));
+document.querySelectorAll('[data-ssym]').forEach(b => b.addEventListener('click', () => { SC.sym = b.dataset.ssym === '1'; saveSculptPrefs(); renderSculptControls(); }));
+for (const [id, key] of [['sculptSize', 'size'], ['sculptForce', 'force']]) {
+  $(id).addEventListener('input', () => { SC[key] = Number($(id).value); renderSculptControls(); });
+  $(id).addEventListener('change', saveSculptPrefs);
+}
+renderSculptControls();
 
 // ---------- Capture et vidéo ----------
 // blob : un Blob, ou une promesse de Blob (l'emplacement se choisit alors tout de suite, pendant que le fichier se prépare)
@@ -3768,7 +4201,9 @@ async function recordTurntable() {
 function updateHint() {
   const parts = [];
   if (realSize) parts.push(calibrated ? '<span class="badge"><i></i>Taille réelle</span>' : '<span class="badge warn"><i></i>Taille réelle, écran non calibré</span>');
-  if (cutMode) parts.push('<span class="badge accent"><i></i>Découpe</span><span>Faites glisser la flèche pour déplacer la coupe. Cliquez sur la face de coupe pour ajouter un tenon, sur un tenon pour l\'enlever. Échap pour annuler.</span>');
+  if (sculpt) parts.push('<span class="badge accent"><i></i>Sculpture</span><span>Clic gauche pour sculpter, Maj pour l\'effet inverse, [ et ] pour la taille. Clic molette pour tourner, clic droit pour déplacer. Ctrl+Z pour annuler un trait.</span>');
+  else if (cutMode && partMode()) parts.push('<span class="badge accent"><i></i>Découpe d\'une partie</span><span>Cliquez sur la figurine là où couper : seule la partie en bleu se détache. Face grise : couper aussi là. Tenon : clic pour l\'enlever. Échap pour annuler.</span>');
+  else if (cutMode) parts.push('<span class="badge accent"><i></i>Découpe</span><span>Faites glisser la flèche pour déplacer la coupe. Cliquez sur la face de coupe pour ajouter un tenon, sur un tenon pour l\'enlever. Échap pour annuler.</span>');
   else if (lineup && asm) parts.push('<span class="badge accent"><i></i>Assemblage</span><span>Cliquez une pièce, puis faites-la glisser avec les flèches ou tournez-la. « Écarter » sépare les pièces.</span>');
   else if (placing === 'face') parts.push('<span class="badge accent"><i></i>Orientation</span><span>Cliquez sur la face qui doit toucher le sol. Échap pour annuler.</span>');
   else if (placing) parts.push('<span class="badge accent"><i></i>Tige</span><span>Cliquez sur la figurine à l\'endroit où placer la tige. Échap pour annuler.</span>');
@@ -4005,6 +4440,7 @@ function setTitle(name) {
 
 function disposeSingle() {
   if (cutMode) endCut();
+  if (sculpt) endSculpt(true);
   if (!single) return;
   tweens.delete('scale');
   disposeModelMesh(single.mesh);
@@ -4325,6 +4761,7 @@ document.addEventListener('keydown', (e) => {
     if (goUp()) e.preventDefault();
     return;
   }
+  if (sculpt && e.key === 'Escape') { if (sculpt.S.strokes) toast('Cliquez <strong>Garder la figurine sculptée</strong> pour la conserver, ou <strong>Tout annuler</strong>.'); else endSculpt(false); return; }
   if (e.key === 'Escape') {
     if (placing) { setPlacing(null); updateRotUI(); return; }
     if (rodSel) { const it = rodSel.it; rodSel = null; refreshRods(it); return; }
@@ -4334,6 +4771,8 @@ document.addEventListener('keydown', (e) => {
     if (painting) { setPainting(false); return; }
     closeHelp(); return;
   }
+  if (sculpt && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undoSculpt(); return; }
+  if (sculpt && !e.ctrlKey && !e.metaKey && (e.key === '[' || e.key === ']')) { e.preventDefault(); nudgeSculpt(e.key === ']' ? 4 : -4); return; }
   if (painting && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undoPaint(); return; }
   if (painting && !e.ctrlKey && !e.metaKey && (e.key === '[' || e.key === ']')) { e.preventDefault(); nudgeBrush(e.key === ']' ? 4 : -4); return; }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') { e.preventDefault(); if (e.shiftKey) pickFolder(); else pickFiles(); return; }
@@ -5111,6 +5550,7 @@ renderer.setAnimationLoop(() => {
   updateLightRig();
   updateSun();
   paintFrame();
+  sculptFrame();
   cutFrame();
   refreshShadows();
   renderer.render(scene, camera);

@@ -104,7 +104,7 @@ function planeCut(pos, idx, n, c, col, keep) {
     return chain(seg);
   };
   const la = loopsOf(edges[0]), lb = loopsOf(edges[1]);
-  return { V, P, C, triA, triB, loopsA: la.loops, loopsB: lb.loops, open: la.open + lb.open, inv,
+  return { V, P, C, triA, triB, loopsA: la.loops, loopsB: lb.loops, open: la.open + lb.open, inv, side, at,
     all: (i) => (i < V ? [pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]] : [P[(i - V) * 3], P[(i - V) * 3 + 1], P[(i - V) * 3 + 2]]) };
 }
 
@@ -182,6 +182,168 @@ export function section(pos, idx, n, c) {
   const k = planeCut(pos, idx, n, c, null, false);
   const P2 = k.loopsA.map(l => { const F = new Float64Array(l.length * 2); l.forEach((id, i) => { const p = k.all(id); F[i * 2] = dot(p, u); F[i * 2 + 1] = dot(p, v); }); return F; });
   return { n, c, u, v, loops: P2, islands: islandsOf(P2), open: k.open };
+}
+
+// Îlot de la coupe sous un point du plan (u, v) : celui qui le contient, sinon celui dont le bord est le plus proche
+// (un point cliqué sur la surface de la figurine tombe juste sur le bord d'un îlot)
+export function islandAt(sec, x, y) {
+  for (let k = 0; k < sec.islands.length; k++) {
+    const isl = sec.islands[k];
+    if (!pointInPoly(x, y, sec.loops[isl.outer])) continue;
+    if (isl.holes.some(h => pointInPoly(x, y, sec.loops[h]))) continue;
+    return k;
+  }
+  let best = -1, bd = Infinity;
+  sec.islands.forEach((isl, k) => {
+    for (const l of [isl.outer, ...isl.holes]) { const d = edgeDist(x, y, sec.loops[l]); if (d < bd) { bd = d; best = k; } }
+  });
+  return best;
+}
+
+// Ensembles de sommets reliés (union-find)
+function makeUF(n) {
+  const p = new Int32Array(n);
+  for (let i = 0; i < n; i++) p[i] = i;
+  const find = (x) => { while (p[x] !== x) { p[x] = p[p[x]]; x = p[x]; } return x; };
+  const union = (a, b) => { a = find(a); b = find(b); if (a !== b) { if (a < b) p[b] = a; else p[a] = b; } };
+  return { find, union };
+}
+// Sommets d'origine posés exactement au même endroit (coutures du fichier) : pour chacun, le premier de sa position
+function samePos(pos, V) {
+  const f = pos instanceof Float32Array ? pos : Float32Array.from(pos.subarray(0, V * 3));
+  const bits = new Uint32Array(f.buffer, f.byteOffset, V * 3);
+  let cap = 1; while (cap < V * 2) cap <<= 1;
+  const mask = cap - 1, table = new Int32Array(cap).fill(-1), canon = new Int32Array(V);
+  for (let i = 0; i < V; i++) {
+    const a = bits[i * 3], b = bits[i * 3 + 1], c = bits[i * 3 + 2];
+    let h = (Math.imul(a, 73856093) ^ Math.imul(b, 19349663) ^ Math.imul(c, 83492791)) & mask;
+    for (;;) {
+      const e = table[h];
+      if (e < 0) { table[h] = i; canon[i] = i; break; }
+      if (bits[e * 3] === a && bits[e * 3 + 1] === b && bits[e * 3 + 2] === c) { canon[i] = e; break; }
+      h = (h + 1) & mask;
+    }
+  }
+  return canon;
+}
+
+// ---------- Coupe locale ----------
+// Seuls les îlots choisis (picks : points (u, v) du plan) séparent la figurine : ailleurs, le plan ne coupe rien.
+// Aperçu sur le maillage d'origine : pour chaque triangle, 1 s'il part avec la pièce détachée.
+// La pièce détachée est le plus petit des deux côtés (side : 1 du côté de la normale, -1 de l'autre).
+// attached : la partie tient encore au reste ailleurs (une main posée sur la tête, un bras qui rejoint le corps…).
+export function localPieces(pos, idx, n, c, picks) {
+  const k = planeCut(pos, idx, n, c, null, false);
+  const { u, v } = planeBasis(n);
+  const P2 = k.loopsA.map(l => { const F = new Float64Array(l.length * 2); l.forEach((id, i) => { const p = k.all(id); F[i * 2] = dot(p, u); F[i * 2 + 1] = dot(p, v); }); return F; });
+  const sec = { loops: P2, islands: islandsOf(P2) };
+  const chosen = new Set();
+  for (const [x, y] of picks) { const i = islandAt(sec, x, y); if (i >= 0) chosen.add(i); }
+  const sel = new Set();
+  for (const i of chosen) { const isl = sec.islands[i]; for (const l of [isl.outer, ...isl.holes]) for (const id of k.loopsA[l]) sel.add(id); }
+  const V = k.V, T = idx.length / 3, side = k.side, at = k.at;
+  const cutV = new Uint8Array(V);
+  for (const id of sel) if (id < V) cutV[id] = 1;
+  const uf = makeUF(V);
+  const canon = samePos(pos, V);
+  for (let i = 0; i < V; i++) {
+    const j = canon[i];
+    if (j === i) continue;
+    if (cutV[i] || cutV[j]) cutV[i] = cutV[j] = 1; else uf.union(i, j);
+  }
+  const band = new Uint8Array(T);
+  const seedA = [], seedB = [];
+  const seed = (x) => { if (cutV[x]) return; if (side[x] > 0) seedA.push(x); else if (side[x] < 0) seedB.push(x); };
+  for (let t = 0; t < T; t++) {
+    const a = idx[t * 3], b = idx[t * 3 + 1], e = idx[t * 3 + 2];
+    const sa = side[a], sb = side[b], se = side[e];
+    if ((sa > 0 || sb > 0 || se > 0) && (sa < 0 || sb < 0 || se < 0)) {
+      // triangle traversé par le plan : son segment de coupe est-il sur un contour choisi ?
+      let hit = false;
+      for (const [i, j] of [[a, b], [b, e], [e, a]]) {
+        if (side[i] * side[j] < 0) { const id = at.get(i < j ? i * V + j : j * V + i); if (id !== undefined && sel.has(id)) { hit = true; break; } }
+        else if (side[i] === 0 && cutV[i]) { hit = true; break; }
+      }
+      if (hit) { band[t] = 1; seed(a); seed(b); seed(e); continue; }
+    }
+    const ca = cutV[a], cb = cutV[b], ce = cutV[e];
+    if (ca || cb || ce) { seed(a); seed(b); seed(e); }
+    if (!ca && !cb) uf.union(a, b);
+    if (!cb && !ce) uf.union(b, e);
+    if (!ca && !ce) uf.union(a, e);
+  }
+  const rootsA = new Set(seedA.map(uf.find)), rootsB = new Set(seedB.map(uf.find));
+  let attached = !rootsA.size || !rootsB.size;
+  for (const r of rootsA) if (rootsB.has(r)) { attached = true; break; }
+  const mask = new Uint8Array(T);
+  if (attached) return { mask, attached: !!chosen.size, chosen: [...chosen], count: 0, side: 1, sec };
+  // les deux côtés : on détache le plus petit
+  let na = 0, nb = 0;
+  const rootOf = (t) => { const a = idx[t * 3], b = idx[t * 3 + 1], e = idx[t * 3 + 2]; return uf.find(!cutV[a] ? a : !cutV[b] ? b : e); };
+  for (let t = 0; t < T; t++) { if (band[t]) continue; const r = rootOf(t); if (rootsA.has(r)) na++; else if (rootsB.has(r)) nb++; }
+  const sd = na <= nb ? 1 : -1, roots = sd > 0 ? rootsA : rootsB;
+  let count = 0;
+  for (let t = 0; t < T; t++) if (band[t] || roots.has(rootOf(t))) { mask[t] = 1; count++; }
+  return { mask, attached: false, chosen: [...chosen], count, side: sd, sec };
+}
+
+// Quand la partie choisie tient encore au reste : les autres îlots du même plan par lesquels elle rejoint le reste.
+// On coupe partout, on regarde de chaque côté la région reliée aux îlots choisis, et on garde le côté le plus petit.
+// Renvoie des points (u, v), un par îlot à ajouter (vide si rien ne la détache).
+export function completePicks(pos, idx, n, c, picks) {
+  const k = planeCut(pos, idx, n, c, null, false);
+  const { u, v } = planeBasis(n);
+  const P2 = k.loopsA.map(l => { const F = new Float64Array(l.length * 2); l.forEach((id, i) => { const p = k.all(id); F[i * 2] = dot(p, u); F[i * 2 + 1] = dot(p, v); }); return F; });
+  const sec = { loops: P2, islands: islandsOf(P2) };
+  const chosen = new Set();
+  for (const [x, y] of picks) { const i = islandAt(sec, x, y); if (i >= 0) chosen.add(i); }
+  if (!chosen.size) return [];
+  const loopIsl = new Int32Array(P2.length).fill(-1);
+  sec.islands.forEach((isl, i) => { loopIsl[isl.outer] = i; for (const h of isl.holes) loopIsl[h] = i; });
+  const ptIsl = new Map();
+  k.loopsA.forEach((l, li) => { const isl = loopIsl[li]; if (isl >= 0) for (const id of l) ptIsl.set(id, isl); });
+  const V = k.V, T = idx.length / 3, side = k.side, at = k.at;
+  const cutV = new Uint8Array(V);
+  for (const id of ptIsl.keys()) if (id < V) cutV[id] = 1;
+  const uf = makeUF(V), canon = samePos(pos, V);
+  for (let i = 0; i < V; i++) { const j = canon[i]; if (j !== i && !cutV[i] && !cutV[j]) uf.union(i, j); }
+  const NI = sec.islands.length, seedA = Array.from({ length: NI }, () => []), seedB = Array.from({ length: NI }, () => []);
+  const seed = (x, isl) => { if (cutV[x] || isl < 0) return; if (side[x] > 0) seedA[isl].push(x); else if (side[x] < 0) seedB[isl].push(x); };
+  const band = new Uint8Array(T);
+  for (let t = 0; t < T; t++) {
+    const a = idx[t * 3], b = idx[t * 3 + 1], e = idx[t * 3 + 2];
+    const sa = side[a], sb = side[b], se = side[e];
+    if ((sa > 0 || sb > 0 || se > 0) && (sa < 0 || sb < 0 || se < 0)) {
+      let isl = -1;
+      for (const [i, j] of [[a, b], [b, e], [e, a]]) {
+        if (side[i] * side[j] < 0) { const id = at.get(i < j ? i * V + j : j * V + i); if (id !== undefined && ptIsl.has(id)) { isl = ptIsl.get(id); break; } }
+        else if (side[i] === 0 && ptIsl.has(i)) { isl = ptIsl.get(i); break; }
+      }
+      if (isl >= 0) { band[t] = 1; seed(a, isl); seed(b, isl); seed(e, isl); continue; }
+    }
+    for (const x of [a, b, e]) if (cutV[x]) { const isl = ptIsl.get(x); seed(a, isl); seed(b, isl); seed(e, isl); break; }
+    if (!cutV[a] && !cutV[b]) uf.union(a, b);
+    if (!cutV[b] && !cutV[e]) uf.union(b, e);
+    if (!cutV[a] && !cutV[e]) uf.union(a, e);
+  }
+  const rA = new Set(), rB = new Set();
+  for (const i of chosen) { for (const x of seedA[i]) rA.add(uf.find(x)); for (const x of seedB[i]) rB.add(uf.find(x)); }
+  const addA = [], addB = [];
+  for (let i = 0; i < NI; i++) {
+    if (chosen.has(i)) continue;
+    if (seedA[i].some(x => rA.has(uf.find(x)))) addA.push(i);
+    if (seedB[i].some(x => rB.has(uf.find(x)))) addB.push(i);
+  }
+  let na = 0, nb = 0;
+  for (let t = 0; t < T; t++) {
+    if (band[t]) continue;
+    const a = idx[t * 3], b = idx[t * 3 + 1], e = idx[t * 3 + 2];
+    const r = uf.find(!cutV[a] ? a : !cutV[b] ? b : e);
+    if (rA.has(r)) na++; else if (rB.has(r)) nb++;
+  }
+  const add = na <= nb ? addA : addB;
+  // un point de chaque îlot : le premier point de son contour extérieur
+  return add.map(i => { const L = P2[sec.islands[i].outer]; return [L[0], L[1]]; });
 }
 
 // Étendue du modèle le long d'une direction (pour le curseur de position du plan)
@@ -317,7 +479,8 @@ export function splitMesh(src, plane, conns, opt, ShapeUtils) {
   const { V, P, C, triA, triB, inv } = k0;
   const loops = k0.loopsA, loopsB = k0.loopsB, open = k0.open;
   const T = idx.length / 3;
-  if (open) warn.push('open');
+  const local = Array.isArray(opt.picks) && opt.picks.length > 0;
+  if (open && !local) warn.push('open');
   // sommets ajoutés après ceux du modèle et les points de coupe : ceux des tenons
   const newV = (x, y, z, rgb) => { P.push(x, y, z); if (col) C.push(rgb ? rgb[0] : 255, rgb ? rgb[1] : 255, rgb ? rgb[2] : 255); return V + P.length / 3 - 1; };
   const all = (i) => (i < V ? [pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]] : [P[(i - V) * 3], P[(i - V) * 3 + 1], P[(i - V) * 3 + 2]]);
@@ -327,6 +490,13 @@ export function splitMesh(src, plane, conns, opt, ShapeUtils) {
   const L2 = to2F(loops), L2B = to2F(loopsB);
   const islands = islandsOf(L2), islandsB = islandsOf(L2B);
   const sec = { loops: L2, islands }, secB = { loops: L2B, islands: islandsB };
+  // coupe locale : les îlots choisis, de chaque côté
+  let selA = null, selB = null;
+  if (local) {
+    selA = new Set(); selB = new Set();
+    for (const [x, y] of opt.picks) { const a = islandAt(sec, x, y), b = islandAt(secB, x, y); if (a >= 0) selA.add(a); if (b >= 0) selB.add(b); }
+    if (!selA.size || !selB.size) return { parts: [], warn: ['nopick'], placed: 0, asked: 0, open, islands: islands.length };
+  }
 
   // tenons retenus : dans un îlot, assez loin des bords, assez de matière derrière
   const kind = opt.kind || 'none';
@@ -352,6 +522,7 @@ export function splitMesh(src, plane, conns, opt, ShapeUtils) {
     for (const [x, y] of conns) {
       const k = connectorIsland(sec, x, y, chk);
       if (k < 0) { warn.push('edge'); continue; }
+      if (local && !selA.has(k)) continue;
       // matière disponible de chaque côté (rayons au centre et au bord du trou)
       const ring = profile('round', reach(opt.shape, rh) * 0.95);
       const probe = [[0, 0], ...ring.filter((_, i) => i % Math.max(1, Math.floor(ring.length / 6)) === 0)];
@@ -376,12 +547,36 @@ export function splitMesh(src, plane, conns, opt, ShapeUtils) {
     }
   }
 
+  // coupe locale : les points des contours choisis sont doublés côté B, puis chaque triangle rejoint
+  // la pièce de son côté s'il y est relié ; tout le reste (îlots non choisis, autres morceaux) reste d'un bloc
+  let partA = triA, partB = triB, dup = null;
+  if (local) {
+    dup = new Map();
+    const colorOf = (id) => (!col ? null : id < V ? [col[id * 3], col[id * 3 + 1], col[id * 3 + 2]] : [C[(id - V) * 3], C[(id - V) * 3 + 1], C[(id - V) * 3 + 2]]);
+    for (const ki of selA) {
+      const isl = islands[ki];
+      for (const l of [isl.outer, ...isl.holes]) for (const id of loops[l]) if (!dup.has(id)) { const p3 = all(id); dup.set(id, newV(p3[0], p3[1], p3[2], colorOf(id))); }
+    }
+    for (let i = 0; i < triB.length; i++) { const d = dup.get(triB[i]); if (d !== undefined) triB[i] = d; }
+    const NV = V + P.length / 3;
+    const uf = makeUF(NV);
+    for (const tri of [triA, triB]) for (let i = 0; i < tri.length; i += 3) { uf.union(tri[i], tri[i + 1]); uf.union(tri[i], tri[i + 2]); }
+    const canon = samePos(pos, V);
+    for (let i = 0; i < V; i++) { const j = canon[i]; if (j !== i && !dup.has(i) && !dup.has(j)) uf.union(i, j); }
+    const rootsA = new Set(), rootsB = new Set();
+    for (const [id, d] of dup) { rootsA.add(uf.find(id)); rootsB.add(uf.find(d)); }
+    for (const rt of rootsA) if (rootsB.has(rt)) return { parts: [], warn: ['attached'], placed: 0, asked: 0, open, islands: islands.length };
+    partA = []; partB = [];
+    for (const tri of [triA, triB]) for (let i = 0; i < tri.length; i += 3) (rootsA.has(uf.find(tri[i])) ? partA : partB).push(tri[i], tri[i + 1], tri[i + 2]);
+  }
+
   // pièces : triangles, puis faces de coupe et tenons
   const flip = !!opt.flip;
   const pegOn = kind === 'peg' ? (flip ? 'A' : 'B') : null;
   const build = (side) => {
-    const tri = side === 'A' ? triA : triB;
-    const out = tri.slice();
+    const out = (side === 'A' ? partA : partB).slice();
+    const only = side === 'A' ? selA : selB;
+    const R = side === 'B' && dup ? (id) => { const d = dup.get(id); return d === undefined ? id : d; } : (id) => id;
     const sgn = side === 'A' ? 1 : -1;              // la pièce A s'étend vers +n
     const capN = side === 'A' ? [-n[0], -n[1], -n[2]] : n;   // la face de coupe regarde vers l'autre pièce
     const face = (a, b, e, want) => {
@@ -430,7 +625,8 @@ export function splitMesh(src, plane, conns, opt, ShapeUtils) {
     // faces de coupe : chaque îlot avec ses trous (ceux du modèle et ceux des tenons)
     const LS = side === 'A' ? loops : loopsB, LF = side === 'A' ? L2 : L2B;
     (side === 'A' ? islands : islandsB).forEach((isl, ki) => {
-      const contour = LS[isl.outer], holes = isl.holes.map(h => LS[h]);
+      if (only && !only.has(ki)) return;
+      const contour = LS[isl.outer].map(R), holes = isl.holes.map(h => LS[h].map(R));
       const conn = holesByIsland.get(ki) || [];
       const toV2 = (F) => { const out2 = []; for (let i = 0; i < F.length; i += 2) out2.push(new Pt(F[i], F[i + 1])); return out2; };
       const cpts = toV2(LF[isl.outer]);
