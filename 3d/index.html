@@ -797,7 +797,7 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
         </div>
         <p class="split-state" id="sculptState"></p>
         <div class="row-btns"><button class="btn primary" id="sculptKeep" type="button" disabled>Garder la figurine sculptée</button><button class="btn plain" id="sculptCancel" type="button">Tout annuler</button></div>
-        <p class="foot">Clic gauche maintenu pour sculpter, Maj pour l'effet inverse (creuser ↔ ajouter). « Symétrique » fait la même chose de l'autre côté de la figurine. Restez appuyé au même endroit pour creuser plus profond. Taille : touches [ et ]. Clic molette pour tourner, clic droit pour déplacer la vue. Ctrl+Z pour annuler un trait.</p>
+        <p class="foot">Clic gauche maintenu pour sculpter, Maj pour l'effet inverse (creuser ↔ ajouter). « Symétrique » fait la même chose de l'autre côté de la figurine. Restez appuyé au même endroit pour creuser plus profond. Taille : touches [ et ]. Le clic gauche ne bouge jamais la figurine : clic molette maintenu pour tourner autour, clic droit pour la déplacer. Ctrl+Z pour annuler un trait.</p>
       </div>
       <p class="foot" id="sculptNote">Creusez un logement pour qu'une pièce s'emboîte, ajoutez de la matière, lissez une bosse ou aplatissez une surface, au pinceau. Là où la surface s'étire, les triangles se resserrent tout seuls. La figurine sculptée s'ajoute à la liste comme un nouveau fichier, prête à exporter ou à découper ; l'original ne change pas.</p>
     </section>
@@ -1041,8 +1041,18 @@ function makeControls(cam, prevTarget) {
   c.enableZoom = !realSize;           // en taille réelle, le zoom est fixé par le calibrage
   if (prevTarget) c.target.copy(prevTarget);
   c.addEventListener('start', () => tweens.delete('cam'));   // la main reprend la caméra
-  if (painting) { c.mouseButtons.LEFT = -1; c.mouseButtons.MIDDLE = THREE.MOUSE.ROTATE; c.mouseButtons.RIGHT = THREE.MOUSE.PAN; c.touches.ONE = -1; c.touches.TWO = THREE.TOUCH.DOLLY_ROTATE; }
+  setViewButtons(c);
   return c;
+}
+// En peinture et en sculpture, le clic gauche est réservé à l'outil et ne bouge jamais la vue :
+// clic molette pour tourner, clic droit (ou Maj + clic molette) pour déplacer, deux doigts sur écran tactile.
+function setViewButtons(c = controls) {
+  const tool = painting || !!sculpt;
+  c.mouseButtons.LEFT = tool ? -1 : THREE.MOUSE.ROTATE;
+  c.mouseButtons.MIDDLE = tool ? THREE.MOUSE.ROTATE : THREE.MOUSE.DOLLY;
+  c.mouseButtons.RIGHT = THREE.MOUSE.PAN;
+  c.touches.ONE = tool ? -1 : THREE.TOUCH.ROTATE;
+  c.touches.TWO = tool ? THREE.TOUCH.DOLLY_ROTATE : THREE.TOUCH.DOLLY_PAN;
 }
 
 // Éclairage de studio neutre
@@ -1507,12 +1517,7 @@ function setPainting(on) {
     if (!showPaint()) { primer = 'resin'; metal = 'none'; applyPrimer(); }
     ensureColors(e.it);
   } else { brushRing.visible = false; stroke = null; attachGizmo(); }
-  // la vue : clic gauche pour peindre, clic droit pour tourner
-  controls.mouseButtons.LEFT = on ? -1 : THREE.MOUSE.ROTATE;
-  controls.mouseButtons.MIDDLE = on ? THREE.MOUSE.ROTATE : THREE.MOUSE.DOLLY;
-  controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
-  controls.touches.ONE = on ? -1 : THREE.TOUCH.ROTATE;
-  controls.touches.TWO = on ? THREE.TOUCH.DOLLY_ROTATE : THREE.TOUCH.DOLLY_PAN;
+  setViewButtons();
   updatePaintUI(); updateHint();
 }
 $('paintBtn').addEventListener('click', () => setPainting(!painting));
@@ -3934,8 +3939,7 @@ function startSculpt() {
   setSculptGeometry();
   gizmo.detach();
   stage.classList.add('painting');
-  controls.mouseButtons.LEFT = -1; controls.mouseButtons.MIDDLE = THREE.MOUSE.ROTATE; controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
-  controls.touches.ONE = -1; controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE;
+  setViewButtons();
   renderSculptControls(); updateSculptUI(); updateHint();
 }
 // le maillage sculpté s'affiche à la place de la figurine ; refait quand des triangles ont été ajoutés
@@ -3961,8 +3965,7 @@ function endSculpt(keep) {
   if (s.geo) s.geo.dispose();
   stage.classList.toggle('painting', painting);
   brushRing.visible = false;
-  controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE; controls.mouseButtons.MIDDLE = THREE.MOUSE.DOLLY; controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
-  controls.touches.ONE = THREE.TOUCH.ROTATE; controls.touches.TWO = THREE.TOUCH.DOLLY_PAN;
+  setViewButtons();
   updateBrushLook();
   attachGizmo();
   renderer.shadowMap.needsUpdate = true;
@@ -4201,14 +4204,15 @@ async function recordTurntable() {
 function updateHint() {
   const parts = [];
   if (realSize) parts.push(calibrated ? '<span class="badge"><i></i>Taille réelle</span>' : '<span class="badge warn"><i></i>Taille réelle, écran non calibré</span>');
-  if (sculpt) parts.push('<span class="badge accent"><i></i>Sculpture</span><span>Clic gauche pour sculpter, Maj pour l\'effet inverse, [ et ] pour la taille. Clic molette pour tourner, clic droit pour déplacer. Ctrl+Z pour annuler un trait.</span>');
+  const viewHelp = 'Clic molette maintenu pour tourner autour de la figurine, clic droit (ou Maj + clic molette) pour la déplacer' + (realSize ? '' : ', molette pour zoomer') + '.';
+  if (sculpt) parts.push('<span class="badge accent"><i></i>Sculpture</span><span>Clic gauche pour sculpter, Maj + clic gauche pour l\'effet inverse, [ et ] pour la taille. ' + viewHelp + ' Ctrl+Z pour annuler un trait.</span>');
   else if (cutMode && partMode()) parts.push('<span class="badge accent"><i></i>Découpe d\'une partie</span><span>Cliquez sur la figurine là où couper : seule la partie en bleu se détache. Face grise : couper aussi là. Tenon : clic pour l\'enlever. Échap pour annuler.</span>');
   else if (cutMode) parts.push('<span class="badge accent"><i></i>Découpe</span><span>Faites glisser la flèche pour déplacer la coupe. Cliquez sur la face de coupe pour ajouter un tenon, sur un tenon pour l\'enlever. Échap pour annuler.</span>');
   else if (lineup && asm) parts.push('<span class="badge accent"><i></i>Assemblage</span><span>Cliquez une pièce, puis faites-la glisser avec les flèches ou tournez-la. « Écarter » sépare les pièces.</span>');
   else if (placing === 'face') parts.push('<span class="badge accent"><i></i>Orientation</span><span>Cliquez sur la face qui doit toucher le sol. Échap pour annuler.</span>');
   else if (placing) parts.push('<span class="badge accent"><i></i>Tige</span><span>Cliquez sur la figurine à l\'endroit où placer la tige. Échap pour annuler.</span>');
   else if (measuring) parts.push('<span class="badge accent"><i></i>Mesure</span><span>Cliquez deux points sur le modèle. Échap pour effacer.</span>');
-  else if (painting) parts.push(paintTool === 'picker' ? '<span class="badge accent"><i></i>Pipette</span><span>Cliquez sur la figurine pour reprendre sa couleur.</span>' : '<span class="badge accent"><i></i>' + (paintTool === 'eraser' ? 'Gomme' : paintTool === 'airbrush' ? 'Aérographe' : 'Peinture') + '</span><span>Clic gauche pour peindre, [ et ] pour la taille. Clic molette maintenu pour tourner autour de la figurine, clic droit (ou Maj + clic molette) pour la déplacer, molette pour zoomer. Ctrl+Z pour annuler.</span>');
+  else if (painting) parts.push(paintTool === 'picker' ? '<span class="badge accent"><i></i>Pipette</span><span>Cliquez sur la figurine pour reprendre sa couleur.</span>' : '<span class="badge accent"><i></i>' + (paintTool === 'eraser' ? 'Gomme' : paintTool === 'airbrush' ? 'Aérographe' : 'Peinture') + '</span><span>Clic gauche pour peindre, [ et ] pour la taille. ' + viewHelp + ' Ctrl+Z pour annuler.</span>');
   else if (sunOn) parts.push('<span class="badge accent"><i></i>Soleil</span><span>Faites glisser la boule jaune pour choisir d\'où vient la lumière. Échap pour la ranger.</span>');
   else parts.push(realSize ? '<span>Faites glisser pour tourner, clic droit pour déplacer.</span>' : '<span>Faites glisser pour tourner, molette pour zoomer, clic droit pour déplacer.</span>');
   if (lineup && !asm) parts.push('<span>Cliquez une étiquette pour afficher ses informations.</span>');
