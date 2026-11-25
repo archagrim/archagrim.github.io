@@ -29,6 +29,9 @@ Chaque nouveau site peut avoir son propre dossier ici et sera publié à `https:
 
 ## Atelier 3D
 
+- **Interface (verre liquide)** : une barre d'outils et trois plaques de verre posées sur un fond « aurore » aux couleurs de la lumière UV des imprimantes résine. À gauche les fichiers ouverts, au centre le studio 3D (les vues Face, Côté, Dos, Dessus en haut à droite, les outils dans une capsule en bas), à droite l'inspecteur. Les deux volets se replient en rail : **Ctrl + B** pour les fichiers (vignettes seules), **Ctrl + I** pour l'inspecteur (icônes des onglets), **Ctrl + .** pour les deux ; l'état est gardé (`localStorage`, clé `atelier3d.ui`).
+- **Inspecteur dans l'ordre du travail** : en-tête avec le modèle affiché (vignette, format, état du maillage, hauteur et échelle), puis six onglets : **Aperçu** (dimensions, contrôle du maillage, fichier), **Taille** (échelle, calibrage de la taille réelle), **Modelage** (sculpter, découper en pièces), **Impression** (orientation, couper le socle, ajouter un socle, tiges de résine), **Peinture** (pinceau, sous-couche et lumière), **Export** (STL ou 3MF pour l'imprimante, image et vidéo). Chaque section est une carte repliable (son résumé reste affiché une fois repliée) ; le bouton (i) montre son aide. Ouvrir un outil (peindre, sculpter, découper, régler une tige) amène son onglet et sa carte au premier plan.
+- **Mouvement** : entrée orchestrée, titre de l'accueil mot par mot, rayon UV qui « durcit » le cube couche après couche, goutte de verre qui glisse sous le choix des contrôles segmentés et des onglets, reflet qui suit la souris sur le verre, cartes qui se déplient. L'aurore ne bouge que sur les écrans d'accueil (derrière les volets elle reste immobile pour ménager la carte graphique) ; tout s'arrête si Windows demande moins d'animations.
 - **Installer sur le PC** : ouvre https://archagrim.github.io/3d/ dans Chrome ou Edge → bouton **Installer** en haut à droite (ou icône d'installation dans la barre d'adresse).
 - Une fois installée, sélectionne un ou plusieurs `.3mf`/`.stl` dans l'Explorateur → clic droit → **Ouvrir avec** → **Atelier 3D**. Glisser-déposer et **Ctrl + O** marchent aussi.
 - Jusqu'à **60 fichiers** ouverts à la fois, lus en parallèle, avec une liste de vignettes ; flèches du clavier pour passer de l'un à l'autre. Chaque fichier garde sa propre échelle. Les gros modèles les moins récemment vus sont mis en veille pour ne pas saturer la mémoire et relus à la demande.
@@ -53,6 +56,8 @@ Chaque nouveau site peut avoir son propre dossier ici et sera publié à `https:
 - `3d/parser.js` lit les fichiers en arrière-plan (3MF en flux, avec composants, transformations, unités et couleurs ; STL binaire et texte) ; `3d/formats.js` lit les autres formats sans bibliothèque : OBJ, PLY (texte et binaire), OFF, GLB et GLTF (sans compression Draco ni meshopt), FBX (binaire et texte, unité du fichier), DAE (Collada, axe et unité), 3DS, AMF (compressé ou non), VRML (.wrl) et X3D. Export en STL et en 3MF.
 - `3d/lib/` contient three.js 0.160.0 et fflate, pour que l'app marche hors ligne.
 - Mode **Taille réelle 1:1** : calibrage avec une carte bancaire, mémorisé dans le navigateur.
+
+- **Bibliothèque, dossiers imbriqués** : dans l'arborescence de gauche (repliable avec **Ctrl + B**), un dossier ouvert garde son en-tête collé en haut pendant qu'on descend dans son contenu, et ses sous-dossiers ouverts se collent juste dessous : on voit toujours où l'on est. Dans la grille, l'en-tête (fil d'Ariane) et le nom du dossier relié restent aussi en haut, et un dossier qu'on déroule vient se placer juste dessous, sans avoir à descendre.
 
 ## Atelier 3D pour Windows (`desktop/`)
 
