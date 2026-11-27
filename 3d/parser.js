@@ -1340,7 +1340,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScop
           const bytes = p.col ? write3MF([{ pos: fp, idx: p.idx, col: p.col }], 1, d.titles[k]) : writeSTL(fp, p.idx, d.titles[k]);
           return { bytes, ext: p.col ? '3mf' : 'stl', tris: p.idx.length / 3 };
         });
-        self.postMessage({ type: 'split', files, warn: r.warn, placed: r.placed, asked: r.asked, open: r.open }, files.map(f => f.bytes.buffer));
+        self.postMessage({ type: 'split', files, warn: r.warn, placed: r.placed, asked: r.asked, open: r.open, slit: !!r.slit }, files.map(f => f.bytes.buffer));
       } catch (err) {
         self.postMessage({ type: 'error', message: String(err && err.message || err) });
       }

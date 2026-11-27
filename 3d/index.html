@@ -407,6 +407,12 @@ h3.sub{margin:18px 0 8px;font-size:11.5px;font-weight:650;color:var(--ink-2);let
   -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);pointer-events:none;opacity:0;transition:opacity .25s;z-index:5}
 .size-bubble.show{opacity:1}
 .stage.painting canvas{cursor:crosshair}
+.snip{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:3;overflow:visible}
+.snip line{stroke:var(--accent);stroke-width:2.2;stroke-dasharray:8 6;stroke-linecap:round;filter:drop-shadow(0 0 4px color-mix(in srgb,var(--accent) 55%,transparent))}
+.snip circle{fill:#fff;stroke:var(--accent);stroke-width:2.2}
+.snip.fade{opacity:0;transition:opacity .45s .35s}
+.stage.scissors canvas,.stage.scissors canvas:active{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg stroke='%23fff' stroke-width='4'%3E%3Ccircle cx='6' cy='6' r='3'/%3E%3Ccircle cx='6' cy='18' r='3'/%3E%3Cpath d='M8.1 8.1 12 12M20 4 8.1 15.9M14.8 14.8 20 20'/%3E%3C/g%3E%3Cg stroke='%231d1d1f' stroke-width='1.8'%3E%3Ccircle cx='6' cy='6' r='3'/%3E%3Ccircle cx='6' cy='18' r='3'/%3E%3Cpath d='M8.1 8.1 12 12M20 4 8.1 15.9M14.8 14.8 20 20'/%3E%3C/g%3E%3C/svg%3E") 14 14,crosshair}
+
 
 /* replié : un rail d'onglets */
 body.insp-min .insp-head{justify-content:center;padding:10px 0 6px}
@@ -637,10 +643,12 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
   .model.swap{animation:swap .45s var(--ease) both}
   .tabs button .tdot{animation:pop .4s var(--ease) both}
   .card.flash{animation:flash 1.1s var(--ease)}
+  .snip:not([hidden]) line{animation:ants .7s linear infinite}
 }
 @keyframes aurora{0%{transform:translate3d(0,0,0) rotate(0)}50%{transform:translate3d(3%,-2.5%,0) rotate(6deg)}100%{transform:translate3d(-2.5%,2%,0) rotate(-5deg)}}
 @keyframes cure{0%{transform:translateY(0);opacity:0}12%{opacity:1}88%{opacity:1}100%{transform:translateY(-46px);opacity:0}}
 @keyframes draw{to{stroke-dashoffset:0}}
+@keyframes ants{to{stroke-dashoffset:-14}}
 @keyframes wordIn{from{transform:translateY(105%) rotate(4deg)}to{transform:none}}
 @keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
 @keyframes fade{from{opacity:0}to{opacity:1}}
@@ -943,9 +951,9 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
       <div id="splitTools" hidden>
         <div class="segfull seg2" role="group" aria-label="Ce que le plan coupe">
           <button type="button" data-cutscope="all" aria-pressed="true">En entier</button>
-          <button type="button" data-cutscope="part" aria-pressed="false">Une partie</button>
+          <button type="button" data-cutscope="part" aria-pressed="false">Ciseaux</button>
         </div>
-        <p class="foot tight" id="splitScopeNote" hidden>Cliquez sur la figurine là où couper : le cou pour la tête, l'épaule pour un bras. Seule la partie en bleu se détache, le reste ne bouge pas. Cliquez une face grise pour couper aussi à cet endroit, une face bleue pour ne plus y couper.</p>
+        <p class="foot tight" id="splitScopeNote" hidden>Tracez un trait au ciseau à travers la partie à détacher, en dépassant de chaque côté : en travers du poignet pour la main, du cou pour la tête. La coupe suit votre trait, droit dans la vue ; seule la partie en bleu se détache. Maj aligne le trait. Clic sur une face grise pour couper aussi là, sur une face bleue pour ne plus y couper.</p>
         <div class="segfull seg3" role="group" aria-label="Sens de la coupe">
           <button type="button" data-cutdir="h" aria-pressed="true">Horizontale</button>
           <button type="button" data-cutdir="f" aria-pressed="false">De face</button>
@@ -971,7 +979,7 @@ body:has(#selBar:not([hidden])) .toast{bottom:calc(84px + env(safe-area-inset-bo
           <div class="row-btns"><button class="btn plain" id="jointAuto" type="button">Placer automatiquement</button><button class="btn plain" id="jointFlip" type="button">Changer de côté</button></div>
         </div>
         <p class="split-state" id="splitState"></p>
-        <div class="row-btns" id="splitCompleteRow" hidden><button class="btn" id="splitComplete" type="button">Couper aussi là où elle tient</button></div>
+        <div class="row-btns" id="splitCompleteRow" hidden><button class="btn" id="splitComplete" type="button">Couper aussi là où elle tient</button><button class="btn" id="splitSlit" type="button" title="La figurine reste d'un morceau, coupée ici : un second trait de l'autre côté détachera la partie">Couper ici sans détacher</button></div>
         <div class="row-btns"><button class="btn primary" id="splitGo" type="button">Couper en 2 pièces</button><button class="btn plain" id="splitCancel" type="button">Annuler</button></div>
       </div>
       <p class="foot help" id="splitNote">Coupez une grande figurine en pièces plus petites pour votre imprimante. Les tenons se glissent dans des trous un peu plus larges ; les goupilles s'impriment à part et entrent dans un trou de chaque côté. Le jeu ajoute de la place autour : 0,1 à 0,2 mm en résine, 0,2 à 0,3 mm en filament. Les pièces s'ajoutent à la liste, prêtes à exporter, et « Assembler » les remet ensemble pour vérifier.</p>
@@ -1293,6 +1301,7 @@ const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 5000);
 let realSize = true;
 let spinOn = false;
 let painting = false;          // mode peinture : le clic gauche peint, le clic molette tourne la vue, le clic droit la déplace
+let scissorsOn = false;       // découpe aux ciseaux : le clic gauche trace le trait
 let sculpt = null;            // mode sculpture : { it, S, origGeo, geo, cx, ptr, down, last, invert, t, saving }
 let recording = false;
 let camera = ortho;
@@ -1310,10 +1319,10 @@ function makeControls(cam, prevTarget) {
   setViewButtons(c);
   return c;
 }
-// En peinture et en sculpture, le clic gauche est réservé à l'outil et ne bouge jamais la vue :
+// En peinture, en sculpture et aux ciseaux, le clic gauche est réservé à l'outil et ne bouge jamais la vue :
 // clic molette pour tourner, clic droit (ou Maj + clic molette) pour déplacer, deux doigts sur écran tactile.
 function setViewButtons(c = controls) {
-  const tool = painting || !!sculpt;
+  const tool = painting || !!sculpt || scissorsOn;
   c.mouseButtons.LEFT = tool ? -1 : THREE.MOUSE.ROTATE;
   c.mouseButtons.MIDDLE = tool ? THREE.MOUSE.ROTATE : THREE.MOUSE.DOLLY;
   c.mouseButtons.RIGHT = THREE.MOUSE.PAN;
@@ -1352,6 +1361,7 @@ let lineup = false;
 let asm = false;             // côte à côte rangé en assemblage : chaque pièce à sa place dans son fichier
 let cutMode = null;          // outil de découpe en pièces ouvert
 let pendingAsm = null;       // pièces tout juste découpées, à assembler dès qu'elles sont lues
+let pendingCut = null;       // figurine tout juste fendue aux ciseaux : la découpe s'y rouvre dès qu'elle est lue
 const lineModels = [];       // [{ it, mesh, tx, ts, label }]
 const lineGroup = new THREE.Group();
 scene.add(lineGroup);
@@ -3706,7 +3716,9 @@ cutGizmo.addEventListener('objectChange', () => {
 });
 scene.add(cutGizmo);
 
+let cutCustomN = null;        // normale du plan tracé aux ciseaux (sinon : sens, inclinaison, rotation)
 function cutNormal() {
+  if (cutCustomN) return cutCustomN.slice();
   const base = CUT.dir === 'f' ? new THREE.Vector3(0, 0, 1) : CUT.dir === 's' ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
   const tiltAxis = CUT.dir === 's' ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0);
   const v = base.applyAxisAngle(tiltAxis, THREE.MathUtils.degToRad(CUT.tilt)).applyAxisAngle(UP, THREE.MathUtils.degToRad(CUT.turn));
@@ -3731,6 +3743,11 @@ function renderCutControls() {
   $('jointFlip').hidden = CUT.joint !== 'peg';
   document.querySelectorAll('[data-cutscope]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.cutscope === CUT.scope)));
   $('splitScopeNote').hidden = !partMode();
+  // aux ciseaux, c'est le trait qui oriente la coupe : les réglages de sens et d'angle s'effacent
+  document.querySelector('[data-cutdir]').parentElement.hidden = partMode();
+  $('splitTilt').closest('.slider').hidden = partMode();
+  $('splitTurn').closest('.slider').hidden = partMode();
+  $('splitPos').closest('.slider').querySelector('span').textContent = partMode() ? 'Décaler' : 'Position';
   $('splitGo').textContent = partMode() ? (CUT.joint === 'dowel' ? 'Détacher la partie, avec goupilles' : 'Détacher la partie')
     : CUT.joint === 'dowel' ? 'Couper en 2 pièces et goupilles' : 'Couper en 2 pièces';
 }
@@ -3758,13 +3775,15 @@ function startCut() {
   grp.add(meshA, meshB, planeObj, marks);
   scene.add(grp);
   cutMode = { it, g, grp, meshA, meshB, planeObj, quad, edge, marks, fillA: null, fillB: null, offFill: null, offLine: null, sec: null, conns: [], ok: [], manual: false, n: null, c: 0, lo: 0, hi: 1, gap: 0, radius: g.boundingSphere.radius, busy: false, raf: 0,
-    picks: [], chosen: [], local: null, localTimer: 0, localBusy: false, subP: null, subR: null };
+    picks: [], chosen: [], local: null, localTimer: 0, localBusy: false, subP: null, subR: null, stroked: false, strokeMsg: null, pendingStroke: null, center2: null };
+  cutCustomN = null;
   single.mesh.visible = false;
   cutMatA.color.copy(material.color);
   $('splitTools').hidden = false;
   $('splitBtn').setAttribute('aria-pressed', 'true');
   cutGizmo.camera = camera;
   cutGizmo.attach(planeObj);
+  setScissors();
   renderCutControls();
   applyCutMeshes();
   updateCutPlane();
@@ -3784,6 +3803,8 @@ function endCut() {
   if (single && single.it === m.it) single.mesh.visible = true;
   $('splitTools').hidden = true;
   $('splitBtn').setAttribute('aria-pressed', 'false');
+  snip = null; snipSvg.hidden = true;
+  setScissors();
   renderer.shadowMap.needsUpdate = true;
   updateHint();
 }
@@ -3794,12 +3815,13 @@ function updateCutPlane() {
   if (!m.n || n.some((x, i) => Math.abs(x - m.n[i]) > 1e-9)) { m.n = n; [m.lo, m.hi] = extent(m.it.data.pos, n); }
   m.c = m.lo + (m.hi - m.lo) * CUT.pos;
   const nv = new THREE.Vector3(...m.n);
-  m.planeObj.position.copy(nv).multiplyScalar(m.c);
+  placePlaneObj(m);
   m.planeObj.quaternion.setFromUnitVectors(UP, nv);
   const sz = m.radius * 2.4;
   m.quad.scale.set(sz, sz, 1); m.edge.scale.set(sz, 1, sz);
   m.gap = Math.max(3 / m.it.scale, m.radius * 0.14);
   placeCutMeshes();
+  syncCutPlaneVis(m);
   $('splitPosOut').textContent = fmt((m.c - m.lo) * m.it.scale) + ' mm';
   if (m.raf) return;
   m.raf = requestAnimationFrame(() => { m.raf = 0; if (cutMode === m) computeCut(); });
@@ -3807,6 +3829,7 @@ function updateCutPlane() {
 function computeCut() {
   const m = cutMode;
   m.sec = section(m.it.data.pos, m.it.data.idx, m.n, m.c);
+  if (m.pendingStroke) strokeIslands(m);
   if (partMode()) { refreshPart(); return; }
   if (!m.manual) m.conns = CUT.joint === 'none' ? [] : autoConnectors(m.sec, cutOpt());
   buildCutVisuals();
@@ -3909,7 +3932,8 @@ function buildCutVisuals() {
   const [offA, offB] = cutOffsets(m);
   const P = [], Q = [], E = [];
   const toV = (F) => { const a = []; for (let i = 0; i < F.length; i += 2) a.push(new THREE.Vector2(F[i], F[i + 1])); return a; };
-  sec.islands.forEach((isl, k) => {
+  // aux ciseaux, rien n'est dessiné tant que le trait n'est pas tracé
+  if (!part || m.stroked) sec.islands.forEach((isl, k) => {
     const on = !part || chosen.has(k);
     const outer = toV(sec.loops[isl.outer]), holes = isl.holes.map(h => toV(sec.loops[h]));
     if (!on) for (const L of [outer, ...holes]) for (let i = 0; i < L.length; i++) { const a = at(L[i].x, L[i].y, 0), b = at(L[(i + 1) % L.length].x, L[(i + 1) % L.length].y, 0); E.push(a.x, a.y, a.z, b.x, b.y, b.z); }
@@ -3969,11 +3993,13 @@ function renderCutState() {
   const word = CUT.joint === 'dowel' ? ['goupille', 'goupilles'] : ['tenon', 'tenons'];
   let txt = '', warn = false;
   if (m.busy) txt = 'Découpe en cours…';
-  else if (!m.sec.loops.length) { txt = 'Le plan ne traverse pas la figurine : déplacez-le.'; warn = true; }
-  else if (partMode() && !m.chosen.length) txt = 'Cliquez sur la figurine là où couper : le cou pour détacher la tête, l\'épaule pour un bras.';
+  else if (partMode() && !m.stroked) txt = 'Tracez un trait à travers la partie à détacher : en travers du poignet pour la main, du cou pour la tête. Le trait doit dépasser de chaque côté.';
+  else if (!m.sec.loops.length) { txt = partMode() ? 'Le trait ne passe pas sur la figurine : tracez-le en travers de la partie à détacher.' : 'Le plan ne traverse pas la figurine : déplacez-le.'; warn = true; }
+  else if (partMode() && !m.chosen.length && m.strokeMsg) { txt = m.strokeMsg; warn = true; }
+  else if (partMode() && !m.chosen.length) txt = 'Tracez un trait à travers la partie à détacher : en travers du poignet pour la main, du cou pour la tête. Le trait doit dépasser de chaque côté.';
   else if (partMode() && !m.local) txt = 'Recherche de la partie à détacher…';
   else if (partMode() && !localReady(m)) {
-    txt = 'Cette partie tient encore au reste ailleurs (une main, une arme, une cape…). « Couper aussi là où elle tient » cherche les autres faces de ce plan ; ou cliquez vous-même une face grise, ou déplacez le plan.'; warn = true;
+    txt = 'Cette partie tient encore au reste ailleurs (une main posée sur la hanche, une arme, une cape…). « Couper aussi là où elle tient » cherche les autres endroits sur ce trait. « Couper ici sans détacher » coupe déjà ici : tracez ensuite un second trait de l\'autre côté (au poignet, par exemple) pour détacher la partie.'; warn = true;
   } else {
     txt = partMode() ? 'La partie en bleu se détache' + (m.chosen.length > 1 ? ', coupée sur ' + pl(m.chosen.length, 'face', 'faces') : '')
       : pl(m.sec.islands.length, 'face de coupe', 'faces de coupe');
@@ -4005,7 +4031,7 @@ function cutClick(cx, cy) {
     const c = p.x * m.n[0] + p.y * m.n[1] + p.z * m.n[2];
     CUT.pos = THREE.MathUtils.clamp((c - m.lo) / (m.hi - m.lo), 0.001, 0.999);
     $('splitPos').value = String(Math.round(CUT.pos * 1000));
-    m.picks = [toPlane(p)]; m.manual = false;
+    m.picks = [toPlane(p)]; m.manual = false; m.stroked = true; m.strokeMsg = null; m.center2 = null;
     updateCutPlane();
     return;
   }
@@ -4021,6 +4047,150 @@ function cutClick(cx, cy) {
   if (connectorIsland(m.sec, x, y, cutOpt()) < 0) { toast('<strong>Trop près du bord.</strong> Il faut au moins 1 mm de matière autour du trou.'); return; }
   m.conns.push([x, y]); m.manual = true;
   buildCutVisuals();
+}
+// ---- Ciseaux : un trait tracé à travers la partie à détacher ----
+// Le plan de coupe passe par le trait et suit la direction du regard (comme les outils « Draw Cut » de Blender) ;
+// seules les parties de la coupe que le trait traverse d'un bord à l'autre sont choisies, le reste n'est pas coupé.
+let snip = null;
+const snipSvg = (() => {
+  const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  s.setAttribute('class', 'snip'); s.setAttribute('aria-hidden', 'true');
+  s.innerHTML = '<line class="snip-l"/><circle class="snip-a" r="4.5"/><circle class="snip-b" r="4.5"/>';
+  s.hidden = true;
+  stage.append(s);
+  return s;
+})();
+// le plan (et sa flèche) se place sur l'endroit coupé aux ciseaux, sinon au plus près du centre du modèle
+function placePlaneObj(m) {
+  m.planeObj.position.set(m.n[0] * m.c, m.n[1] * m.c, m.n[2] * m.c);
+  if (partMode() && m.center2 && m.sec && m.sec.n === m.n) {
+    const [x, y] = m.center2, u = m.sec.u, v = m.sec.v;
+    m.planeObj.position.x += u[0] * x + v[0] * y; m.planeObj.position.y += u[1] * x + v[1] * y; m.planeObj.position.z += u[2] * x + v[2] * y;
+  }
+}
+function setScissors() {
+  scissorsOn = !!cutMode && partMode();
+  stage.classList.toggle('scissors', scissorsOn);
+  setViewButtons();
+}
+function syncCutPlaneVis(m) {
+  if (!m) return;
+  const vis = !partMode() || m.stroked;
+  m.planeObj.visible = vis;
+  if (vis && cutGizmo.object !== m.planeObj) cutGizmo.attach(m.planeObj);
+  else if (!vis && cutGizmo.object) cutGizmo.detach();
+}
+function snapSnip(a, b) {
+  // Maj : le trait s'aligne par pas de 15°
+  const ang = Math.atan2(b.y - a.y, b.x - a.x), len = Math.hypot(b.x - a.x, b.y - a.y);
+  const st = Math.PI / 12, q = Math.round(ang / st) * st;
+  return { x: a.x + Math.cos(q) * len, y: a.y + Math.sin(q) * len };
+}
+function drawSnip() {
+  const r = stage.getBoundingClientRect(), s = snip;
+  const L = snipSvg.querySelector('line'), A = snipSvg.querySelector('.snip-a'), B = snipSvg.querySelector('.snip-b');
+  const ax = s.a.x - r.left, ay = s.a.y - r.top, bx = s.b.x - r.left, by = s.b.y - r.top;
+  L.setAttribute('x1', ax); L.setAttribute('y1', ay); L.setAttribute('x2', bx); L.setAttribute('y2', by);
+  A.setAttribute('cx', ax); A.setAttribute('cy', ay); B.setAttribute('cx', bx); B.setAttribute('cy', by);
+  snipSvg.classList.remove('fade');
+  snipSvg.hidden = false;
+}
+renderer.domElement.addEventListener('pointerdown', (ev) => {
+  const m = cutMode;
+  if (!m || !partMode() || ev.button !== 0 || m.busy) return;
+  if (cutGizmo.dragging || cutGizmo.axis) return;
+  snip = { id: ev.pointerId, a: { x: ev.clientX, y: ev.clientY }, b: { x: ev.clientX, y: ev.clientY }, on: false };
+});
+renderer.domElement.addEventListener('pointermove', (ev) => {
+  const s = snip;
+  if (!s || ev.pointerId !== s.id) return;
+  s.b = { x: ev.clientX, y: ev.clientY };
+  if (ev.shiftKey) s.b = snapSnip(s.a, s.b);
+  if (!s.on && Math.hypot(s.b.x - s.a.x, s.b.y - s.a.y) > 6) { s.on = true; try { renderer.domElement.setPointerCapture(ev.pointerId); } catch (e) { /* déjà capturé */ } }
+  if (s.on) drawSnip();
+});
+function endSnip(ev) {
+  const s = snip;
+  snip = null;
+  if (!s || !s.on) return;
+  snipSvg.classList.add('fade');
+  if (ev.type === 'pointerup') scissorsCut(s.a, s.b);
+}
+renderer.domElement.addEventListener('pointerup', endSnip);
+renderer.domElement.addEventListener('pointercancel', endSnip);
+snipSvg.addEventListener('transitionend', () => { if (snipSvg.classList.contains('fade')) snipSvg.hidden = true; });
+function scissorsCut(a, b) {
+  const m = cutMode;
+  if (!m || m.busy) return;
+  if (Math.hypot(b.x - a.x, b.y - a.y) < 12) return;
+  const r = renderer.domElement.getBoundingClientRect();
+  const rayAt = (p) => { raycaster.setFromCamera(new THREE.Vector2(((p.x - r.left) / r.width) * 2 - 1, -((p.y - r.top) / r.height) * 2 + 1), camera); return raycaster.ray.clone(); };
+  const ra = rayAt(a), rb = rayAt(b);
+  m.grp.updateMatrixWorld(true);
+  const centre = m.grp.localToWorld(m.g.boundingSphere.center.clone());
+  const t = Math.max(1e-6, ra.origin.distanceTo(centre)), R = Math.max(1e-6, m.radius * m.grp.scale.x);
+  // trois points du plan : deux sur les rayons des extrémités du trait, un plus loin sur le premier rayon
+  const P0 = m.grp.worldToLocal(ra.at(t, new THREE.Vector3()));
+  const P1 = m.grp.worldToLocal(rb.at(t, new THREE.Vector3()));
+  const P2 = m.grp.worldToLocal(ra.at(t + R, new THREE.Vector3()));
+  const n = new THREE.Vector3().subVectors(P1, P0).cross(new THREE.Vector3().subVectors(P2, P0));
+  if (n.lengthSq() < 1e-24) return;
+  n.normalize();
+  cutCustomN = [n.x, n.y, n.z];
+  const [lo, hi] = extent(m.it.data.pos, cutCustomN);
+  CUT.pos = THREE.MathUtils.clamp((n.dot(P0) - lo) / (hi - lo), 0.001, 0.999);
+  $('splitPos').value = String(Math.round(CUT.pos * 1000));
+  m.pendingStroke = { a, b, r: { left: r.left, top: r.top, width: r.width, height: r.height } };
+  m.stroked = true; m.strokeMsg = null; m.picks = []; m.manual = false;
+  updateCutPlane();
+}
+// parties de la coupe sous le trait : celles qu'il traverse en entier ; si plusieurs se superposent, celles qu'on voit
+function strokeIslands(m) {
+  const st = m.pendingStroke, sec = m.sec;
+  m.pendingStroke = null;
+  const { a, b, r } = st;
+  const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy;
+  const [U, V, N, c] = [sec.u, sec.v, sec.n, sec.c];
+  const q = new THREE.Vector3();
+  const screenT = (x, y) => {
+    q.set(N[0] * c + U[0] * x + V[0] * y, N[1] * c + U[1] * x + V[1] * y, N[2] * c + U[2] * x + V[2] * y);
+    m.grp.localToWorld(q).project(camera);
+    const sx = (q.x + 1) / 2 * r.width + r.left, sy = (1 - q.y) / 2 * r.height + r.top;
+    return ((sx - a.x) * dx + (sy - a.y) * dy) / L2;
+  };
+  const inside = [], partial = [];
+  sec.islands.forEach((isl, k) => {
+    const F = sec.loops[isl.outer], cnt = F.length / 2, step = Math.max(1, Math.floor(cnt / 400));
+    let lo = Infinity, hi = -Infinity;
+    for (let i = 0; i < cnt; i += step) { const tt = screenT(F[i * 2], F[i * 2 + 1]); if (tt < lo) lo = tt; if (tt > hi) hi = tt; }
+    if (lo > 0 && hi < 1) inside.push({ k, pt: [F[0], F[1]] });
+    else if (hi > 0 && lo < 1) partial.push(k);
+  });
+  let chosen = inside;
+  if (inside.length > 1) {
+    // ce que l'on voit sous le trait : quelques points pris le long du trait
+    const seen = new Set();
+    for (let i = 1; i < 12; i++) {
+      const f = i / 12, hp = pick(a.x + dx * f, a.y + dy * f);
+      if (!hp) continue;
+      const p = m.grp.worldToLocal(hp.point.clone());
+      const k = islandAt(sec, p.x * U[0] + p.y * U[1] + p.z * U[2], p.x * V[0] + p.y * V[1] + p.z * V[2]);
+      if (k >= 0) seen.add(k);
+    }
+    const vis = inside.filter(x => seen.has(x.k));
+    if (vis.length) chosen = vis;
+  }
+  m.picks = chosen.map(x => x.pt);
+  // centre des parties choisies, dans le plan : le plan et sa flèche s'y placent
+  if (chosen.length) {
+    let sx = 0, sy = 0, cn = 0;
+    for (const x of chosen) { const F = sec.loops[sec.islands[x.k].outer]; for (let i = 0; i < F.length; i += 2) { sx += F[i]; sy += F[i + 1]; cn++; } }
+    m.center2 = [sx / cn, sy / cn];
+    placePlaneObj(m);
+  } else m.center2 = null;
+  m.strokeMsg = chosen.length ? null
+    : partial.length ? 'Le trait ne traverse pas toute la partie : tracez-le plus long, en dépassant de chaque côté.'
+    : 'Le trait ne passe pas sur la figurine : tracez-le en travers de la partie à détacher.';
 }
 // à chaque image : l'aperçu suit le modèle affiché, les plans de coupe suivent la vue
 function cutFrame() {
@@ -4041,35 +4211,47 @@ function cutFrame() {
 const tmpCutN = new THREE.Vector3(), tmpCutM = new THREE.Vector3();
 // noms des pièces : « Dragon – partie 1 », « Dragon – partie 2 », puis 3 et 4 si l'on recoupe
 function partNames(it, pins) {
-  const root = baseName(it.name).replace(/ – (partie \d+|goupilles)$/, '');
+  const root = baseName(it.name).replace(/ – (partie \d+|goupilles|coupée?)$/, '');
   let k = 0;
   for (const x of items) { const mm = /^(.*) – partie (\d+)$/.exec(baseName(x.name)); if (mm && mm[1] === root) k = Math.max(k, Number(mm[2])); }
   const out = [root + ' – partie ' + (k + 1), root + ' – partie ' + (k + 2)];
   if (pins) out.push(root + ' – goupilles');
   return out;
 }
-function runSplit() {
+function runSplit(slit = false) {
   const m = cutMode;
   if (!m || m.busy || !m.sec || !m.sec.loops.length) return;
   const part = partMode();
-  if (part && !localReady(m)) return;
+  if (slit && !(part && m.local && m.local.attached && m.chosen.length)) return;
+  if (part && !slit && !localReady(m)) return;
   const it = m.it;
   const conns = CUT.joint === 'none' ? [] : m.conns.filter((_, i) => m.ok[i]);
   m.busy = true; renderCutState();
-  const names = partNames(it, CUT.joint === 'dowel');
+  const names = slit ? [baseName(it.name).replace(/ – (partie \d+|goupilles|coupée?)$/, '') + ' – coupé', partNames(it, true)[2]] : partNames(it, CUT.joint === 'dowel');
   const opt = cutOpt();
   if (part) opt.picks = m.picks.map(p => p.slice());
+  if (slit) { opt.slit = true; opt.eps = 0.001 / it.scale; }
   const w = new Worker('./parser.js', { type: 'module' });
   const done = (r) => {
     w.terminate();
     if (cutMode === m) { m.busy = false; renderCutState(); }
     if (!r || r.type !== 'split') { toast('<strong>Découpe impossible.</strong> ' + esc((r && r.message) || 'Le calcul a échoué.')); return; }
     if (!r.files.length) {
-      toast(r.warn.includes('attached') ? '<strong>Rien n\'a été détaché.</strong> La partie tient encore au reste ailleurs : choisissez aussi l\'autre face de coupe qui la relie.'
+      toast(r.warn.includes('attached') ? '<strong>Rien n\'a été détaché.</strong> La partie tient encore au reste ailleurs : « Couper aussi là où elle tient », ou « Couper ici sans détacher » puis un second trait de l\'autre côté.'
         : '<strong>Rien n\'a été détaché.</strong> Cliquez sur la figurine là où couper, puis recommencez.');
       return;
     }
     const files = r.files.map((f, k) => new File([f.bytes], names[k] + '.' + f.ext, { type: f.ext === 'stl' ? 'model/stl' : 'model/3mf', lastModified: Date.now() + k }));
+    if (r.slit) {
+      // fendue sans rien détacher : la figurine coupée s'ouvre aux ciseaux pour le second trait
+      endCut();
+      const before0 = new Set(items);
+      addFiles(files);
+      const fresh0 = items.filter(x => !before0.has(x));
+      if (fresh0[0]) { pendingCut = fresh0[0].id; select(fresh0[0].id); }
+      toast('<strong>Coupé ici, sans rien détacher.</strong> « ' + esc(names[0]) + ' » s\'ajoute à la liste et s\'ouvre aux ciseaux : tracez maintenant le second trait, de l\'autre côté de la partie, pour la détacher.');
+      return;
+    }
     endCut();
     const before = new Set(items);
     addFiles(files);
@@ -4107,18 +4289,23 @@ $('splitComplete').addEventListener('click', () => {
 });
 document.querySelectorAll('[data-cutscope]').forEach(b => b.addEventListener('click', () => {
   if (CUT.scope === b.dataset.cutscope) return;
-  CUT.scope = b.dataset.cutscope; saveCutPrefs(); renderCutControls(); updateHint();
+  CUT.scope = b.dataset.cutscope; saveCutPrefs(); renderCutControls(); setScissors(); updateHint();
   const m = cutMode;
   if (!m) return;
   clearTimeout(m.localTimer);
   m.manual = false; m.local = null; m.localBusy = false;
+  if (partMode()) { m.picks = []; m.stroked = false; m.strokeMsg = null; }
+  m.center2 = null;
+  placePlaneObj(m);
+  syncCutPlaneVis(m);
   applyCutMeshes();
   if (m.sec) computeCut();
 }));
 $('splitCancel').addEventListener('click', endCut);
-$('splitGo').addEventListener('click', runSplit);
+$('splitGo').addEventListener('click', () => runSplit(false));
+$('splitSlit').addEventListener('click', () => runSplit(true));
 document.querySelectorAll('[data-cutdir]').forEach(b => b.addEventListener('click', () => {
-  CUT.dir = b.dataset.cutdir; CUT.tilt = 0; CUT.turn = 0; CUT.pos = 0.5;
+  CUT.dir = b.dataset.cutdir; CUT.tilt = 0; CUT.turn = 0; CUT.pos = 0.5; cutCustomN = null;
   if (cutMode) cutMode.manual = false;
   saveCutPrefs(); renderCutControls(); updateCutPlane();
 }));
@@ -4126,6 +4313,10 @@ for (const [id, key] of [['splitTilt', 'tilt'], ['splitTurn', 'turn']]) {
   $(id).addEventListener('input', () => {
     CUT[key] = Number($(id).value);
     if (cutMode) cutMode.manual = false;
+    if (cutCustomN) {
+      // repartir de la coupe tracée aux ciseaux : ses angles deviennent ceux des curseurs
+      cutCustomN = null;
+    }
     renderCutControls(); updateCutPlane();
   });
   $(id).addEventListener('change', saveCutPrefs);
@@ -4472,7 +4663,7 @@ function updateHint() {
   if (realSize) parts.push(calibrated ? '<span class="badge"><i></i>Taille réelle</span>' : '<span class="badge warn"><i></i>Taille réelle, écran non calibré</span>');
   const viewHelp = 'Clic molette maintenu pour tourner autour de la figurine, clic droit (ou Maj + clic molette) pour la déplacer' + (realSize ? '' : ', molette pour zoomer') + '.';
   if (sculpt) parts.push('<span class="badge accent"><i></i>Sculpture</span><span>Clic gauche pour sculpter, Maj + clic gauche pour l\'effet inverse, [ et ] pour la taille. ' + viewHelp + ' Ctrl+Z pour annuler un trait.</span>');
-  else if (cutMode && partMode()) parts.push('<span class="badge accent"><i></i>Découpe d\'une partie</span><span>Cliquez sur la figurine là où couper : seule la partie en bleu se détache. Face grise : couper aussi là. Tenon : clic pour l\'enlever. Échap pour annuler.</span>');
+  else if (cutMode && partMode()) parts.push('<span class="badge accent"><i></i>Ciseaux</span><span>Tracez un trait au clic gauche à travers la partie à détacher, en dépassant de chaque côté (Maj pour l\'aligner). Tournez la figurine au clic molette pour bien voir l\'endroit. Face grise : couper aussi là. Tenon : clic pour l\'enlever. Échap pour annuler.</span>');
   else if (cutMode) parts.push('<span class="badge accent"><i></i>Découpe</span><span>Faites glisser la flèche pour déplacer la coupe. Cliquez sur la face de coupe pour ajouter un tenon, sur un tenon pour l\'enlever. Échap pour annuler.</span>');
   else if (lineup && asm) parts.push('<span class="badge accent"><i></i>Assemblage</span><span>Cliquez une pièce, puis faites-la glisser avec les flèches ou tournez-la. « Écarter » sépare les pièces.</span>');
   else if (placing === 'face') parts.push('<span class="badge accent"><i></i>Orientation</span><span>Cliquez sur la face qui doit toucher le sol. Échap pour annuler.</span>');
@@ -4653,6 +4844,10 @@ function onReady(it) {
     if (it.id === activeId) showModelUI(it);
   } else if (it.id === activeId) showItem(it);
   enforceBudget();
+  if (pendingCut === it.id) {
+    pendingCut = null;
+    if (!lineup && it.id === activeId && it.status === 'ready') setTimeout(() => { if (!cutMode && shownItem() === it) { CUT.scope = 'part'; startCut(); } }, 120);
+  }
   if (pendingAsm && pendingAsm.ids.includes(it.id)) {
     const list = pendingAsm.ids.map(id => items.find(x => x.id === id)).filter(Boolean);
     if (list.every(x => x.status === 'ready' || x.status === 'error')) {

@@ -548,14 +548,17 @@ export function splitMesh(src, plane, conns, opt, ShapeUtils) {
   }
 
   // coupe locale : les points des contours choisis sont doublés côté B, puis chaque triangle rejoint
-  // la pièce de son côté s'il y est relié ; tout le reste (îlots non choisis, autres morceaux) reste d'un bloc
-  let partA = triA, partB = triB, dup = null;
+  // la pièce de son côté s'il y est relié ; tout le reste (îlots non choisis, autres morceaux) reste d'un bloc.
+  // opt.slit : si la partie tient encore ailleurs, la figurine est quand même fendue ici et refermée des deux côtés,
+  // en un seul fichier ; les deux faces sont écartées d'un micron (opt.eps) pour ne pas être recollées à la lecture.
+  let partA = triA, partB = triB, dup = null, slit = false;
   if (local) {
     dup = new Map();
+    const eps = opt.slit ? (opt.eps > 0 ? opt.eps : 1e-3) : 0;
     const colorOf = (id) => (!col ? null : id < V ? [col[id * 3], col[id * 3 + 1], col[id * 3 + 2]] : [C[(id - V) * 3], C[(id - V) * 3 + 1], C[(id - V) * 3 + 2]]);
     for (const ki of selA) {
       const isl = islands[ki];
-      for (const l of [isl.outer, ...isl.holes]) for (const id of loops[l]) if (!dup.has(id)) { const p3 = all(id); dup.set(id, newV(p3[0], p3[1], p3[2], colorOf(id))); }
+      for (const l of [isl.outer, ...isl.holes]) for (const id of loops[l]) if (!dup.has(id)) { const p3 = all(id); dup.set(id, newV(p3[0] - n[0] * eps, p3[1] - n[1] * eps, p3[2] - n[2] * eps, colorOf(id))); }
     }
     for (let i = 0; i < triB.length; i++) { const d = dup.get(triB[i]); if (d !== undefined) triB[i] = d; }
     const NV = V + P.length / 3;
@@ -565,9 +568,14 @@ export function splitMesh(src, plane, conns, opt, ShapeUtils) {
     for (let i = 0; i < V; i++) { const j = canon[i]; if (j !== i && !dup.has(i) && !dup.has(j)) uf.union(i, j); }
     const rootsA = new Set(), rootsB = new Set();
     for (const [id, d] of dup) { rootsA.add(uf.find(id)); rootsB.add(uf.find(d)); }
-    for (const rt of rootsA) if (rootsB.has(rt)) return { parts: [], warn: ['attached'], placed: 0, asked: 0, open, islands: islands.length };
-    partA = []; partB = [];
-    for (const tri of [triA, triB]) for (let i = 0; i < tri.length; i += 3) (rootsA.has(uf.find(tri[i])) ? partA : partB).push(tri[i], tri[i + 1], tri[i + 2]);
+    let held = false;
+    for (const rt of rootsA) if (rootsB.has(rt)) { held = true; break; }
+    if (held && !opt.slit) return { parts: [], warn: ['attached'], placed: 0, asked: 0, open, islands: islands.length };
+    if (held) slit = true;
+    else {
+      partA = []; partB = [];
+      for (const tri of [triA, triB]) for (let i = 0; i < tri.length; i += 3) (rootsA.has(uf.find(tri[i])) ? partA : partB).push(tri[i], tri[i + 1], tri[i + 2]);
+    }
   }
 
   // pièces : triangles, puis faces de coupe et tenons
@@ -693,9 +701,9 @@ export function splitMesh(src, plane, conns, opt, ShapeUtils) {
     }
     return { pos: Float32Array.from(np), idx: ni, col: col ? Uint8Array.from(nc) : null };
   };
-  const parts = [pack(outA), pack(outB)];
+  const parts = slit ? [pack(outA.concat(outB))] : [pack(outA), pack(outB)];
   if (pins.length) parts.push(pack(pins));
-  return { parts, warn: [...new Set(warn)], placed: placed.length, asked: kind === 'none' ? 0 : conns.length, open, islands: islands.length };
+  return { parts, warn: [...new Set(warn)], placed: placed.length, asked: kind === 'none' ? 0 : conns.length, open, islands: islands.length, slit };
 }
 
 // ---------- Fichiers des pièces ----------
